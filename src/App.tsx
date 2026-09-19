@@ -9,6 +9,7 @@ import { Help } from './ui/Help'
 import { DeepLink } from './ui/DeepLink'
 import { Minimap } from './ui/Minimap'
 import { QuestFrame } from './ui/QuestFrame'
+import { QuestProgress } from './ui/QuestProgress'
 
 export default function App() {
   const [world, setWorld] = useState<World | null>(null)
@@ -31,6 +32,7 @@ export default function App() {
           <DeepLink />
           <Minimap />
           <QuestFrame />
+          <QuestProgress />
         </>
       )}
     </div>

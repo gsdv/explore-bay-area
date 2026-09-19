@@ -38,7 +38,7 @@ https://explore-bay-area.vercel.app (see Deploying).
 | Stations | OSM railway=station for BART, Caltrain, Muni | Discs, labels when zoomed in |
 | Landmarks | Curated (`src/data/landmarks.ts`) | Procedural low-poly models; hover = silhouette outline + pop |
 | Companies | Curated (`src/data/companies.ts`), > $10 B | HQ block + logo chip → detail card |
-| Quests | Curated (`src/data/quests.ts`) | Draped, animated route with numbered pins and a checklist; starting one puts the whole UI into a focused quest mode |
+| Quests | Curated (`src/data/quests.ts`) | Guided tours: an overview, then Begin / Next fly you stop to stop along a draped route, with a dot-line progress indicator |
 
 ## Controls
 
@@ -103,8 +103,9 @@ See `CLAUDE.md` for conventions, gotchas and how to verify changes.
   blurb, cap (USD billions; `isPrivate` for valuations), employees, founded year, X handle.
 - **A landmark**: append to `src/data/landmarks.ts` with a `kind`. Kinds map to procedural models in
   `src/scene/LandmarkModel.tsx`; add a new `case` there for a new shape. Bridges take `lat2/lng2`.
-- **A quest**: append to `src/data/quests.ts` with ordered stops; `ref` links a stop to a landmark or
-  company so clicking it opens the card. Routes are a smoothed curve through the stops for now.
+- **A quest**: append to `src/data/quests.ts` with ordered stops; each stop can carry a `view`
+  (camera distance and heading) for the tour, and `ref` links it to a landmark or company. Routes are a
+  smoothed curve through the stops for now.
 - **New geography** (a road class, an agency, a boundary): add the Overpass query in
   `scripts/lib/osm.ts`, process it in `scripts/build-data.ts`, emit a file in `public/data`, load it in
   `src/lib/world.ts`.

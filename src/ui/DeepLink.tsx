@@ -23,7 +23,10 @@ export function DeepLink() {
         s.flyTo(x, z, at[2] || 20, instant)
       }
       const q = h.get('quest')
-      if (q) s.setQuest(quests.find((x) => x.id === q) ?? null)
+      if (q) {
+        const found = quests.find((x) => x.id === q)
+        if (found) s.openQuest(found)
+      }
       const c = h.get('company')
       const l = h.get('landmark')
       if (c) {

@@ -7,12 +7,11 @@ import { project } from '../lib/geo'
 import type { World } from '../lib/world'
 import { useStore } from '../store'
 
-/** The active quest as a draped, animated dashed path with numbered stops. */
+/** The active quest as a draped, animated dashed path with numbered stops. Clicking a pin jumps the tour there. */
 export function QuestRoute({ world }: { world: World }) {
   const quest = useStore((s) => s.activeQuest)
-  const allProgress = useStore((s) => s.questProgress)
-  const progress = quest ? allProgress[quest.id] ?? [] : []
-  const toggleStop = useStore((s) => s.toggleStop)
+  const step = useStore((s) => s.questStep)
+  const goToStop = useStore((s) => s.goToStop)
   const line = useRef<Line2>(null)
 
   const { points, stops } = useMemo(() => {
@@ -38,7 +37,7 @@ export function QuestRoute({ world }: { world: World }) {
       <Line ref={line} points={points} color={quest.color} lineWidth={4.5} dashed dashSize={1.2} gapSize={0.7} depthWrite={false} raycast={() => null} renderOrder={3} />
       <Line points={points} color="#1b1d1a" lineWidth={7} transparent opacity={0.18} depthWrite={false} raycast={() => null} renderOrder={2} />
       {stops.map((p, i) => {
-        const done = progress.includes(p.s.id)
+        const state = step === null ? '' : i === step ? ' is-current' : i < step ? ' is-passed' : ''
         return (
           <group key={p.s.id} position={[p.x, p.y, p.z]}>
             <mesh position-y={0.9} raycast={() => null}>
@@ -47,15 +46,15 @@ export function QuestRoute({ world }: { world: World }) {
             </mesh>
             <Html position={[0, 2.1, 0]} center zIndexRange={[40, 31]}>
               <button
-                className={'quest-pin' + (done ? ' is-done' : '')}
+                className={'quest-pin' + state}
                 style={{ ['--quest' as any]: quest.color }}
                 onClick={(e) => {
                   e.stopPropagation()
-                  toggleStop(quest.id, p.s.id)
+                  goToStop(i)
                 }}
                 title={p.s.todo}
               >
-                <span className="quest-pin__n">{done ? '✓' : i + 1}</span>
+                <span className="quest-pin__n">{i + 1}</span>
                 <span className="quest-pin__name">{p.s.name}</span>
               </button>
             </Html>

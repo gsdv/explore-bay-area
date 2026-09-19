@@ -58,7 +58,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .quest__n { font-family: var(--mono); font-size: 11px; color: var(--ink-3); padding-top: 4px; }
 .quest__title { display: block; font-family: var(--serif); font-size: 17px; font-weight: 600; line-height: 1.15; }
 .quest__meta { display: block; font-family: var(--mono); font-size: 10.5px; color: var(--ink-2); margin-top: 3px; letter-spacing: 0.02em; }
-.quest-detail { padding: 12px 14px 14px; }
+.quest-detail { padding: 12px 14px 14px; } /* legacy */
 .quest-detail__sub { margin: 0 0 12px; font-size: 13px; line-height: 1.45; color: var(--ink-2); }
 .quest-detail__stops { list-style: none; margin: 0; padding: 0; border-top: 1px dashed var(--ink-3); }
 .quest-detail__stops li { display: grid; grid-template-columns: 26px 1fr; gap: 10px; padding: 10px 0; border-bottom: 1px dashed var(--ink-3); }
@@ -126,8 +126,9 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .station-label { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.06em; color: var(--ink-2); white-space: nowrap; text-shadow: 0 0 3px #fff, 0 0 3px #fff; }
 .quest-pin { display: flex; align-items: center; gap: 6px; background: var(--paper); border: 1.5px solid var(--quest); box-shadow: 2px 2px 0 var(--quest); padding: 2px 8px 2px 2px; font-family: var(--mono); font-size: 11.5px; white-space: nowrap; }
 .quest-pin__n { width: 18px; height: 18px; border-radius: 50%; background: var(--quest); color: #fff; display: grid; place-items: center; font-size: 10.5px; font-weight: 600; }
-.quest-pin.is-done { opacity: 0.7; }
-.quest-pin.is-done .quest-pin__name { text-decoration: line-through; }
+.quest-pin.is-current { background: var(--quest); color: #fff; }
+.quest-pin.is-current .quest-pin__n { background: #fff; color: var(--quest); }
+.quest-pin.is-passed { opacity: 0.75; }
 
 /* ---------- loading ---------- */
 .loading { position: absolute; inset: 0; display: grid; place-items: center; background: #dbe6ee; }
@@ -184,3 +185,22 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .help__row kbd { font-family: var(--mono); font-size: 11.5px; border: 1px solid var(--ink); padding: 1px 6px; background: #fff; white-space: nowrap; }
 .help__row dd { font-size: 13.5px; }
 .help__foot { margin: 0; font-size: 12.5px; color: var(--ink-2); line-height: 1.45; }
+
+/* ---------- quest tour ---------- */
+.tour { display: flex; gap: 8px; margin-top: 10px; pointer-events: auto; }
+.tour__btn { font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.06em; text-transform: uppercase; background: var(--paper); border: 1.5px solid var(--ink); box-shadow: 2px 2px 0 var(--ink); padding: 6px 10px; transition: transform 0.12s; }
+.tour__btn:hover { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 var(--ink); }
+.tour__btn:disabled { opacity: 0.4; pointer-events: none; }
+.tour__btn--primary { background: var(--quest); color: #fff; border-color: var(--quest); box-shadow: 2px 2px 0 var(--ink); }
+.quest-progress { position: absolute; top: 22px; right: 22px; z-index: 115; background: var(--paper); border: 1.5px solid var(--quest); box-shadow: 3px 3px 0 var(--quest); padding: 8px 10px 6px; animation: header-in 0.45s cubic-bezier(.2,.8,.2,1) both; }
+.quest-progress svg { display: block; overflow: visible; }
+.quest-progress__rail { stroke: var(--ink-3); stroke-width: 2; stroke-linecap: round; }
+.quest-progress__done { stroke: var(--quest); stroke-width: 3; stroke-linecap: round; transition: x2 0.5s cubic-bezier(.2,.8,.2,1); }
+.quest-progress__hit { fill: transparent; cursor: pointer; }
+.quest-progress__dot { fill: var(--paper); stroke: var(--ink-3); stroke-width: 2; transition: r 0.25s, fill 0.25s, stroke 0.25s; }
+.quest-progress__stop.is-passed .quest-progress__dot { fill: var(--quest); stroke: var(--quest); }
+.quest-progress__stop.is-current .quest-progress__dot { fill: #fff; stroke: var(--quest); stroke-width: 3; }
+.quest-progress__stop:hover .quest-progress__dot { stroke: var(--quest); }
+.quest-progress__label { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-2); text-align: right; margin-top: 2px; }
+.is-quest .header__sub--quest { max-width: 460px; }
+.card.is-below { top: 96px; }

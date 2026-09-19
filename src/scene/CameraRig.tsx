@@ -43,7 +43,7 @@ const KEYMAP: Record<string, string> = {
   KeyQ: 'rl', KeyE: 'rr', KeyR: 'up', PageUp: 'up', KeyF: 'down', PageDown: 'down', ShiftLeft: 'fast', ShiftRight: 'fast',
 }
 
-type Anim = { t: number; from: { p: THREE.Vector3; yaw: number; pitch: number }; to: { p: THREE.Vector3; yaw: number; pitch: number } }
+type Anim = { t: number; dur: number; from: { p: THREE.Vector3; yaw: number; pitch: number }; to: { p: THREE.Vector3; yaw: number; pitch: number } }
 type Drag =
   | { kind: 'pan'; plane: number; last: THREE.Vector3; vel: THREE.Vector3; lastT: number }
   | { kind: 'orbit'; c: THREE.Vector3; d: number; lx: number; ly: number }
@@ -248,15 +248,22 @@ export function CameraRig({ world }: { world: World }) {
     if (fly && fly.nonce !== s.handled) {
       s.handled = fly.nonce
       const dist = clamp(fly.distance ?? Math.min(s.centerDist, 40), 3, CEILING)
-      const { p, pitch } = placeFor(fly.x, fly.z, dist, s.yaw)
-      s.anim = { t: fly.instant ? 1 - 1e-6 : 0, from: { p: s.p.clone(), yaw: s.yaw, pitch: s.pitch }, to: { p, yaw: s.yaw, pitch } }
+      let yaw = s.yaw
+      if (fly.yaw !== undefined) {
+        // shortest turn toward the requested heading
+        const d = ((fly.yaw - s.yaw + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI
+        yaw = s.yaw + d
+      }
+      const { p, pitch } = placeFor(fly.x, fly.z, dist, yaw)
+      s.anim = { t: fly.instant ? 1 - 1e-6 : 0, dur: fly.duration ?? 1.4, from: { p: s.p.clone(), yaw: s.yaw, pitch: s.pitch }, to: { p, yaw, pitch } }
       s.inertia.set(0, 0, 0)
     }
     if (s.anim) {
       const a = s.anim
-      a.t = Math.min(1, a.t + dt / 1.4)
+      a.t = Math.min(1, a.t + dt / a.dur)
       const k = ease(a.t)
       s.p.lerpVectors(a.from.p, a.to.p, k)
+      s.yaw = a.from.yaw + (a.to.yaw - a.from.yaw) * k
       s.pitch = a.from.pitch + (a.to.pitch - a.from.pitch) * k
       s.altGoal = s.p.y
       s.tilt = clamp(s.pitch - autoPitch(s.p.y), TILT.min, TILT.max)

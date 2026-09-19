@@ -27,7 +27,7 @@ export function Companies({ world }: { world: World }) {
   )
   if (!show) return null
   const visible = quest
-    ? placed.filter((p) => quest.stops.some((s) => s.ref?.kind === 'company' && s.ref.id === p.c.id))
+    ? []
     : tier === 'far' ? placed.filter((p) => p.c.cap >= 60) : placed
   return (
     <group>

@@ -78,10 +78,13 @@ vercel.json             build settings + cache headers for Vercel (see Hosting)
   its frame loop, so it's safe to call before the rig mounts.
 - **Deep links** (`#at=lat,lng,dist`, `#quest=`, `#company=`, `#landmark=`) are applied by
   `ui/DeepLink.tsx`; the first application is instant, later hash changes animate.
-- **Quest mode.** While `store.activeQuest` is set: `QuestFrame` draws a coloured viewport border, the
-  header swaps to the quest title (quest colour) with an Exit button, the Layers panel slides away, only
-  companies referenced by the quest's stops keep chips, and landmarks lose labels/hover/select. Esc exits
-  the quest when nothing else is open. Anything new that adds clutter should also respect `activeQuest`.
+- **Quest mode / tour.** `store.openQuest(q)` selects a quest and flies to an overview; `questStep` is
+  `null` (overview) or the current stop index; `beginQuest/nextStop/prevStop/goToStop` fly to each stop's
+  predefined `view` (dist + yaw in `quests.ts`). While active: `QuestFrame` draws the coloured border, the
+  header becomes the tour guide (quest-coloured title, Begin / Back / Next / Finish, Exit), `QuestProgress`
+  shows the dot line top-right, the quest list and Layers panel hide, company chips hide (route pins carry
+  the names), landmarks lose labels/hover/select. No check-off state: the owner removed it on purpose.
+  Esc exits when nothing else is open. Anything new that adds clutter should respect `activeQuest`.
 - **Landmark hit-testing** uses an invisible bounding box around each model (`Landmarks.tsx`), so gaps
   between tower legs or bridge spans still count as hovering. Keep it when adding kinds.
 - **Transit lines are clipped** to the terrain rectangle in `build-data.ts` (`clipToWorld`); Overpass
@@ -143,7 +146,7 @@ vercel.json             build settings + cache headers for Vercel (see Hosting)
   hand-written snapshots and need a live source before launch. Logos come from Google's favicon service.
 - `src/data/landmarks.ts`: each has a `kind` mapped to a procedural model in `LandmarkModel.tsx`. Add a
   new kind there (parts list, optional `landmarkLines` for thin geometry).
-- `src/data/quests.ts`: ordered stops with a to-do each; progress persists in `localStorage` under `eba.progress`.
+- `src/data/quests.ts`: ordered stops with a to-do and a tour `view` each. No persisted progress.
 - Company X/Twitter feed is intentionally stubbed until the owner supplies an Apify token; it should be
   proxied through a serverless function so the token stays server-side.
 

@@ -10,6 +10,8 @@ export function DetailCard() {
   const sel = useStore((s) => s.selected)
   const select = useStore((s) => s.select)
   const flyTo = useStore((s) => s.flyTo)
+  const inQuest = useStore((s) => !!s.activeQuest)
+  const cardClass = 'card' + (inQuest ? ' is-below' : '')
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && select(null)
     window.addEventListener('keydown', onKey)
@@ -20,7 +22,7 @@ export function DetailCard() {
   if (sel.kind === 'company') {
     const c = sel.item
     return (
-      <article className="card" key={'c-' + c.id}>
+      <article className={cardClass} key={'c-' + c.id}>
         <button className="card__close" onClick={() => select(null)} aria-label="close">×</button>
         <div className="card__eyebrow">Company · {c.city}</div>
         <h2 className="card__title">
@@ -48,7 +50,7 @@ export function DetailCard() {
 
   const l = sel.item
   return (
-    <article className="card" key={'l-' + l.id}>
+    <article className={cardClass} key={'l-' + l.id}>
       <button className="card__close" onClick={() => select(null)} aria-label="close">×</button>
       <div className="card__eyebrow">Landmark · {l.area}</div>
       <h2 className="card__title">{l.name}</h2>
