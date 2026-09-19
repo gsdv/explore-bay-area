@@ -5,3 +5,4 @@ data-cache
 *.local
 .env
 tsconfig.tsbuildinfo
+.vercel
