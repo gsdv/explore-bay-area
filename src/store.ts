@@ -10,6 +10,8 @@ export interface FlyTarget {
   z: number
   /** camera distance from target */
   distance?: number
+  /** jump without animating */
+  instant?: boolean
   nonce: number
 }
 
@@ -29,7 +31,7 @@ interface State {
   toggleStop: (questId: string, stopId: string) => void
   toggleTransit: (m: TransitMode) => void
   toggle: (k: 'showCompanies' | 'showLandmarks') => void
-  flyTo: (x: number, z: number, distance?: number) => void
+  flyTo: (x: number, z: number, distance?: number, instant?: boolean) => void
   setLoaded: () => void
 }
 
@@ -66,6 +68,6 @@ export const useStore = create<State>((set, get) => ({
   },
   toggleTransit: (m) => set({ transit: { ...get().transit, [m]: !get().transit[m] } }),
   toggle: (k) => set({ [k]: !get()[k] } as any),
-  flyTo: (x, z, distance) => set({ fly: { x, z, distance, nonce: Math.random() } }),
+  flyTo: (x, z, distance, instant) => set({ fly: { x, z, distance, instant, nonce: Math.random() } }),
   setLoaded: () => set({ loaded: true }),
 }))

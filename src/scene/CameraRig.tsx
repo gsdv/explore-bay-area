@@ -13,9 +13,10 @@ export { useZoomTier, useCameraDistance } from './viewStore'
  *   left-drag      orbit (yaw + pitch)                      right-drag  pan
  *   scroll         camera height (orbit distance)
  * Hard bounds: the target stays inside the region, the distance is clamped, and the camera
- * can never drop below the terrain or the tallest building under it.
+ * never drops below a flat floor (FLOOR, world units above sea level) that clears most buildings.
  */
 const LIMITS = { minDist: 2.2, maxDist: 520, minPitch: 0.16, maxPitch: 1.5, margin: 0.965 }
+const FLOOR = 3.4
 const [SF_X, SF_Z] = project(37.787, -122.41)
 export const HOME = { x: SF_X, z: SF_Z, yaw: 0.46, pitch: 0.55, dist: 52 }
 
@@ -121,6 +122,7 @@ export function CameraRig({ world }: { world: World }) {
       s.handled = fly.nonce
       const dist = clamp(fly.distance ?? Math.min(s.dist, 40), LIMITS.minDist, LIMITS.maxDist)
       s.anim = { t: 0, from: { x: s.x, z: s.z, dist: s.dist, pitch: s.pitch }, to: { x: fly.x, z: fly.z, dist, pitch: Math.max(s.pitch, 0.6) } }
+      if (fly.instant) s.anim.t = 1 - 1e-6
       s.vx = s.vz = 0
     }
     if (s.anim) {
@@ -165,24 +167,19 @@ export function CameraRig({ world }: { world: World }) {
     s.distGoal = clamp(s.distGoal, LIMITS.minDist, LIMITS.maxDist)
     s.pitch = clamp(s.pitch, LIMITS.minPitch, LIMITS.maxPitch)
 
-    // ---- place the camera, never below terrain or rooftops ----
+    // ---- place the camera, never below the floor ----
     const ty = world.heights.yAt(s.x, s.z)
-    let cx = 0, cy = 0, cz = 0
-    for (let i = 0; i < 2; i++) {
-      const h = s.dist * Math.cos(s.pitch)
-      cx = s.x + h * Math.sin(s.yaw)
-      cz = s.z + h * Math.cos(s.yaw)
-      cy = ty + s.dist * Math.sin(s.pitch)
-      const needed = world.clearanceAt(cx, cz) - ty
-      if (cy < ty + needed) {
-        // tilt down first, then back off
-        s.pitch = Math.min(LIMITS.maxPitch, Math.asin(Math.min(1, needed / s.dist)))
-        if (s.dist * Math.sin(s.pitch) < needed) {
-          s.dist = Math.min(LIMITS.maxDist, needed / Math.sin(s.pitch))
-          s.distGoal = Math.max(s.distGoal, s.dist)
-        }
-      } else break
+    const needed = FLOOR - ty
+    if (needed > 0 && s.dist * Math.sin(s.pitch) < needed) {
+      // tilt down first, then back off
+      s.pitch = Math.min(LIMITS.maxPitch, Math.asin(Math.min(1, needed / s.dist)))
+      if (s.dist * Math.sin(s.pitch) < needed) {
+        s.dist = Math.min(LIMITS.maxDist, needed / Math.sin(s.pitch))
+        s.distGoal = Math.max(s.distGoal, s.dist)
+      }
     }
+    const h = s.dist * Math.cos(s.pitch)
+    const cx = s.x + h * Math.sin(s.yaw), cz = s.z + h * Math.cos(s.yaw), cy = ty + s.dist * Math.sin(s.pitch)
     camera.position.set(cx, cy, cz)
     camera.lookAt(s.x, ty, s.z)
 

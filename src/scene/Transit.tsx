@@ -81,7 +81,7 @@ function Stations({ stations, labels }: { stations: World['stations']; labels: b
         stations
           .filter((s) => s.network !== 'Muni')
           .map((s) => (
-            <Html key={s.name + s.x} position={[s.x, s.y + 0.6, s.z]} center zIndexRange={[5, 0]} style={{ pointerEvents: 'none' }}>
+            <Html key={s.name + s.x} position={[s.x, s.y + 0.6, s.z]} center zIndexRange={[9, 0]} style={{ pointerEvents: 'none' }}>
               <div className="station-label">{s.name}</div>
             </Html>
           ))}

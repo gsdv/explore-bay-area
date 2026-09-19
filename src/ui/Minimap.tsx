@@ -75,8 +75,12 @@ export function Minimap() {
               )
             })}
           <g transform={`translate(${u * 1000} ${v * 1000}) rotate(${headingDeg})`} className="minimap__you">
-            <path d="M0 0 L95 -42 L95 42 Z" className="minimap__cone" />
-            <circle r="14" className="minimap__dot" />
+            <path d="M0 0 L130 -62 L130 62 Z" className="minimap__cone" />
+            <circle className="minimap__pulse">
+              <animate attributeName="r" values="14;46" dur="1.7s" repeatCount="indefinite" />
+              <animate attributeName="opacity" values="0.55;0" dur="1.7s" repeatCount="indefinite" />
+            </circle>
+            <circle r="16" className="minimap__dot" />
           </g>
         </svg>
         <div className="minimap__hint">{open ? 'Click anywhere to fly there · Esc to close' : 'The Bay'}</div>

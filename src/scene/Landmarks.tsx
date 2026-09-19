@@ -1,12 +1,12 @@
 import { useMemo, useRef } from 'react'
 import { useFrame, type ThreeEvent } from '@react-three/fiber'
-import { Html } from '@react-three/drei'
+import { Html, Line } from '@react-three/drei'
 import * as THREE from 'three'
 import { landmarks, type Landmark } from '../data/landmarks'
 import { project } from '../lib/geo'
 import type { World } from '../lib/world'
 import { useStore } from '../store'
-import { landmarkParts, partGeometry, type Part } from './LandmarkModel'
+import { landmarkParts, landmarkLines, partGeometry, type Part } from './LandmarkModel'
 import { useZoomTier } from './viewStore'
 
 const OUTLINE = new THREE.MeshBasicMaterial({ color: '#1b1d1a', side: THREE.BackSide })
@@ -38,6 +38,7 @@ function LandmarkObject({ landmark: l, world }: { landmark: Landmark; world: Wor
   const select = useStore((s) => s.select)
   const tier = useZoomTier()
   const parts = useMemo(() => landmarkParts(l), [l])
+  const lines = useMemo(() => landmarkLines(l), [l])
   const { pos, rotY, scaleT } = useMemo(() => {
     const [x, z] = project(l.lat, l.lng)
     let rotY = 0
@@ -91,8 +92,11 @@ function LandmarkObject({ landmark: l, world }: { landmark: Landmark; world: Wor
           )}
         </group>
       ))}
+      {lines.length > 0 && (
+        <Line points={lines} segments color={parts[0].color} lineWidth={hovered ? 2.4 : 1.3} raycast={() => null} />
+      )}
       {showLabel && (
-        <Html position={[l.kind === 'bridge' ? 2 : 0, labelHeight, 0]} center zIndexRange={[20, 10]} style={{ pointerEvents: 'none' }}>
+        <Html position={[l.kind === 'bridge' ? 2 : 0, labelHeight, 0]} center zIndexRange={[19, 10]} style={{ pointerEvents: 'none' }}>
           <div className={'landmark-label' + (hovered ? ' is-hovered' : '')}>{l.name}</div>
         </Html>
       )}

@@ -11,13 +11,16 @@ import { landmarks } from '../data/landmarks'
  */
 export function DeepLink() {
   useEffect(() => {
+    let first = true
     const apply = () => {
+      const instant = first
+      first = false
       const h = new URLSearchParams(location.hash.slice(1))
       const s = useStore.getState()
       const at = h.get('at')?.split(',').map(Number)
       if (at && at.length >= 2 && at.every((n) => Number.isFinite(n))) {
         const [x, z] = project(at[0], at[1])
-        s.flyTo(x, z, at[2] || 20)
+        s.flyTo(x, z, at[2] || 20, instant)
       }
       const q = h.get('quest')
       if (q) s.setQuest(quests.find((x) => x.id === q) ?? null)
@@ -28,14 +31,14 @@ export function DeepLink() {
         if (item) {
           s.select({ kind: 'company', item })
           const [x, z] = project(item.lat, item.lng)
-          if (!at) s.flyTo(x, z, 10)
+          if (!at) s.flyTo(x, z, 10, instant)
         }
       } else if (l) {
         const item = landmarks.find((x) => x.id === l)
         if (item) {
           s.select({ kind: 'landmark', item })
           const [x, z] = project(item.lat, item.lng)
-          if (!at) s.flyTo(x, z, 10)
+          if (!at) s.flyTo(x, z, 10, instant)
         }
       }
     }

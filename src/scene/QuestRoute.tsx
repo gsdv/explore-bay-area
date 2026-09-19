@@ -45,7 +45,7 @@ export function QuestRoute({ world }: { world: World }) {
               <cylinderGeometry args={[0.06, 0.06, 1.8, 6]} />
               <meshStandardMaterial color="#1b1d1a" />
             </mesh>
-            <Html position={[0, 2.1, 0]} center zIndexRange={[60, 50]}>
+            <Html position={[0, 2.1, 0]} center zIndexRange={[40, 31]}>
               <button
                 className={'quest-pin' + (done ? ' is-done' : '')}
                 style={{ ['--quest' as any]: quest.color }}

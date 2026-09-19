@@ -5,7 +5,7 @@ import { Header } from './ui/Header'
 import { QuestPanel } from './ui/QuestPanel'
 import { Layers } from './ui/Layers'
 import { DetailCard } from './ui/DetailCard'
-import { Hint } from './ui/Hint'
+import { Help } from './ui/Help'
 import { DeepLink } from './ui/DeepLink'
 import { Minimap } from './ui/Minimap'
 
@@ -26,7 +26,7 @@ export default function App() {
           <QuestPanel />
           <Layers />
           <DetailCard />
-          <Hint />
+          <Help />
           <DeepLink />
           <Minimap />
         </>

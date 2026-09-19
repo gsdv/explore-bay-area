@@ -22,26 +22,20 @@ const H = (m: number) => m * UNIT * BUILDING_EXAGGERATION
 export function landmarkParts(l: Landmark): Part[] {
   switch (l.kind) {
     case 'bridge': {
-      const [x1, z1] = project(l.lat, l.lng)
-      const [x2, z2] = project(l.lat2!, l.lng2!)
-      const len = Math.hypot(x2 - x1, z2 - z1)
-      const isGG = l.id === 'ggb'
-      const col = isGG ? ORANGE : '#c8cbd0'
-      const deckH = isGG ? 0.9 : 0.6
-      const towerH = isGG ? 3.4 : 2.4
-      const parts: Part[] = [{ geo: 'box', pos: [len / 2, deckH, 0], scale: [len, 0.12, 0.5], color: col }]
-      const towers = isGG ? [0.29, 0.71] : [0.12, 0.28, 0.44, 0.78]
-      for (const t of towers) {
-        for (const side of [-0.18, 0.18]) parts.push({ geo: 'box', pos: [len * t, towerH / 2, side], scale: [0.16, towerH, 0.12], color: col })
-        parts.push({ geo: 'box', pos: [len * t, towerH * 0.95, 0], scale: [0.16, 0.12, 0.5], color: col })
-        parts.push({ geo: 'box', pos: [len * t, towerH * 0.6, 0], scale: [0.16, 0.12, 0.5], color: col })
+      const b = bridgeSpec(l)
+      const parts: Part[] = [
+        // deck with a slightly darker underside girder
+        { geo: 'box', pos: [b.len / 2, b.deckH, 0], scale: [b.len, 0.05, b.deckW], color: b.col },
+        { geo: 'box', pos: [b.len / 2, b.deckH - 0.07, 0], scale: [b.len, 0.09, b.deckW * 0.6], color: b.colDark },
+      ]
+      for (const t of b.towers) {
+        const x = b.len * t
+        // pier in the water, two legs, portal struts
+        parts.push({ geo: 'box', pos: [x, b.deckH / 2, 0], scale: [0.34, b.deckH, b.deckW + 0.14], color: b.pier })
+        for (const side of [-b.legZ, b.legZ]) parts.push({ geo: 'box', pos: [x, b.towerH / 2, side], scale: [0.13, b.towerH, 0.13], color: b.col })
+        for (const f of [0.3, 0.52, 0.72, 0.9, 1.0]) parts.push({ geo: 'box', pos: [x, b.towerH * f - 0.05, 0], scale: [0.13, 0.1, b.legZ * 2 + 0.13], color: b.col })
       }
-      // main cables as thin boxes sagging between towers (approximation: straight segments)
-      if (isGG) {
-        const [a, b] = towers
-        parts.push({ geo: 'box', pos: [len * (a + b) / 2, towerH * 0.72, -0.2], scale: [len * (b - a), 0.04, 0.04], color: col })
-        parts.push({ geo: 'box', pos: [len * (a + b) / 2, towerH * 0.72, 0.2], scale: [len * (b - a), 0.04, 0.04], color: col })
-      }
+      for (const a of b.anchors) parts.push({ geo: 'box', pos: [b.len * a, b.deckH * 0.55, 0], scale: [0.36, b.deckH * 1.1, b.deckW + 0.2], color: b.pier })
       return parts
     }
     case 'tower':
@@ -178,6 +172,85 @@ export function landmarkParts(l: Landmark): Part[] {
         color: ['#f3e6cf', '#e9d3b3', '#f7efe1', '#dfc9a9'][i],
       }))
   }
+}
+
+interface BridgeSpec {
+  len: number
+  deckH: number
+  deckW: number
+  towerH: number
+  legZ: number
+  towers: number[]
+  /** suspension spans as [fromTower, toTower] fractions of len; a span with equal ends is a single-tower (self-anchored) span */
+  spans: [number, number][]
+  /** cable anchorages as fractions of len (pairs with the nearest tower) */
+  anchors: number[]
+  col: string
+  colDark: string
+  pier: string
+}
+
+function bridgeSpec(l: Landmark): BridgeSpec {
+  const [x1, z1] = project(l.lat, l.lng)
+  const [x2, z2] = project(l.lat2!, l.lng2!)
+  const len = Math.hypot(x2 - x1, z2 - z1)
+  if (l.id === 'ggb') {
+    return { len, deckH: 0.95, deckW: 0.34, towerH: 3.7, legZ: 0.15, towers: [0.23, 0.77], spans: [[0.23, 0.77]], anchors: [0.06, 0.94], col: ORANGE, colDark: '#b83a08', pier: '#cfc6b4' }
+  }
+  return { len, deckH: 0.62, deckW: 0.34, towerH: 2.5, legZ: 0.15, towers: [0.12, 0.28, 0.44, 0.78], spans: [[0.12, 0.28], [0.28, 0.44]], anchors: [0.03, 0.53, 0.64, 0.92], col: '#c9ccd1', colDark: '#8f949b', pier: '#cfc6b4' }
+}
+
+/** Cables and suspenders as line segments [x,y,z,x,y,z,...] in landmark-local space (bridges only). */
+export function landmarkLines(l: Landmark): number[] {
+  if (l.kind !== 'bridge') return []
+  const b = bridgeSpec(l)
+  const out: number[] = []
+  const seg = (x1: number, y1: number, z1: number, x2: number, y2: number, z2: number) => out.push(x1, y1, z1, x2, y2, z2)
+  const top = b.towerH, deck = b.deckH + 0.03, mid = b.deckH + 0.32
+  const cableY = (x: number, xa: number, xb: number) => {
+    // parabola between tower tops xa..xb with the low point mid-span
+    const xm = (xa + xb) / 2
+    const t = (x - xm) / (xa - xm)
+    return mid + (top - mid) * t * t
+  }
+  for (const side of [-b.legZ, b.legZ]) {
+    for (const [fa, fb] of b.spans) {
+      const xa = b.len * fa, xb = b.len * fb
+      const n = 28
+      let px = xa, py = top
+      for (let i = 1; i <= n; i++) {
+        const x = xa + ((xb - xa) * i) / n, y = cableY(x, xa, xb)
+        seg(px, py, side, x, y, side)
+        px = x; py = y
+      }
+      const ns = 18
+      for (let i = 1; i < ns; i++) {
+        const x = xa + ((xb - xa) * i) / ns
+        seg(x, deck, side, x, cableY(x, xa, xb), side)
+      }
+    }
+    // side spans: nearest tower top straight down to each anchorage, with a few suspenders
+    for (const fa of b.anchors) {
+      const xa = b.len * fa
+      const tower = b.towers.reduce((best, t) => (Math.abs(t - fa) < Math.abs(best - fa) ? t : best), b.towers[0])
+      const xt = b.len * tower
+      seg(xt, top, side, xa, deck, side)
+      for (let i = 1; i < 5; i++) {
+        const x = xa + ((xt - xa) * i) / 5
+        const y = deck + (top - deck) * (i / 5)
+        seg(x, deck, side, x, y, side)
+      }
+    }
+  }
+  // tower cross-bracing above the deck
+  for (const t of b.towers) {
+    const x = b.len * t
+    for (const f of [0.35, 0.58, 0.78]) {
+      seg(x, b.towerH * f, -b.legZ, x, b.towerH * (f + 0.14), b.legZ)
+      seg(x, b.towerH * f, b.legZ, x, b.towerH * (f + 0.14), -b.legZ)
+    }
+  }
+  return out
 }
 
 export function partGeometry(p: Part): THREE.BufferGeometry {

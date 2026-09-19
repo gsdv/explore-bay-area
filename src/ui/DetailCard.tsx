@@ -20,7 +20,7 @@ export function DetailCard() {
   if (sel.kind === 'company') {
     const c = sel.item
     return (
-      <article className="card">
+      <article className="card" key={'c-' + c.id}>
         <button className="card__close" onClick={() => select(null)} aria-label="close">×</button>
         <div className="card__eyebrow">Company · {c.city}</div>
         <h2 className="card__title">
@@ -48,7 +48,7 @@ export function DetailCard() {
 
   const l = sel.item
   return (
-    <article className="card">
+    <article className="card" key={'l-' + l.id}>
       <button className="card__close" onClick={() => select(null)} aria-label="close">×</button>
       <div className="card__eyebrow">Landmark · {l.area}</div>
       <h2 className="card__title">{l.name}</h2>

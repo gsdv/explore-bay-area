@@ -46,9 +46,9 @@ Pipeline gotchas learned the hard way:
 | Scroll | Camera height (orbit distance) |
 | Q / E | Rotate |
 
-Bounds are hard walls: the camera target is clamped to the region, distance to 2.2–520 units, and the camera can never drop below the terrain (+100 m) or the tallest rooftop nearby (+70 m, from a 160² grid of building tops). When you scroll in against a rooftop the view tilts down first, then stops.
+Bounds are hard walls: the camera target is clamped to the region, distance to 2.2–520 units, and the camera never drops below a flat floor (`FLOOR` in `CameraRig.tsx`, 340 m above sea level) that clears all but the tallest towers and hills. When you scroll in against the floor the view tilts down first, then stops. Press `?` (or the button by the title) for the controls sheet.
 
-The minimap (bottom right) shows the shoreline and where you are. Click it to expand into a labelled map; click anywhere on that map to fly there.
+The minimap (bottom right) shows the shoreline and where you are (pulsing dot plus a view cone). Click it to expand into a labelled map; click anywhere on that map to fly there.
 
 ## Deep links
 

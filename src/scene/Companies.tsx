@@ -41,7 +41,7 @@ function CompanyMarker({ c, x, y, z, h }: { c: Company; x: number; y: number; z:
         <boxGeometry args={[0.7, h, 0.7]} />
         <meshStandardMaterial color={color} roughness={0.8} flatShading />
       </mesh>
-      <Html position={[0, h + 0.5, 0]} center zIndexRange={[40, 20]} style={{ pointerEvents: 'auto' }}>
+      <Html position={[0, h + 0.5, 0]} center zIndexRange={[30, 20]} style={{ pointerEvents: 'auto' }}>
         <button
           className={'company-chip' + (selected ? ' is-selected' : '')}
           onClick={(e) => {
