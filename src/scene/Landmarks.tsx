@@ -6,7 +6,7 @@ import { landmarks, type Landmark } from '../data/landmarks'
 import { project } from '../lib/geo'
 import type { World } from '../lib/world'
 import { useStore } from '../store'
-import { landmarkParts, landmarkLines, partGeometry, type Part } from './LandmarkModel'
+import { landmarkParts, landmarkLines, bridgeGround, partGeometry, type Part } from './LandmarkModel'
 import { useZoomTier } from './viewStore'
 
 const OUTLINE = new THREE.MeshBasicMaterial({ color: '#1b1d1a', side: THREE.BackSide })
@@ -39,8 +39,10 @@ function LandmarkObject({ landmark: l, world }: { landmark: Landmark; world: Wor
   const setHovered = useStore((s) => s.setHoveredLandmark)
   const select = useStore((s) => s.select)
   const tier = useZoomTier()
-  const parts = useMemo(() => landmarkParts(l), [l])
-  const lines = useMemo(() => landmarkLines(l), [l])
+  // bridges read the terrain so their decks run onto the shore instead of stopping over water
+  const ground = useMemo(() => (l.kind === 'bridge' ? bridgeGround(l, (x, z) => world.heights.yAt(x, z)) : undefined), [l, world])
+  const parts = useMemo(() => landmarkParts(l, ground), [l, ground])
+  const lines = useMemo(() => landmarkLines(l, ground), [l, ground])
   // an invisible box around the whole model so gaps (tower legs, bridge spans) still count as hovering
   const bounds = useMemo(() => {
     let minX = Infinity, minY = Infinity, minZ = Infinity, maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity
