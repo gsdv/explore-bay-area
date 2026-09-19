@@ -20,7 +20,7 @@ export function Header() {
             </h1>
             <button className="help-btn" onClick={() => openHelp(true)} aria-label="Controls help" title="Controls (?)">?</button>
           </div>
-          <p className="header__sub">A field guide for newcomers. Drag to move, scroll to dive in, pick a quest, click anything.</p>
+          <p className="header__sub">A field guide for newcomers. Pick a quest, explore the city. Press <b>?</b> for controls.</p>
         </div>
       </header>
     )
