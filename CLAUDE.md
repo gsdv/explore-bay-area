@@ -108,6 +108,8 @@ vercel.json             build settings + cache headers for Vercel (see Hosting)
 - Floor: a single flat height `FLOOR` (3.4 units ≈ 340 m above sea level). The owner explicitly removed
   per-rooftop/terrain clearance because it felt bumpy; clipping through Salesforce Tower or Mt Tam is
   acceptable. Don't reintroduce a terrain-following clamp without asking.
+- Input listeners live on the canvas's parent container, not the canvas, so wheel/touch over DOM labels
+  still drive the camera. A press on a label only becomes a drag after 4 px of movement so clicks reach it.
 - `viewStore` publishes the screen-centre ground point (not the camera position); `flyTo(x, z, dist)`
   means "put ground point x,z at screen centre, dist away".
 

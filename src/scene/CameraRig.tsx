@@ -64,6 +64,7 @@ export function CameraRig({ world }: { world: World }) {
     keys: new Set<string>(),
     pointers: new Map<number, { x: number; y: number }>(),
     drag: null as Drag | null,
+    pending: null as null | { id: number; x: number; y: number; orbit: boolean },
     inertia: new THREE.Vector3(),
     anim: null as Anim | null,
     handled: 0,
@@ -83,6 +84,8 @@ export function CameraRig({ world }: { world: World }) {
 
   useEffect(() => {
     const el = gl.domElement
+    // listen on the container so labels (drei Html, siblings of the canvas) don't swallow wheel/touch
+    const root = el.parentElement ?? el
     const isTyping = (e: KeyboardEvent) => /^(INPUT|TEXTAREA|SELECT)$/.test((e.target as HTMLElement)?.tagName ?? '')
     const down = (e: KeyboardEvent) => {
       if (isTyping(e)) return
@@ -97,24 +100,34 @@ export function CameraRig({ world }: { world: World }) {
     }
     const blur = () => s.keys.clear()
 
+    const beginDrag = (x: number, y: number, orbit: boolean) => {
+      if (orbit) {
+        s.drag = { kind: 'orbit', c: s.center.clone(), d: s.centerDist, lx: x, ly: y }
+      } else {
+        const plane = world.heights.yAt(s.center.x, s.center.z)
+        s.drag = { kind: 'pan', plane, last: groundAt(x, y, plane, new THREE.Vector3()), vel: new THREE.Vector3(), lastT: performance.now() }
+        s.inertia.set(0, 0, 0)
+        root.style.cursor = 'grabbing'
+      }
+    }
     const pdown = (e: PointerEvent) => {
       if (e.button > 2) return
-      el.setPointerCapture(e.pointerId)
       s.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
       s.anim = null
       if (s.pointers.size === 2) {
+        for (const id of s.pointers.keys()) try { root.setPointerCapture(id) } catch {}
         const [a, b] = [...s.pointers.values()]
+        s.pending = null
         s.drag = { kind: 'pinch', d0: Math.hypot(a.x - b.x, a.y - b.y), alt0: s.p.y, a0: Math.atan2(b.y - a.y, b.x - a.x), my0: (a.y + b.y) / 2 }
         return
       }
       const orbit = e.button === 2 || e.button === 1 || e.ctrlKey || e.metaKey
-      if (orbit) {
-        s.drag = { kind: 'orbit', c: s.center.clone(), d: s.centerDist, lx: e.clientX, ly: e.clientY }
+      if (e.target === el) {
+        root.setPointerCapture(e.pointerId)
+        beginDrag(e.clientX, e.clientY, orbit)
       } else {
-        const plane = world.heights.yAt(s.center.x, s.center.z)
-        s.drag = { kind: 'pan', plane, last: groundAt(e.clientX, e.clientY, plane, new THREE.Vector3()), vel: new THREE.Vector3(), lastT: performance.now() }
-        s.inertia.set(0, 0, 0)
-        el.style.cursor = 'grabbing'
+        // pressed on a label: only becomes a drag once the pointer moves, so clicks still reach the label
+        s.pending = { id: e.pointerId, x: e.clientX, y: e.clientY, orbit }
       }
     }
     const pmove = (e: PointerEvent) => {
@@ -122,6 +135,13 @@ export function CameraRig({ world }: { world: World }) {
       if (!pt) return
       pt.x = e.clientX
       pt.y = e.clientY
+      if (s.pending && s.pending.id === e.pointerId && !s.drag) {
+        if (Math.hypot(e.clientX - s.pending.x, e.clientY - s.pending.y) > 4) {
+          root.setPointerCapture(e.pointerId)
+          beginDrag(s.pending.x, s.pending.y, s.pending.orbit)
+          s.pending = null
+        } else return
+      }
       const d = s.drag
       if (!d) return
       if (d.kind === 'pinch' && s.pointers.size === 2) {
@@ -160,10 +180,11 @@ export function CameraRig({ world }: { world: World }) {
     }
     const pup = (e: PointerEvent) => {
       s.pointers.delete(e.pointerId)
-      try { el.releasePointerCapture(e.pointerId) } catch {}
+      try { root.releasePointerCapture(e.pointerId) } catch {}
       if (s.drag?.kind === 'pan' && performance.now() - s.drag.lastT < 80) s.inertia.copy(s.drag.vel)
       s.drag = null
-      el.style.cursor = ''
+      s.pending = null
+      root.style.cursor = ''
     }
     const wheel = (e: WheelEvent) => {
       e.preventDefault()
@@ -173,6 +194,7 @@ export function CameraRig({ world }: { world: World }) {
       s.anim = null
     }
     const dbl = (e: MouseEvent) => {
+      if (e.target !== el) return
       const g = groundAt(e.clientX, e.clientY, 0, new THREE.Vector3())
       useStore.getState().flyTo(g.x, g.z, Math.max(6, s.centerDist * 0.45))
     }
@@ -180,25 +202,26 @@ export function CameraRig({ world }: { world: World }) {
     window.addEventListener('keydown', down)
     window.addEventListener('keyup', up)
     window.addEventListener('blur', blur)
-    el.addEventListener('pointerdown', pdown)
-    el.addEventListener('pointermove', pmove)
-    el.addEventListener('pointerup', pup)
-    el.addEventListener('pointercancel', pup)
-    el.addEventListener('wheel', wheel, { passive: false })
-    el.addEventListener('dblclick', dbl)
-    el.addEventListener('contextmenu', ctx)
+    root.addEventListener('pointerdown', pdown)
+    root.addEventListener('pointermove', pmove)
+    root.addEventListener('pointerup', pup)
+    root.addEventListener('pointercancel', pup)
+    root.addEventListener('wheel', wheel, { passive: false })
+    root.addEventListener('dblclick', dbl)
+    root.addEventListener('contextmenu', ctx)
+    root.style.touchAction = 'none'
     el.style.touchAction = 'none'
     return () => {
       window.removeEventListener('keydown', down)
       window.removeEventListener('keyup', up)
       window.removeEventListener('blur', blur)
-      el.removeEventListener('pointerdown', pdown)
-      el.removeEventListener('pointermove', pmove)
-      el.removeEventListener('pointerup', pup)
-      el.removeEventListener('pointercancel', pup)
-      el.removeEventListener('wheel', wheel)
-      el.removeEventListener('dblclick', dbl)
-      el.removeEventListener('contextmenu', ctx)
+      root.removeEventListener('pointerdown', pdown)
+      root.removeEventListener('pointermove', pmove)
+      root.removeEventListener('pointerup', pup)
+      root.removeEventListener('pointercancel', pup)
+      root.removeEventListener('wheel', wheel)
+      root.removeEventListener('dblclick', dbl)
+      root.removeEventListener('contextmenu', ctx)
     }
   }, [gl, s, camera, world, tmp])
 
