@@ -20,7 +20,8 @@ pnpm data:fetch     # one-time downloads into data-cache/ (~170 MB, cached forev
 pnpm data           # bake public/data (~6 s once cached)
 ```
 
-Other scripts: `pnpm typecheck`, `pnpm build`, `pnpm preview`.
+Other scripts: `pnpm typecheck`, `pnpm build`, `pnpm preview`. The hosted version is at
+https://explore-bay-area.vercel.app (see Deploying).
 
 ## What's in it
 

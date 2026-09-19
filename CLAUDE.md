@@ -18,6 +18,7 @@ pnpm data:fetch           # only download sources into data-cache/ (Overpass, te
 ```
 
 There are no tests yet. Verification is: `pnpm typecheck`, then run the app and look at it.
+Pushing `main` deploys to production immediately (see Hosting), so verify locally before pushing.
 
 ## Layout
 
@@ -48,11 +49,12 @@ src/
   scene/Companies.tsx   HQ blocks + Html chips
   scene/QuestRoute.tsx  active quest path + numbered pins
   scene/DevStats.tsx    dev-only: writes fps/draw stats and camera state to <html data-perf/data-view>
-  ui/                   Header (+ help button), QuestPanel, Layers, DetailCard, Minimap, Help, DeepLink
+  ui/                   Header (+ help button / quest title), QuestPanel, QuestFrame, Layers, DetailCard, Minimap, Help, DeepLink
   data/                 hand-curated content: companies.ts, landmarks.ts, quests.ts
   styles.css            the entire visual language (see Style below)
 public/data/            generated, committed (≈9 MB) so deploys don't need the pipeline
 .claude/launch.json     "dev" preview config used by the Claude Code browser pane
+vercel.json             build settings + cache headers for Vercel (see Hosting)
 ```
 
 ## Core conventions
