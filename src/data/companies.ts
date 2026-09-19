@@ -1,0 +1,96 @@
+/**
+ * Major Bay Area companies (public > ~$10B market cap, or private with a > $10B valuation).
+ * Figures are approximate snapshots and should be refreshed from a live source before launch.
+ */
+export interface Company {
+  id: string
+  name: string
+  domain: string
+  lat: number
+  lng: number
+  city: string
+  blurb: string
+  /** USD billions; market cap for public companies, last valuation for private */
+  cap: number
+  isPrivate?: boolean
+  employees: number
+  founded: number
+  twitter?: string
+  /** rough HQ footprint height in metres, purely visual */
+  height?: number
+  tags?: ('ai' | 'chips' | 'fintech' | 'social' | 'saas' | 'bio' | 'hardware' | 'auto')[]
+}
+
+export const companies: Company[] = [
+  // ---- San Francisco ----
+  { id: 'anthropic', name: 'Anthropic', domain: 'anthropic.com', lat: 37.7877, lng: -122.3960, city: 'San Francisco', blurb: 'AI safety company behind the Claude models, headquartered a block from the Transbay terminal.', cap: 183, isPrivate: true, employees: 2500, founded: 2021, twitter: 'AnthropicAI', height: 120, tags: ['ai'] },
+  { id: 'openai', name: 'OpenAI', domain: 'openai.com', lat: 37.7679, lng: -122.3900, city: 'San Francisco', blurb: 'Maker of ChatGPT and the GPT models, based in Mission Bay next to the ballpark and Chase Center.', cap: 500, isPrivate: true, employees: 4500, founded: 2015, twitter: 'OpenAI', height: 40, tags: ['ai'] },
+  { id: 'salesforce', name: 'Salesforce', domain: 'salesforce.com', lat: 37.7897, lng: -122.3972, city: 'San Francisco', blurb: 'Cloud CRM pioneer whose tower is the tallest building on the SF skyline.', cap: 240, employees: 76000, founded: 1999, twitter: 'salesforce', height: 326, tags: ['saas'] },
+  { id: 'uber', name: 'Uber', domain: 'uber.com', lat: 37.7695, lng: -122.3902, city: 'San Francisco', blurb: 'Ride-hailing and delivery platform with a glassy campus in Mission Bay.', cap: 180, employees: 31000, founded: 2009, twitter: 'Uber', height: 50 },
+  { id: 'airbnb', name: 'Airbnb', domain: 'airbnb.com', lat: 37.7717, lng: -122.4051, city: 'San Francisco', blurb: 'Home-sharing marketplace, born from an air mattress in a SoMa apartment.', cap: 80, employees: 7300, founded: 2008, twitter: 'Airbnb', height: 30 },
+  { id: 'databricks', name: 'Databricks', domain: 'databricks.com', lat: 37.7917, lng: -122.3927, city: 'San Francisco', blurb: 'Data and AI platform built by the creators of Apache Spark.', cap: 100, isPrivate: true, employees: 8000, founded: 2013, twitter: 'databricks', height: 100, tags: ['ai', 'saas'] },
+  { id: 'scale', name: 'Scale AI', domain: 'scale.com', lat: 37.7709, lng: -122.4030, city: 'San Francisco', blurb: 'Training data and evaluation infrastructure for AI labs and enterprises.', cap: 29, isPrivate: true, employees: 900, founded: 2016, twitter: 'scale_AI', height: 25, tags: ['ai'] },
+  { id: 'perplexity', name: 'Perplexity', domain: 'perplexity.ai', lat: 37.7917, lng: -122.4012, city: 'San Francisco', blurb: 'AI answer engine that cites its sources.', cap: 20, isPrivate: true, employees: 700, founded: 2022, twitter: 'perplexity_ai', height: 60, tags: ['ai'] },
+  { id: 'wellsfargo', name: 'Wells Fargo', domain: 'wellsfargo.com', lat: 37.7936, lng: -122.4026, city: 'San Francisco', blurb: 'One of the big four US banks, founded during the Gold Rush and still headquartered on Montgomery Street.', cap: 260, employees: 215000, founded: 1852, twitter: 'WellsFargo', height: 170, tags: ['fintech'] },
+  { id: 'visa', name: 'Visa', domain: 'visa.com', lat: 37.7735, lng: -122.3893, city: 'San Francisco', blurb: 'Global payments network, newly headquartered at Mission Rock on the waterfront.', cap: 650, employees: 31600, founded: 1958, twitter: 'Visa', height: 90, tags: ['fintech'] },
+  { id: 'doordash', name: 'DoorDash', domain: 'doordash.com', lat: 37.7863, lng: -122.3966, city: 'San Francisco', blurb: 'The largest US food-delivery platform.', cap: 100, employees: 23000, founded: 2013, twitter: 'DoorDash', height: 80 },
+  { id: 'twilio', name: 'Twilio', domain: 'twilio.com', lat: 37.7925, lng: -122.3930, city: 'San Francisco', blurb: 'Communications APIs for SMS, voice and email.', cap: 17, employees: 5500, founded: 2008, twitter: 'twilio', height: 60, tags: ['saas'] },
+  { id: 'pinterest', name: 'Pinterest', domain: 'pinterest.com', lat: 37.7728, lng: -122.4013, city: 'San Francisco', blurb: 'Visual discovery engine for ideas and inspiration.', cap: 22, employees: 4700, founded: 2010, twitter: 'Pinterest', height: 25, tags: ['social'] },
+  { id: 'instacart', name: 'Instacart', domain: 'instacart.com', lat: 37.7917, lng: -122.3961, city: 'San Francisco', blurb: 'Grocery delivery marketplace.', cap: 12, employees: 3500, founded: 2012, twitter: 'Instacart', height: 70 },
+  { id: 'reddit', name: 'Reddit', domain: 'reddit.com', lat: 37.7754, lng: -122.4175, city: 'San Francisco', blurb: 'The front page of the internet, on Market Street.', cap: 35, employees: 2200, founded: 2005, twitter: 'Reddit', height: 60, tags: ['social'] },
+  { id: 'figma', name: 'Figma', domain: 'figma.com', lat: 37.7867, lng: -122.4054, city: 'San Francisco', blurb: 'Collaborative design tool that runs in the browser.', cap: 25, employees: 1600, founded: 2012, twitter: 'figma', height: 70, tags: ['saas'] },
+  { id: 'okta', name: 'Okta', domain: 'okta.com', lat: 37.7877, lng: -122.3977, city: 'San Francisco', blurb: 'Identity and access management for enterprises.', cap: 16, employees: 6000, founded: 2009, twitter: 'okta', height: 90, tags: ['saas'] },
+  { id: 'cloudflare', name: 'Cloudflare', domain: 'cloudflare.com', lat: 37.7793, lng: -122.3900, city: 'San Francisco', blurb: 'Runs a big slice of the internet\'s edge: CDN, DNS, security and serverless compute.', cap: 65, employees: 4200, founded: 2009, twitter: 'Cloudflare', height: 30, tags: ['saas'] },
+  { id: 'samsara', name: 'Samsara', domain: 'samsara.com', lat: 37.7699, lng: -122.4020, city: 'San Francisco', blurb: 'IoT platform for fleets and physical operations.', cap: 20, employees: 3200, founded: 2015, twitter: 'Samsara', height: 25, tags: ['saas'] },
+  { id: 'rippling', name: 'Rippling', domain: 'rippling.com', lat: 37.7885, lng: -122.4010, city: 'San Francisco', blurb: 'HR, IT and finance platform for companies.', cap: 16, isPrivate: true, employees: 4000, founded: 2016, twitter: 'Rippling', height: 60, tags: ['saas'] },
+  { id: 'autodesk', name: 'Autodesk', domain: 'autodesk.com', lat: 37.7938, lng: -122.3948, city: 'San Francisco', blurb: 'AutoCAD, Revit, Maya and the software behind much of the built world.', cap: 60, employees: 15000, founded: 1982, twitter: 'autodesk', height: 40, tags: ['saas'] },
+  { id: 'docusign', name: 'DocuSign', domain: 'docusign.com', lat: 37.7909, lng: -122.3922, city: 'San Francisco', blurb: 'E-signature and agreement management.', cap: 15, employees: 6800, founded: 2003, twitter: 'DocuSign', height: 80, tags: ['saas'] },
+  { id: 'sofi', name: 'SoFi', domain: 'sofi.com', lat: 37.7869, lng: -122.3949, city: 'San Francisco', blurb: 'Digital personal-finance company; the 49ers play at a stadium with its name on it.', cap: 25, employees: 4800, founded: 2011, twitter: 'SoFi', height: 90, tags: ['fintech'] },
+  { id: 'affirm', name: 'Affirm', domain: 'affirm.com', lat: 37.7929, lng: -122.4046, city: 'San Francisco', blurb: 'Buy-now-pay-later lender founded by a PayPal co-founder.', cap: 20, employees: 2200, founded: 2012, twitter: 'Affirm', height: 60, tags: ['fintech'] },
+  // ---- Peninsula ----
+  { id: 'stripe', name: 'Stripe', domain: 'stripe.com', lat: 37.6656, lng: -122.3843, city: 'South San Francisco', blurb: 'Payments infrastructure for the internet, headquartered at Oyster Point.', cap: 91, isPrivate: true, employees: 8500, founded: 2010, twitter: 'stripe', height: 40, tags: ['fintech'] },
+  { id: 'genentech', name: 'Genentech', domain: 'gene.com', lat: 37.6564, lng: -122.3785, city: 'South San Francisco', blurb: 'The first biotech company; a Roche subsidiary anchoring the SSF biotech cluster.', cap: 250, employees: 13500, founded: 1976, twitter: 'genentech', height: 30, tags: ['bio'] },
+  { id: 'youtube', name: 'YouTube', domain: 'youtube.com', lat: 37.6286, lng: -122.4261, city: 'San Bruno', blurb: 'The world\'s video platform (part of Google), headquartered in San Bruno.', cap: 500, employees: 7000, founded: 2005, twitter: 'YouTube', height: 25, tags: ['social'] },
+  { id: 'gilead', name: 'Gilead Sciences', domain: 'gilead.com', lat: 37.5619, lng: -122.2669, city: 'Foster City', blurb: 'Biopharma known for HIV and hepatitis C therapies.', cap: 130, employees: 18000, founded: 1987, twitter: 'GileadSciences', height: 30, tags: ['bio'] },
+  { id: 'roblox', name: 'Roblox', domain: 'roblox.com', lat: 37.5563, lng: -122.3184, city: 'San Mateo', blurb: 'Online game platform and creation system.', cap: 60, employees: 2500, founded: 2004, twitter: 'Roblox', height: 25 },
+  { id: 'oracle', name: 'Oracle', domain: 'oracle.com', lat: 37.5297, lng: -122.2659, city: 'Redwood Shores', blurb: 'Database and cloud giant; its lakeside towers were the HQ until the move to Austin.', cap: 600, employees: 160000, founded: 1977, twitter: 'Oracle', height: 90, tags: ['saas'] },
+  { id: 'ea', name: 'Electronic Arts', domain: 'ea.com', lat: 37.5327, lng: -122.2523, city: 'Redwood City', blurb: 'Publisher of EA Sports FC, Madden, The Sims and Battlefield.', cap: 40, employees: 14500, founded: 1982, twitter: 'EA', height: 25 },
+  { id: 'meta', name: 'Meta', domain: 'meta.com', lat: 37.4848, lng: -122.1484, city: 'Menlo Park', blurb: 'Facebook, Instagram, WhatsApp and a large bet on AI and AR, at 1 Hacker Way.', cap: 1800, employees: 76000, founded: 2004, twitter: 'Meta', height: 20, tags: ['social', 'ai'] },
+  { id: 'robinhood', name: 'Robinhood', domain: 'robinhood.com', lat: 37.4514, lng: -122.1682, city: 'Menlo Park', blurb: 'Commission-free trading app.', cap: 80, employees: 2300, founded: 2013, twitter: 'RobinhoodApp', height: 20, tags: ['fintech'] },
+  { id: 'xai', name: 'xAI', domain: 'x.ai', lat: 37.4178, lng: -122.1483, city: 'Palo Alto', blurb: 'Elon Musk\'s AI lab, maker of Grok, on Page Mill Road.', cap: 200, isPrivate: true, employees: 1200, founded: 2023, twitter: 'xai', height: 20, tags: ['ai'] },
+  { id: 'hp', name: 'HP', domain: 'hp.com', lat: 37.4136, lng: -122.1469, city: 'Palo Alto', blurb: 'PCs and printers; the company whose garage started Silicon Valley.', cap: 30, employees: 58000, founded: 1939, twitter: 'HP', height: 20, tags: ['hardware'] },
+  { id: 'broadcom', name: 'Broadcom', domain: 'broadcom.com', lat: 37.4045, lng: -122.1477, city: 'Palo Alto', blurb: 'Semiconductor and infrastructure-software giant (and owner of VMware).', cap: 1500, employees: 37000, founded: 1961, twitter: 'Broadcom', height: 20, tags: ['chips'] },
+  { id: 'google', name: 'Google', domain: 'google.com', lat: 37.4220, lng: -122.0841, city: 'Mountain View', blurb: 'Search, Android, YouTube, Cloud and Gemini; the Googleplex is the heart of Mountain View.', cap: 2500, employees: 183000, founded: 1998, twitter: 'Google', height: 25, tags: ['ai', 'social'] },
+  { id: 'intuit', name: 'Intuit', domain: 'intuit.com', lat: 37.4292, lng: -122.0983, city: 'Mountain View', blurb: 'TurboTax, QuickBooks, Credit Karma and Mailchimp.', cap: 190, employees: 18800, founded: 1983, twitter: 'Intuit', height: 20, tags: ['fintech', 'saas'] },
+  { id: 'linkedin', name: 'LinkedIn', domain: 'linkedin.com', lat: 37.3956, lng: -122.0313, city: 'Sunnyvale', blurb: 'The professional network (owned by Microsoft).', cap: 3000, employees: 18500, founded: 2002, twitter: 'LinkedIn', height: 25, tags: ['social'] },
+  { id: 'synopsys', name: 'Synopsys', domain: 'synopsys.com', lat: 37.3878, lng: -122.0128, city: 'Sunnyvale', blurb: 'Chip-design software (EDA) used to make nearly every modern processor.', cap: 80, employees: 20000, founded: 1986, twitter: 'Synopsys', height: 20, tags: ['chips', 'saas'] },
+  { id: 'fortinet', name: 'Fortinet', domain: 'fortinet.com', lat: 37.3723, lng: -122.0035, city: 'Sunnyvale', blurb: 'Network security hardware and software.', cap: 60, employees: 14000, founded: 2000, twitter: 'Fortinet', height: 20, tags: ['saas'] },
+  { id: 'apple', name: 'Apple', domain: 'apple.com', lat: 37.3349, lng: -122.0090, city: 'Cupertino', blurb: 'iPhone, Mac and the ring-shaped Apple Park campus.', cap: 3500, employees: 164000, founded: 1976, twitter: 'Apple', height: 20, tags: ['hardware'] },
+  // ---- South Bay ----
+  { id: 'nvidia', name: 'NVIDIA', domain: 'nvidia.com', lat: 37.3708, lng: -121.9672, city: 'Santa Clara', blurb: 'GPUs that power gaming and nearly all AI training, from two triangular buildings in Santa Clara.', cap: 4300, employees: 36000, founded: 1993, twitter: 'nvidia', height: 25, tags: ['chips', 'ai'] },
+  { id: 'intel', name: 'Intel', domain: 'intel.com', lat: 37.3875, lng: -121.9636, city: 'Santa Clara', blurb: 'The company that put the silicon in Silicon Valley.', cap: 100, employees: 100000, founded: 1968, twitter: 'intel', height: 25, tags: ['chips'] },
+  { id: 'amd', name: 'AMD', domain: 'amd.com', lat: 37.3820, lng: -121.9642, city: 'Santa Clara', blurb: 'CPUs and GPUs; Ryzen, EPYC and Instinct.', cap: 250, employees: 28000, founded: 1969, twitter: 'AMD', height: 25, tags: ['chips'] },
+  { id: 'servicenow', name: 'ServiceNow', domain: 'servicenow.com', lat: 37.3814, lng: -121.9738, city: 'Santa Clara', blurb: 'Enterprise workflow platform.', cap: 180, employees: 26000, founded: 2004, twitter: 'ServiceNow', height: 25, tags: ['saas'] },
+  { id: 'paloalto', name: 'Palo Alto Networks', domain: 'paloaltonetworks.com', lat: 37.3900, lng: -121.9760, city: 'Santa Clara', blurb: 'Cybersecurity platform company.', cap: 130, employees: 15000, founded: 2005, twitter: 'PaloAltoNtwks', height: 25, tags: ['saas'] },
+  { id: 'appliedmaterials', name: 'Applied Materials', domain: 'appliedmaterials.com', lat: 37.3830, lng: -121.9782, city: 'Santa Clara', blurb: 'Equipment that fabs use to make chips.', cap: 150, employees: 35000, founded: 1967, twitter: 'Applied4Tech', height: 20, tags: ['chips', 'hardware'] },
+  { id: 'arista', name: 'Arista Networks', domain: 'arista.com', lat: 37.4129, lng: -121.9770, city: 'Santa Clara', blurb: 'High-speed networking switches for cloud data centres.', cap: 140, employees: 4500, founded: 2004, twitter: 'AristaNetworks', height: 20, tags: ['hardware'] },
+  { id: 'marvell', name: 'Marvell', domain: 'marvell.com', lat: 37.4062, lng: -121.9738, city: 'Santa Clara', blurb: 'Data-infrastructure semiconductors.', cap: 60, employees: 6500, founded: 1995, twitter: 'marvelltech', height: 20, tags: ['chips'] },
+  { id: 'cisco', name: 'Cisco', domain: 'cisco.com', lat: 37.4087, lng: -121.9539, city: 'San Jose', blurb: 'Networking giant whose campus sprawls across north San Jose.', cap: 250, employees: 90000, founded: 1984, twitter: 'Cisco', height: 20, tags: ['hardware'] },
+  { id: 'cadence', name: 'Cadence', domain: 'cadence.com', lat: 37.4034, lng: -121.9445, city: 'San Jose', blurb: 'Chip-design and simulation software.', cap: 85, employees: 12000, founded: 1988, twitter: 'Cadence', height: 20, tags: ['chips', 'saas'] },
+  { id: 'nutanix', name: 'Nutanix', domain: 'nutanix.com', lat: 37.3923, lng: -121.9218, city: 'San Jose', blurb: 'Hybrid cloud infrastructure software.', cap: 18, employees: 7500, founded: 2009, twitter: 'nutanix', height: 20, tags: ['saas'] },
+  { id: 'supermicro', name: 'Supermicro', domain: 'supermicro.com', lat: 37.3868, lng: -121.9182, city: 'San Jose', blurb: 'Servers for AI data centres.', cap: 25, employees: 5700, founded: 1993, twitter: 'Supermicro_SMCI', height: 20, tags: ['hardware'] },
+  { id: 'paypal', name: 'PayPal', domain: 'paypal.com', lat: 37.3766, lng: -121.9227, city: 'San Jose', blurb: 'Online payments; the "PayPal Mafia" seeded much of the modern Valley.', cap: 70, employees: 24000, founded: 1998, twitter: 'PayPal', height: 20, tags: ['fintech'] },
+  { id: 'adobe', name: 'Adobe', domain: 'adobe.com', lat: 37.3308, lng: -121.8938, city: 'San Jose', blurb: 'Photoshop, Acrobat and Creative Cloud, in three downtown San Jose towers.', cap: 170, employees: 30000, founded: 1982, twitter: 'Adobe', height: 80, tags: ['saas'] },
+  { id: 'zoom', name: 'Zoom', domain: 'zoom.com', lat: 37.3312, lng: -121.8916, city: 'San Jose', blurb: 'Video meetings, born in downtown San Jose.', cap: 25, employees: 7400, founded: 2011, twitter: 'Zoom', height: 60, tags: ['saas'] },
+  { id: 'ebay', name: 'eBay', domain: 'ebay.com', lat: 37.2957, lng: -121.9264, city: 'San Jose', blurb: 'Online marketplace, one of the survivors of the first dot-com boom.', cap: 35, employees: 11600, founded: 1995, twitter: 'eBay', height: 20 },
+  { id: 'netflix', name: 'Netflix', domain: 'netflix.com', lat: 37.2575, lng: -121.9634, city: 'Los Gatos', blurb: 'Streaming giant tucked into Los Gatos at the foot of the Santa Cruz Mountains.', cap: 450, employees: 14000, founded: 1997, twitter: 'netflix', height: 20 },
+  { id: 'kla', name: 'KLA', domain: 'kla.com', lat: 37.4126, lng: -121.9147, city: 'Milpitas', blurb: 'Process-control and inspection equipment for chip fabs.', cap: 120, employees: 15000, founded: 1975, twitter: 'KLAcorp', height: 20, tags: ['chips'] },
+  // ---- East Bay ----
+  { id: 'tesla', name: 'Tesla', domain: 'tesla.com', lat: 37.4937, lng: -121.9451, city: 'Fremont', blurb: 'The Fremont factory builds the Model S, 3, X and Y; engineering HQ is in Palo Alto.', cap: 1000, employees: 125000, founded: 2003, twitter: 'Tesla', height: 20, tags: ['auto'] },
+  { id: 'lam', name: 'Lam Research', domain: 'lamresearch.com', lat: 37.4868, lng: -121.9339, city: 'Fremont', blurb: 'Wafer-fabrication equipment.', cap: 120, employees: 18000, founded: 1980, twitter: 'LamResearch', height: 20, tags: ['chips'] },
+  { id: 'workday', name: 'Workday', domain: 'workday.com', lat: 37.6964, lng: -121.9290, city: 'Pleasanton', blurb: 'Cloud HR and finance software.', cap: 60, employees: 20000, founded: 2005, twitter: 'Workday', height: 25, tags: ['saas'] },
+  { id: 'pge', name: 'PG&E', domain: 'pge.com', lat: 37.8059, lng: -122.2661, city: 'Oakland', blurb: 'The utility that keeps the lights on for Northern California, now headquartered in Oakland.', cap: 40, employees: 28000, founded: 1905, twitter: 'PGE4Me', height: 90 },
+  { id: 'clorox', name: 'Clorox', domain: 'thecloroxcompany.com', lat: 37.8046, lng: -122.2712, city: 'Oakland', blurb: 'Consumer goods company that has been in Oakland since 1913.', cap: 16, employees: 8000, founded: 1913, twitter: 'Clorox', height: 100 },
+]
+
+export const logoUrl = (c: Company) => `https://www.google.com/s2/favicons?sz=128&domain=${c.domain}`

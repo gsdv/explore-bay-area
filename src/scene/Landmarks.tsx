@@ -1,0 +1,101 @@
+import { useMemo, useRef } from 'react'
+import { useFrame, type ThreeEvent } from '@react-three/fiber'
+import { Html } from '@react-three/drei'
+import * as THREE from 'three'
+import { landmarks, type Landmark } from '../data/landmarks'
+import { project } from '../lib/geo'
+import type { World } from '../lib/world'
+import { useStore } from '../store'
+import { landmarkParts, partGeometry, type Part } from './LandmarkModel'
+import { useZoomTier } from './CameraRig'
+
+const OUTLINE = new THREE.MeshBasicMaterial({ color: '#1b1d1a', side: THREE.BackSide })
+const geoCache = new Map<string, THREE.BufferGeometry>()
+const geoFor = (p: Part) => {
+  const key = p.geo + JSON.stringify(p.args ?? [])
+  if (!geoCache.has(key)) geoCache.set(key, partGeometry(p))
+  return geoCache.get(key)!
+}
+
+export function Landmarks({ world }: { world: World }) {
+  const show = useStore((s) => s.showLandmarks)
+  if (!show) return null
+  return (
+    <group>
+      {landmarks.map((l) => (
+        <LandmarkObject key={l.id} landmark={l} world={world} />
+      ))}
+    </group>
+  )
+}
+
+const HULL = 0.09
+
+function LandmarkObject({ landmark: l, world }: { landmark: Landmark; world: World }) {
+  const group = useRef<THREE.Group>(null)
+  const hovered = useStore((s) => s.hoveredLandmark === l.id)
+  const setHovered = useStore((s) => s.setHoveredLandmark)
+  const select = useStore((s) => s.select)
+  const tier = useZoomTier()
+  const parts = useMemo(() => landmarkParts(l), [l])
+  const { pos, rotY, scaleT } = useMemo(() => {
+    const [x, z] = project(l.lat, l.lng)
+    let rotY = 0
+    if (l.kind === 'bridge') {
+      const [x2, z2] = project(l.lat2!, l.lng2!)
+      rotY = Math.atan2(-(z2 - z), x2 - x)
+    }
+    const y = l.kind === 'bridge' || l.kind === 'island' ? 0 : world.heights.yAt(x, z)
+    return { pos: new THREE.Vector3(x, y, z), rotY, scaleT: { v: 1 } }
+  }, [l, world])
+
+  useFrame((_, dt) => {
+    if (!group.current) return
+    const target = hovered ? 1.12 : 1
+    scaleT.v += (target - scaleT.v) * Math.min(1, dt * 10)
+    group.current.scale.setScalar(scaleT.v)
+    group.current.position.y = pos.y + (scaleT.v - 1) * 1.5
+  })
+
+  const onOver = (e: ThreeEvent<PointerEvent>) => {
+    e.stopPropagation()
+    setHovered(l.id)
+    document.body.style.cursor = 'pointer'
+  }
+  const onOut = () => {
+    setHovered(null)
+    document.body.style.cursor = ''
+  }
+  const onClick = (e: ThreeEvent<MouseEvent>) => {
+    e.stopPropagation()
+    select({ kind: 'landmark', item: l })
+  }
+
+  const showLabel = tier !== 'far' || l.tags?.includes('icon')
+  const labelHeight = Math.max(...parts.map((p) => p.pos[1] + p.scale[1] / 2)) + 0.6
+
+  return (
+    <group ref={group} position={pos} rotation-y={rotY} onPointerOver={onOver} onPointerOut={onOut} onClick={onClick}>
+      {parts.map((p, i) => (
+        <group key={i} position={p.pos} rotation={p.rot ?? [0, 0, 0]}>
+          <mesh geometry={geoFor(p)} scale={p.scale}>
+            <meshStandardMaterial color={p.color} roughness={0.85} metalness={0} flatShading />
+          </mesh>
+          {hovered && (
+            <mesh
+              geometry={geoFor(p)}
+              material={OUTLINE}
+              scale={[p.scale[0] + HULL * 2, p.scale[1] + HULL * 2, p.scale[2] + HULL * 2]}
+              raycast={() => null}
+            />
+          )}
+        </group>
+      ))}
+      {showLabel && (
+        <Html position={[l.kind === 'bridge' ? 2 : 0, labelHeight, 0]} center zIndexRange={[20, 10]} style={{ pointerEvents: 'none' }}>
+          <div className={'landmark-label' + (hovered ? ' is-hovered' : '')}>{l.name}</div>
+        </Html>
+      )}
+    </group>
+  )
+}

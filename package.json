@@ -1,0 +1,48 @@
+{
+  "name": "explore-bay-area",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "data": "tsx scripts/build-data.ts",
+    "data:fetch": "tsx scripts/fetch.ts",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@react-three/drei": "^10.7.4",
+    "@react-three/fiber": "^9.3.0",
+    "earcut": "^3.2.3",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "three": "^0.180.0",
+    "three-stdlib": "^2.36.1",
+    "zustand": "^5.0.8"
+  },
+  "devDependencies": {
+    "@types/adm-zip": "^0.5.7",
+    "@types/earcut": "^3.0.0",
+    "@types/node": "^24.5.2",
+    "@types/react": "^19.1.13",
+    "@types/react-dom": "^19.1.9",
+    "@types/three": "^0.180.0",
+    "@vitejs/plugin-react": "^5.0.2",
+    "adm-zip": "^0.5.16",
+    "csv-parse": "^6.1.0",
+    "mapshaper": "^0.6.111",
+    "osmtogeojson": "^3.0.0-beta.5",
+    "sharp": "^0.34.3",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.6"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "sharp",
+      "esbuild",
+      "msgpackr-extract"
+    ]
+  }
+}
