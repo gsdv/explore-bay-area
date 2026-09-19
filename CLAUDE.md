@@ -99,12 +99,17 @@ vercel.json             build settings + cache headers for Vercel (see Hosting)
 
 ## Camera + bounds (what the owner asked for)
 
-- Arrow keys / WASD move, Shift is faster, Q/E rotate, left-drag orbits, right-drag pans, scroll changes
-  height. Movement is velocity-smoothed.
-- Hard walls: target clamped to the region (`LIMITS.margin`), distance 2.2–520, pitch 0.16–1.5.
+- "Fly over a toy city" model (commit "Camera: pan/orbit/zoom-to-cursor…", revertible in one step if the
+  owner prefers the previous orbit-target scheme): camera state is position + yaw + pitch. Left-drag
+  grabs the ground (exact grab-pan with inertia), right/ctrl-drag orbits the screen-centre ground point,
+  scroll/pinch changes altitude anchored on the ground under the cursor, R/F go straight up/down,
+  WASD/arrows pan, Q/E rotate, double-click flies. Pitch = `autoPitch(altitude)` + a user tilt offset.
+- Hard walls: camera x/z clamped to the region (`MARGIN`), altitude between `FLOOR` and `CEILING`.
 - Floor: a single flat height `FLOOR` (3.4 units ≈ 340 m above sea level). The owner explicitly removed
   per-rooftop/terrain clearance because it felt bumpy; clipping through Salesforce Tower or Mt Tam is
   acceptable. Don't reintroduce a terrain-following clamp without asking.
+- `viewStore` publishes the screen-centre ground point (not the camera position); `flyTo(x, z, dist)`
+  means "put ground point x,z at screen centre, dist away".
 
 ## Data pipeline gotchas
 

@@ -44,17 +44,19 @@ https://explore-bay-area.vercel.app (see Deploying).
 
 | Input | Action |
 | --- | --- |
+| Drag / one finger | Grab the map and pan (with inertia) |
+| Right-drag, ctrl-drag, two fingers | Rotate and tilt around the point at screen centre |
+| Scroll / pinch | Altitude, anchored on the ground under the cursor (dive toward what you point at) |
+| R / F, PageUp / PageDown | Straight up / down |
 | Arrow keys / WASD | Move over the map, relative to the view (Shift = faster) |
-| Left-drag | Orbit (yaw and pitch) |
-| Right-drag | Pan |
-| Scroll | Camera height |
 | Q / E | Rotate |
+| Double-click | Fly to that spot |
 | `?` | Controls sheet (also the button next to the title) |
 | Esc | Close whatever is open |
 
-Bounds are hard walls: the camera target stays inside the region, distance is clamped (2.2–520 units)
-and the camera never goes below a flat floor about 340 m above sea level, which clears all but the
-tallest towers and hills. Scrolling in against the floor tilts the view down first, then stops.
+The pitch follows altitude by default (about 76° looking down from high up, easing to 24° near the
+ground); tilting adds an offset on top. Bounds are hard walls: the camera stays inside the region and
+between a floor about 340 m above sea level and a ceiling of 42 km.
 
 The **minimap** in the bottom-right corner shows the shoreline, a pulsing dot for where you are and a
 cone for where you're looking. Click it to expand a labelled map; click anywhere on that map to fly there.

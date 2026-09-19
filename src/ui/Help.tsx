@@ -4,12 +4,13 @@ import { create } from 'zustand'
 export const helpStore = create<{ open: boolean; set: (o: boolean) => void }>((set) => ({ open: false, set: (open) => set({ open }) }))
 
 const ROWS: [string, string][] = [
-  ['↑ ← ↓ →  or  W A S D', 'move over the map'],
-  ['shift', 'move faster'],
-  ['drag', 'look around (orbit)'],
-  ['right-drag', 'pan'],
-  ['scroll', 'camera height'],
+  ['drag', 'grab the map and pan'],
+  ['right-drag  /  ctrl-drag', 'look around (rotate and tilt)'],
+  ['scroll  /  pinch', 'fly down toward the cursor, or back up'],
+  ['R  /  F', 'straight up / down'],
+  ['↑ ← ↓ →  or  W A S D', 'move over the map (shift = fast)'],
   ['Q  /  E', 'rotate'],
+  ['double-click', 'fly to that spot'],
   ['click', 'open a company or landmark'],
   ['esc', 'close anything'],
   ['?', 'this help'],
@@ -43,7 +44,7 @@ export function Help() {
                 </div>
               ))}
             </dl>
-            <p className="help__foot">The camera stays inside the Bay and above the rooftops. Click the small map in the corner to jump anywhere.</p>
+            <p className="help__foot">The view tilts by itself: steep from high up, street-level when you're low. The camera stays inside the Bay and above the rooftops. Click the small map in the corner to jump anywhere.</p>
           </div>
         </div>
       )}
