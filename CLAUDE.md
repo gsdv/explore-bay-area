@@ -138,6 +138,15 @@ public/data/            generated, committed (≈9 MB) so deploys don't need the
 - Company X/Twitter feed is intentionally stubbed until the owner supplies an Apify token; it should be
   proxied through a serverless function so the token stays server-side.
 
+## Hosting
+
+- Vercel project `explore-bay-area` in scope `gsdvs-projects`, git-connected to `github.com/gsdv/explore-bay-area`.
+  Pushing `main` deploys production (https://explore-bay-area.vercel.app); other branches get previews.
+  No CI workflow is needed; don't add one for deploys.
+- `vercel.json` is the source of truth for build settings and headers. `.vercel/` and `.env*` are gitignored.
+- Local CLI: `pnpm dlx vercel@latest` (not installed globally). Non-interactive commands need
+  `--scope gsdvs-projects` until the directory is linked; `vercel inspect <url>` shows a deploy's status.
+
 ## Git
 
 The owner runs the repo. Commit when asked or when a round of requested changes is verified; use clear

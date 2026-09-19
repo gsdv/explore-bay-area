@@ -108,9 +108,16 @@ See `CLAUDE.md` for conventions, gotchas and how to verify changes.
 
 ## Deploying
 
-The app is static. Recommended: Vercel (or Cloudflare Pages) with `pnpm build` and `dist/` as the
-output. Because `public/data` is committed, deploys do not run the pipeline. When the company feed is
-wired up, put the Apify call in a serverless function (`api/`) so the token never reaches the browser.
+Live at **https://explore-bay-area.vercel.app**, hosted on Vercel and connected to
+[github.com/gsdv/explore-bay-area](https://github.com/gsdv/explore-bay-area):
+
+- every push to `main` builds and deploys production;
+- every other branch / PR gets its own preview URL.
+
+`vercel.json` holds the build settings (Vite preset, `pnpm build` → `dist/`) and cache headers:
+hashed `/assets/*` are immutable, `/data/*` revalidates so a pipeline rebuild shows up immediately.
+Because `public/data` is committed, deploys never run the pipeline. When the company feed is wired up,
+put the Apify call in a serverless function (`api/`) so the token never reaches the browser.
 
 ## Troubleshooting
 
