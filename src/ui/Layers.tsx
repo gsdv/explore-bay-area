@@ -31,23 +31,23 @@ export function Layers() {
       <div className="layers__sep" />
       <label className="layers__row">
         <input type="checkbox" checked={showCompanies} onChange={() => toggle('showCompanies')} />
-        <i className="layers__swatch layers__swatch--sq" />
+        <span className="layers__emoji" aria-hidden>🏢</span>
         <span>Companies</span>
       </label>
       <label className="layers__row">
         <input type="checkbox" checked={showLandmarks} onChange={() => toggle('showLandmarks')} />
-        <i className="layers__swatch layers__swatch--tri" />
+        <span className="layers__emoji" aria-hidden>🌉</span>
         <span>Landmarks</span>
       </label>
       <div className="layers__sep" />
       <label className="layers__row" title="Where the restaurants, cafés and fast food are (OpenStreetMap)">
         <input type="checkbox" checked={heat === 'food'} onChange={() => toggleHeat('food')} />
-        <i className="layers__swatch layers__swatch--heat" />
+        <span className="layers__emoji" aria-hidden>🍔</span>
         <span>Restaurants</span>
       </label>
       <label className="layers__row" title="Typical asking rent by ZIP code (Zillow Observed Rent Index)">
         <input type="checkbox" checked={heat === 'rent'} onChange={() => toggleHeat('rent')} />
-        <i className="layers__swatch layers__swatch--rent" />
+        <span className="layers__emoji" aria-hidden>🏠</span>
         <span>Rent</span>
       </label>
       {heat === 'rent' && <RentLegend />}

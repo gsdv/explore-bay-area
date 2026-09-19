@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Html, Line } from '@react-three/drei'
 import * as THREE from 'three'
@@ -7,12 +7,45 @@ import { project } from '../lib/geo'
 import type { World } from '../lib/world'
 import { useStore } from '../store'
 
+const POLE_VERT = /* glsl */ `
+  varying float vY;
+  void main() {
+    vY = uv.y;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }`
+const POLE_FRAG = /* glsl */ `
+  uniform vec3 uColor;
+  uniform float uTime;
+  varying float vY;
+  void main() {
+    // a soft pulse sliding from the label (top, vY=1) down to the ground, on a faint base
+    float p = 1.0 - fract(uTime * 0.55);
+    float d = vY - p;
+    float pulse = exp(-d * d * 90.0) * step(0.0, d) + exp(-d * d * 900.0);
+    float a = 0.28 + 0.72 * clamp(pulse, 0.0, 1.0);
+    gl_FragColor = vec4(uColor, a);
+  }`
+
 /** The active quest as a draped, animated dashed path with numbered stops. Clicking a pin jumps the tour there. */
 export function QuestRoute({ world }: { world: World }) {
   const quest = useStore((s) => s.activeQuest)
   const step = useStore((s) => s.questStep)
   const goToStop = useStore((s) => s.goToStop)
   const line = useRef<Line2>(null)
+  const poleMat = useMemo(
+    () =>
+      new THREE.ShaderMaterial({
+        uniforms: { uColor: { value: new THREE.Color('#ffffff') }, uTime: { value: 0 } },
+        vertexShader: POLE_VERT,
+        fragmentShader: POLE_FRAG,
+        transparent: true,
+        depthWrite: false,
+      }),
+    [],
+  )
+  useEffect(() => {
+    if (quest) poleMat.uniforms.uColor.value.set(quest.color)
+  }, [quest, poleMat])
 
   const { points, stops } = useMemo(() => {
     if (!quest) return { points: [] as [number, number, number][], stops: [] }
@@ -26,9 +59,10 @@ export function QuestRoute({ world }: { world: World }) {
     return { points, stops }
   }, [quest, world])
 
-  useFrame((_, dt) => {
+  useFrame(({ clock }, dt) => {
     const m = line.current?.material as THREE.ShaderMaterial & { dashOffset: number } | undefined
     if (m) m.dashOffset -= dt * 1.2
+    poleMat.uniforms.uTime.value = clock.elapsedTime
   })
 
   if (!quest) return null
@@ -40,9 +74,8 @@ export function QuestRoute({ world }: { world: World }) {
         const state = step === null ? '' : i === step ? ' is-current' : i < step ? ' is-passed' : ''
         return (
           <group key={p.s.id} position={[p.x, p.y, p.z]}>
-            <mesh position-y={0.9} raycast={() => null}>
-              <cylinderGeometry args={[0.06, 0.06, 1.8, 6]} />
-              <meshStandardMaterial color="#1b1d1a" />
+            <mesh position-y={0.95} material={poleMat} raycast={() => null} renderOrder={4}>
+              <cylinderGeometry args={[0.028, 0.028, 1.9, 6]} />
             </mesh>
             <Html position={[0, 2.1, 0]} center zIndexRange={[40, 31]}>
               <button

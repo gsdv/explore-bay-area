@@ -40,7 +40,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 @keyframes frame-in { from { opacity: 0; border-width: 0; } to { opacity: 1; border-width: 7px; } }
 .header__title { font-family: var(--serif); font-weight: 500; font-size: 34px; line-height: 1; margin: 0; letter-spacing: -0.01em; color: var(--ink); text-shadow: 0 1px 0 rgba(255,255,255,0.7); }
 .header__title em { font-style: italic; font-weight: 600; color: var(--orange); }
-.header__sub { margin: 6px 0 0; display: inline-block; background: rgba(247,242,231,0.85); padding: 2px 6px; font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.02em; color: var(--ink-2); text-shadow: 0 1px 0 rgba(255,255,255,0.7); }
+.header__sub { max-width: 300px; margin: 6px 0 0; display: inline-block; background: rgba(247,242,231,0.85); padding: 2px 6px; font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.02em; color: var(--ink-2); text-shadow: 0 1px 0 rgba(255,255,255,0.7); }
 
 /* ---------- quests ---------- */
 .quests { position: absolute; top: 96px; left: 22px; width: 320px; max-height: calc(100% - 200px); overflow: auto; z-index: 110; }
@@ -77,7 +77,8 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .layers__title { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 6px; }
 .layers__row { display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 11.5px; padding: 3px 0; cursor: pointer; user-select: none; }
 .layers__row input { accent-color: var(--ink); margin: 0; }
-.layers__swatch { width: 18px; height: 4px; display: inline-block; }
+.layers__swatch { width: 18px; height: 5px; display: inline-block; }
+.layers__emoji { width: 18px; text-align: center; font-size: 13px; line-height: 1; display: inline-block; }
 .layers__swatch--sq { width: 10px; height: 10px; background: #b7a7c7; border: 1px solid var(--ink); }
 .layers__swatch--tri { width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 10px solid var(--orange); }
 .layers__swatch--heat { width: 18px; height: 8px; border: 1px solid var(--ink); background: linear-gradient(90deg, #f5c391, var(--orange) 55%, #5e1800); }
@@ -172,8 +173,8 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .minimap__land { fill: var(--paper); stroke: var(--ink); stroke-width: 1.6; vector-effect: non-scaling-stroke; }
 .is-open .minimap__land { fill: rgba(247,242,231,0.06); stroke-width: 1.4; }
 .minimap__img { opacity: 0.95; }
-.minimap__label { font-family: var(--mono); font-size: 22px; letter-spacing: 0.08em; text-transform: uppercase; fill: var(--ink); text-anchor: middle; paint-order: stroke; stroke: #fff; stroke-width: 6px; stroke-linejoin: round; pointer-events: none; }
-.minimap__label.is-big { font-family: var(--serif); font-size: 34px; font-weight: 600; letter-spacing: 0; text-transform: none; }
+.minimap__label { font-family: var(--mono); font-size: 14px; letter-spacing: 0.08em; text-transform: uppercase; fill: var(--ink); text-anchor: middle; paint-order: stroke; stroke: #fff; stroke-width: 6px; stroke-linejoin: round; pointer-events: none; }
+.minimap__label.is-big { font-family: var(--serif); font-size: 22px; font-weight: 600; letter-spacing: 0; text-transform: none; }
 .minimap__dot { fill: #e8290b; stroke: #fff; stroke-width: 6; }
 .minimap__pulse { fill: #e8290b; }
 .minimap__cone { fill: #e8290b; opacity: 0.38; }
