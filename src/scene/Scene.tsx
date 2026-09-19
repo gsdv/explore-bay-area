@@ -32,7 +32,8 @@ export function Scene({ world }: { world: World }) {
       <directionalLight position={[300, 120, -200]} intensity={0.35} color="#cfe3ff" />
       <Terrain world={world} />
       <Water />
-      <Heatmap world={world} />
+      <Heatmap world={world} kind="food" />
+      <Heatmap world={world} kind="rent" />
       <Buildings world={world} />
       <Transit world={world} />
       <Landmarks world={world} />

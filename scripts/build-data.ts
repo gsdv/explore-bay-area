@@ -9,9 +9,11 @@ import { log, OUT, seeded, writeJSON } from './lib/util.ts'
 import * as osm from './lib/osm.ts'
 import { buildLand } from './lib/land.ts'
 import { buildHeightmap, writeHeightmap } from './lib/terrain.ts'
+import { buildZctas, fetchRentByZip } from './lib/rent.ts'
 import { PX, polygonPath, linePath, svgDoc, rasterize } from './lib/svg.ts'
 import { P, ROAD_STYLE, heatColor, lerp, clamp01, smooth } from './lib/palette.ts'
 import { project, toUV, elevationToY, BUILDING_EXAGGERATION, UNIT, WORLD } from '../src/lib/geo.ts'
+import { RENT_ALPHA, rentClass, type RentData } from '../src/lib/rent.ts'
 
 const t0 = Date.now()
 const land = await buildLand()
@@ -344,5 +346,36 @@ for (let j = 0; j < HPX; j++) {
 }
 await sharp(heat, { raw: { width: HPX, height: HPX, channels: 4 } }).webp({ quality: 88, alphaQuality: 90 }).toFile(path.join(OUT, 'heat-food.webp'))
 log('restaurants:', nFood, 'wrote heat-food.webp', (fs.statSync(path.join(OUT, 'heat-food.webp')).size / 1e6).toFixed(2), 'MB')
+
+// ---------- 9. rent by ZIP ----------
+// Zillow's rent index per ZIP painted onto Census ZCTA polygons as a stepped choropleth with hairline borders. Classes and
+// colours live in src/lib/rent.ts so the legend matches; ZIPs Zillow doesn't cover stay transparent. Draped like the
+// restaurant wash (scene/Heatmap.tsx), so it is the same 2048² RGBA WebP.
+log('rent')
+const { asOf, byZip } = await fetchRentByZip()
+const zctas = await buildZctas()
+let rentSvg = ''
+const rentZips: RentData['zips'] = []
+for (const f of zctas.features) {
+  const zip = String(f.properties?.ZCTA5CE20 ?? '')
+  const r = byZip.get(zip)
+  if (!r) continue
+  rentSvg += `<path fill="${rentClass(r.rent).color}" fill-rule="evenodd" stroke="#1b1d1a" stroke-opacity="0.38" stroke-width="2.4" stroke-linejoin="round" d="${polygonPath(f.geometry)}"/>`
+  rentZips.push({ zip, city: r.city, rent: r.rent })
+}
+const RPX = 2048
+const rentRaw = await rasterize(svgDoc(rentSvg, RPX))
+for (let j = 0; j < RPX; j++) {
+  const mj = Math.floor(((j + 0.5) / RPX) * PX) * PX
+  for (let i = 0; i < RPX; i++) {
+    const k = (j * RPX + i) * 4
+    const land = landMask[mj + Math.floor(((i + 0.5) / RPX) * PX)] > 127
+    rentRaw[k + 3] = land ? Math.round(rentRaw[k + 3] * RENT_ALPHA) : 0
+  }
+}
+await sharp(rentRaw, { raw: { width: RPX, height: RPX, channels: 4 } }).webp({ quality: 92, alphaQuality: 95 }).toFile(path.join(OUT, 'rent.webp'))
+rentZips.sort((a, b) => a.zip.localeCompare(b.zip))
+writeJSON(path.join(OUT, 'rent.json'), { asOf, source: 'Zillow Observed Rent Index', zips: rentZips } satisfies RentData)
+log('rent: ZIPs painted', rentZips.length, 'of', zctas.features.length, 'in view · as of', asOf, '· wrote rent.webp', (fs.statSync(path.join(OUT, 'rent.webp')).size / 1e6).toFixed(2), 'MB')
 
 log('done in', ((Date.now() - t0) / 1000).toFixed(0), 's')

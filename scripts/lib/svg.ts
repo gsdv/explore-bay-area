@@ -37,8 +37,9 @@ export function polygonPath(geom: GeoJSON.Geometry): string {
   return ''
 }
 
-export function svgDoc(body: string): string {
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${PX}" height="${PX}" viewBox="0 0 ${PX} ${PX}">${body}</svg>`
+/** Geometry is always in PX (4096²) space; `size` renders it at another pixel size (the washes are 2048²). */
+export function svgDoc(body: string, size = PX): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${PX} ${PX}">${body}</svg>`
 }
 
 /** Render an SVG to raw RGBA pixels. */

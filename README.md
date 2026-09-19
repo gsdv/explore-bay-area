@@ -37,6 +37,7 @@ https://explore-bay-area.vercel.app (see Deploying).
 | Transit | OSM route relations: Muni (bus, trolley, Metro, cable car), BART, Caltrain, VTA light rail, ferries | `LineSegments2`, one draw call per mode, official colours |
 | Stations | OSM railway=station for BART, Caltrain, Muni | Discs, labels when zoomed in |
 | Restaurants | OSM amenity=restaurant/cafe/fast_food (~13k places) | Density baked to a 2048² wash, draped over the terrain as a toggle |
+| Rent | Zillow Observed Rent Index per ZIP, on Census ZCTA polygons | Stepped choropleth baked to a 2048² wash with a legend; one wash shows at a time |
 | Landmarks | Curated (`src/data/landmarks.ts`) | Procedural low-poly models; hover = silhouette outline + pop |
 | Companies | Curated (`src/data/companies.ts`), > $10 B | HQ block + logo chip → detail card |
 | Quests | Curated (`src/data/quests.ts`) | Guided tours: an overview, then Begin / Next fly you stop to stop along a draped route, with a dot-line progress indicator |

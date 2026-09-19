@@ -3,6 +3,7 @@ import type { Company } from './data/companies'
 import type { Landmark } from './data/landmarks'
 import type { Quest } from './data/quests'
 import { project } from './lib/geo'
+import type { HeatKind } from './lib/world'
 
 export type TransitMode = 'rail' | 'bus' | 'cable' | 'ferry'
 
@@ -29,8 +30,8 @@ interface State {
   transit: Record<TransitMode, boolean>
   showCompanies: boolean
   showLandmarks: boolean
-  /** restaurant-density wash over the terrain */
-  showFood: boolean
+  /** which wash is draped over the terrain (restaurants or rent); at most one at a time */
+  heat: HeatKind | null
   fly: FlyTarget | null
   loaded: boolean
   setHoveredLandmark: (id: string | null) => void
@@ -43,7 +44,9 @@ interface State {
   nextStop: () => void
   prevStop: () => void
   toggleTransit: (m: TransitMode) => void
-  toggle: (k: 'showCompanies' | 'showLandmarks' | 'showFood') => void
+  toggle: (k: 'showCompanies' | 'showLandmarks') => void
+  /** turn a wash on, or off if it is already showing */
+  toggleHeat: (k: HeatKind) => void
   flyTo: (x: number, z: number, distance?: number, instant?: boolean, extra?: { yaw?: number; duration?: number }) => void
   setLoaded: () => void
 }
@@ -56,7 +59,7 @@ export const useStore = create<State>((set, get) => ({
   transit: { rail: true, bus: false, cable: true, ferry: true },
   showCompanies: true,
   showLandmarks: true,
-  showFood: false,
+  heat: null,
   fly: null,
   loaded: false,
   setHoveredLandmark: (id) => set({ hoveredLandmark: id }),
@@ -91,6 +94,7 @@ export const useStore = create<State>((set, get) => ({
   },
   toggleTransit: (m) => set({ transit: { ...get().transit, [m]: !get().transit[m] } }),
   toggle: (k) => set({ [k]: !get()[k] } as any),
+  toggleHeat: (k) => set({ heat: get().heat === k ? null : k }),
   flyTo: (x, z, distance, instant, extra) => set({ fly: { x, z, distance, instant, ...extra, nonce: Math.random() } }),
   setLoaded: () => set({ loaded: true }),
 }))

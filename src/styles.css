@@ -81,7 +81,14 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .layers__swatch--sq { width: 10px; height: 10px; background: #b7a7c7; border: 1px solid var(--ink); }
 .layers__swatch--tri { width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 10px solid var(--orange); }
 .layers__swatch--heat { width: 18px; height: 8px; border: 1px solid var(--ink); background: linear-gradient(90deg, #f5c391, var(--orange) 55%, #5e1800); }
+.layers__swatch--rent { width: 18px; height: 8px; border: 1px solid var(--ink); background: linear-gradient(90deg, #f6e3c8 0 17%, #f5c391 17% 33%, #f39b5c 33% 50%, var(--orange) 50% 67%, #b23300 67% 83%, #5e1800 83%); }
 .layers__sep { height: 1px; background: var(--ink-3); opacity: 0.5; margin: 6px 0; }
+.layers__legend { margin: 4px 0 3px 26px; width: 176px; animation: rise-in 0.3s cubic-bezier(.2,.8,.2,1) both; }
+.layers__legend-bar { display: grid; grid-template-columns: repeat(6, 1fr); height: 9px; border: 1px solid var(--ink); }
+.layers__legend-bar i { display: block; }
+.layers__legend-ticks { position: relative; height: 14px; font-family: var(--mono); font-size: 9.5px; color: var(--ink-2); }
+.layers__legend-ticks span { position: absolute; top: 2px; transform: translateX(-50%); white-space: nowrap; }
+.layers__legend-note { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.04em; color: var(--ink-3); margin-top: 1px; }
 
 /* ---------- detail card ---------- */
 .card { position: absolute; right: 22px; top: 22px; width: 360px; max-height: calc(100% - 44px); overflow: auto; padding: 18px 20px 20px; z-index: 120; animation: card-in 0.32s cubic-bezier(.2,.8,.2,1) both; }

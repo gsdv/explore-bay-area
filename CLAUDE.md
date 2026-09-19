@@ -30,10 +30,12 @@ scripts/                data pipeline (run with tsx; Node 24)
   lib/osm.ts            the Overpass queries (bboxes for SF, downtown, full region)
   lib/terrain.ts        terrarium tiles → 1024² heightmap, RGB-encoded PNG
   lib/land.ts           census counties → shoreline polygons (mapshaper)
+  lib/rent.ts           Zillow ZORI CSV + census ZCTA polygons for the rent choropleth
   lib/svg.ts            SVG builder + sharp rasteriser for the 4096² map texture
   lib/palette.ts        map colours and road stroke styles
 src/
   lib/geo.ts            THE shared projection + constants (imported by scripts AND app)
+  lib/rent.ts           rent classes/colours shared by the pipeline (paints rent.webp) and the legend
   lib/world.ts          loads public/data, decodes the heightmap, exposes heights.yAt(x,z)
   lib/extrude.ts        building footprints → one merged geometry (earcut roofs, quad walls)
   store.ts              zustand app state: selection, active quest, layer toggles, flyTo requests
@@ -42,7 +44,7 @@ src/
   scene/viewStore.ts    camera state published for UI (minimap, label tiers)
   scene/Terrain.tsx     512² displaced grid + map texture
   scene/Water.tsx       translucent sea-level plane
-  scene/Heatmap.tsx     restaurant-density wash (heat-food.webp) draped on the shared terrain grid; fades on toggle
+  scene/Heatmap.tsx     ground washes (heat-food.webp, rent.webp) draped on the shared terrain grid; one per kind, cross-fade
   scene/Buildings.tsx   downtown extrusions + instanced procedural blocks (10×10 chunks)
   scene/Transit.tsx     LineSegments2 per mode + station discs/labels
   scene/Landmarks.tsx   landmark groups: hover outline (inverted hull), pop-up scale, labels
@@ -151,6 +153,11 @@ vercel.json             build settings + cache headers for Vercel (see Hosting)
 - Restaurant heatmap: `osm.fetchFood()` (amenity=restaurant|cafe|fast_food, bars excluded on purpose) is binned,
   gaussian-blurred (σ ≈ 200 m), sqrt-normalised to the 99.5th percentile and coloured through `palette.ts`'s heat
   ramp in `build-data.ts` step 8. Retune the ramp or radius there and run `pnpm data`; the app only drapes the texture.
+- Rent heatmap: Zillow's ZORI ZIP CSV (`data-cache/zori-zip.csv`, free, no key; delete it to pull a newer month) joined to
+  Census 2020 ZCTA polygons (67 MB national zip, clipped with mapshaper) in `build-data.ts` step 9. Classes and colours are
+  in `src/lib/rent.ts`; `rent.json` carries the as-of month for the legend. Not live: refresh = `pnpm data` + commit.
+- Washes are exclusive: `store.heat` is `'food' | 'rent' | null` and `toggleHeat(kind)` swaps; each `Heatmap` instance
+  fades itself in/out, so switching cross-fades.
 - Company X/Twitter feed is intentionally stubbed until the owner supplies an Apify token; it should be
   proxied through a serverless function so the token stays server-side.
 

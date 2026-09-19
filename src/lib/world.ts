@@ -33,11 +33,15 @@ export interface Building {
   y: number
 }
 
+/** The ground washes the pipeline bakes (public/data/heat-food.webp, rent.webp). */
+export type HeatKind = 'food' | 'rent'
+
 export interface World {
   heights: Heightmap
   mapTexture: THREE.Texture
   /** restaurant-density wash, RGBA, draped over the terrain when the layer is on */
-  heatFood: THREE.Texture
+  /** pre-coloured washes draped over the terrain by scene/Heatmap.tsx */
+  heat: Record<HeatKind, THREE.Texture>
   buildings: Building[]
   filler: Float32Array
   transit: TransitRoute[]
@@ -73,7 +77,13 @@ async function loadHeightmap(onProgress: (s: string) => void): Promise<Heightmap
 
 export async function loadWorld(onProgress: (s: string) => void): Promise<World> {
   const loader = new THREE.TextureLoader()
-  const [heights, mapTexture, heatFood, buildings, fillerBuf, transit, stations] = await Promise.all([
+  const wash = (file: string) =>
+    loader.loadAsync(file).then((t) => {
+      t.colorSpace = THREE.SRGBColorSpace
+      t.anisotropy = 4
+      return t
+    })
+  const [heights, mapTexture, heatFood, heatRent, buildings, fillerBuf, transit, stations] = await Promise.all([
     loadHeightmap(onProgress),
     loader.loadAsync('/data/map.webp').then((t) => {
       t.colorSpace = THREE.SRGBColorSpace
@@ -82,17 +92,14 @@ export async function loadWorld(onProgress: (s: string) => void): Promise<World>
       t.generateMipmaps = true
       return t
     }),
-    loader.loadAsync('/data/heat-food.webp').then((t) => {
-      t.colorSpace = THREE.SRGBColorSpace
-      t.anisotropy = 4
-      return t
-    }),
+    wash('/data/heat-food.webp'),
+    wash('/data/rent.webp'),
     fetch('/data/buildings.json').then((r) => r.json()),
     fetch('/data/filler.bin').then((r) => r.arrayBuffer()),
     fetch('/data/transit.json').then((r) => r.json()),
     fetch('/data/stations.json').then((r) => r.json()),
   ])
   onProgress('city')
-  return { heights, mapTexture, heatFood, buildings, filler: new Float32Array(fillerBuf), transit, stations }
+  return { heights, mapTexture, heat: { food: heatFood, rent: heatRent }, buildings, filler: new Float32Array(fillerBuf), transit, stations }
 }
 
