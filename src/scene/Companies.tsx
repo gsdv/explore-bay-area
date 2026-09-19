@@ -5,7 +5,10 @@ import { companies, logoUrl, type Company } from '../data/companies'
 import { project, UNIT, BUILDING_EXAGGERATION } from '../lib/geo'
 import type { World } from '../lib/world'
 import { useStore } from '../store'
-import { useZoomTier } from './viewStore'
+import { useZoomTier, useCameraDistance } from './viewStore'
+
+/** closer than this (world units to the screen-centre point) chips show their name; further away, logo only */
+const EXPAND_DIST = 34
 
 const fmtCap = (b: number) => (b >= 1000 ? `$${(b / 1000).toFixed(1)}T` : `$${Math.round(b)}B`)
 
@@ -13,6 +16,7 @@ export function Companies({ world }: { world: World }) {
   const show = useStore((s) => s.showCompanies)
   const quest = useStore((s) => s.activeQuest)
   const tier = useZoomTier()
+  const compact = useCameraDistance() > EXPAND_DIST
   const placed = useMemo(
     () =>
       companies.map((c) => {
@@ -24,17 +28,17 @@ export function Companies({ world }: { world: World }) {
   if (!show) return null
   const visible = quest
     ? placed.filter((p) => quest.stops.some((s) => s.ref?.kind === 'company' && s.ref.id === p.c.id))
-    : tier === 'far' ? placed.filter((p) => p.c.cap >= 150) : tier === 'mid' ? placed.filter((p) => p.c.cap >= 40) : placed
+    : tier === 'far' ? placed.filter((p) => p.c.cap >= 60) : placed
   return (
     <group>
       {visible.map((p) => (
-        <CompanyMarker key={p.c.id} {...p} />
+        <CompanyMarker key={p.c.id} {...p} compact={compact} />
       ))}
     </group>
   )
 }
 
-function CompanyMarker({ c, x, y, z, h }: { c: Company; x: number; y: number; z: number; h: number }) {
+function CompanyMarker({ c, x, y, z, h, compact }: { c: Company; x: number; y: number; z: number; h: number; compact: boolean }) {
   const select = useStore((s) => s.select)
   const selected = useStore((s) => s.selected?.kind === 'company' && s.selected.item.id === c.id)
   const color = useMemo(() => new THREE.Color().setHSL((c.name.length * 0.137) % 1, 0.25, 0.62), [c])
@@ -46,7 +50,8 @@ function CompanyMarker({ c, x, y, z, h }: { c: Company; x: number; y: number; z:
       </mesh>
       <Html position={[0, h + 0.5, 0]} center zIndexRange={[30, 20]} style={{ pointerEvents: 'auto' }}>
         <button
-          className={'company-chip' + (selected ? ' is-selected' : '')}
+          className={'company-chip' + (selected ? ' is-selected' : '') + (compact && !selected ? ' is-compact' : '')}
+          title={compact ? `${c.name} · ${fmtCap(c.cap)}` : undefined}
           onClick={(e) => {
             e.stopPropagation()
             select({ kind: 'company', item: c })
