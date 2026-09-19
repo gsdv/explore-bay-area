@@ -55,13 +55,38 @@ export function landmarkParts(l: Landmark): Part[] {
         { geo: 'cyl', pos: [0, H(l.height ?? 64) + 0.08, 0], scale: [1, 0.16, 1], color: '#e0d8c4', args: [0.36, 0.28, 16] },
       ]
     case 'sutro': {
+      // Three legs flare out at the base and lean in to a "waist", then three straight masts rise to the top,
+      // tied by crossbars. Painted in red and white bands like the real one.
       const h = H(l.height ?? 298)
+      const RED = '#d9462d', WHITE = '#f4f1ea'
+      const waist = 0.58 * h
+      const rBase = 0.5, rWaist = 0.15
+      const phi = Math.atan((rBase - rWaist) / waist)
       const p: Part[] = []
-      for (const [dx, dz] of [[-0.35, 0], [0.35, 0], [0, 0.3]] as const) {
-        p.push({ geo: 'box', pos: [dx * 0.6, h * 0.55, dz * 0.6], rot: [0, 0, 0], scale: [0.09, h * 1.1, 0.09], color: '#d94b32' })
+      const bands = [0, 0.22, 0.44, 0.66, 0.85, 1]
+      for (let k = 0; k < 3; k++) {
+        const th = (k / 3) * Math.PI * 2 + Math.PI / 6
+        const cx = Math.cos(th), cz = Math.sin(th)
+        // leaning lower leg in alternating bands
+        for (let b = 0; b < bands.length - 1; b++) {
+          const t0 = bands[b], t1 = bands[b + 1], tm = (t0 + t1) / 2
+          const r = rBase + (rWaist - rBase) * tm
+          const len = ((t1 - t0) * waist) / Math.cos(phi)
+          p.push({ geo: 'cyl', pos: [cx * r, tm * waist, cz * r], rot: [0, -th, phi], scale: [1, len, 1], color: b % 2 ? WHITE : RED, args: [0.055 + 0.03 * (1 - t1), 0.055 + 0.03 * (1 - t0), 8] })
+        }
+        // upper mast, straight
+        const mastH = h - waist
+        p.push({ geo: 'cyl', pos: [cx * rWaist, waist + mastH * 0.25, cz * rWaist], scale: [1, mastH * 0.5, 1], color: WHITE, args: [0.05, 0.055, 8] })
+        p.push({ geo: 'cyl', pos: [cx * rWaist, waist + mastH * 0.75, cz * rWaist], scale: [1, mastH * 0.5, 1], color: RED, args: [0.04, 0.05, 8] })
+        // antenna tip
+        p.push({ geo: 'cyl', pos: [cx * rWaist, h + 0.25, cz * rWaist], scale: [1, 0.5, 1], color: WHITE, args: [0.015, 0.03, 6] })
       }
-      p.push({ geo: 'box', pos: [0, h * 0.35, 0.05], scale: [1.0, 0.08, 0.08], color: '#f2f2f2' })
-      p.push({ geo: 'box', pos: [0, h * 0.75, 0.05], scale: [1.0, 0.08, 0.08], color: '#f2f2f2' })
+      // waist platform and crossbars (triangular prisms)
+      p.push({ geo: 'cyl', pos: [0, waist, 0], rot: [0, Math.PI / 6, 0], scale: [1, 0.1, 1], color: RED, args: [rWaist + 0.06, rWaist + 0.06, 3] })
+      for (const f of [0.74, 0.9]) p.push({ geo: 'cyl', pos: [0, waist + (h - waist) * (f - 0.58) / 0.42, 0], rot: [0, Math.PI / 6, 0], scale: [1, 0.06, 1], color: WHITE, args: [rWaist + 0.04, rWaist + 0.04, 3] })
+      p.push({ geo: 'cyl', pos: [0, h, 0], rot: [0, Math.PI / 6, 0], scale: [1, 0.08, 1], color: RED, args: [rWaist + 0.05, rWaist + 0.05, 3] })
+      // base building
+      p.push({ geo: 'box', pos: [0, 0.12, 0], scale: [0.5, 0.24, 0.4], color: '#d9d5cc' })
       return p
     }
     case 'ferry':

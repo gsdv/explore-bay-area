@@ -33,12 +33,26 @@ const HULL = 0.09
 
 function LandmarkObject({ landmark: l, world }: { landmark: Landmark; world: World }) {
   const group = useRef<THREE.Group>(null)
-  const hovered = useStore((s) => s.hoveredLandmark === l.id)
+  const quest = useStore((s) => s.activeQuest)
+  const inQuest = !!quest
+  const hovered = useStore((s) => s.hoveredLandmark === l.id) && !inQuest
   const setHovered = useStore((s) => s.setHoveredLandmark)
   const select = useStore((s) => s.select)
   const tier = useZoomTier()
   const parts = useMemo(() => landmarkParts(l), [l])
   const lines = useMemo(() => landmarkLines(l), [l])
+  // an invisible box around the whole model so gaps (tower legs, bridge spans) still count as hovering
+  const bounds = useMemo(() => {
+    let minX = Infinity, minY = Infinity, minZ = Infinity, maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity
+    for (const p of parts) {
+      const r = Math.hypot(p.scale[0], p.scale[2]) / 2
+      minX = Math.min(minX, p.pos[0] - r); maxX = Math.max(maxX, p.pos[0] + r)
+      minZ = Math.min(minZ, p.pos[2] - r); maxZ = Math.max(maxZ, p.pos[2] + r)
+      minY = Math.min(minY, p.pos[1] - p.scale[1] / 2); maxY = Math.max(maxY, p.pos[1] + p.scale[1] / 2)
+    }
+    const pad = 0.12
+    return { center: [(minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2] as [number, number, number], size: [maxX - minX + pad, maxY - minY + pad, maxZ - minZ + pad] as [number, number, number] }
+  }, [parts])
   const { pos, rotY, scaleT } = useMemo(() => {
     const [x, z] = project(l.lat, l.lng)
     let rotY = 0
@@ -59,6 +73,7 @@ function LandmarkObject({ landmark: l, world }: { landmark: Landmark; world: Wor
   })
 
   const onOver = (e: ThreeEvent<PointerEvent>) => {
+    if (inQuest) return
     e.stopPropagation()
     setHovered(l.id)
     document.body.style.cursor = 'pointer'
@@ -68,15 +83,20 @@ function LandmarkObject({ landmark: l, world }: { landmark: Landmark; world: Wor
     document.body.style.cursor = ''
   }
   const onClick = (e: ThreeEvent<MouseEvent>) => {
+    if (inQuest) return
     e.stopPropagation()
     select({ kind: 'landmark', item: l })
   }
 
-  const showLabel = tier !== 'far' || l.tags?.includes('icon')
+  const showLabel = !inQuest && (tier !== 'far' || l.tags?.includes('icon'))
   const labelHeight = Math.max(...parts.map((p) => p.pos[1] + p.scale[1] / 2)) + 0.6
 
   return (
     <group ref={group} position={pos} rotation-y={rotY} onPointerOver={onOver} onPointerOut={onOut} onClick={onClick}>
+      <mesh position={bounds.center} visible={false}>
+        <boxGeometry args={bounds.size} />
+        <meshBasicMaterial />
+      </mesh>
       {parts.map((p, i) => (
         <group key={i} position={p.pos} rotation={p.rot ?? [0, 0, 0]}>
           <mesh geometry={geoFor(p)} scale={p.scale}>

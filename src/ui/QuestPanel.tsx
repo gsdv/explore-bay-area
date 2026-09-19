@@ -24,10 +24,10 @@ export function QuestPanel() {
   }
 
   return (
-    <aside className={'quests' + (open ? '' : ' is-collapsed')}>
+    <aside className={'quests' + (open ? '' : ' is-collapsed') + (active ? ' is-quest' : '')}>
       <button className="quests__head" onClick={() => setOpen((o) => !o)}>
-        <span className="quests__eyebrow">Nº {active ? quests.indexOf(active) + 1 : '—'}</span>
-        <span className="quests__title">{active ? active.title : 'Quests'}</span>
+        <span className="quests__eyebrow">{active ? `Nº ${quests.indexOf(active) + 1}` : 'Nº —'}</span>
+        <span className="quests__title">{active ? 'Stops' : 'Quests'}</span>
         <span className="quests__chev">{open ? '–' : '+'}</span>
       </button>
       {open && !active && (
@@ -53,7 +53,6 @@ export function QuestPanel() {
       )}
       {open && active && (
         <div className="quest-detail" style={{ ['--quest' as any]: active.color }}>
-          <p className="quest-detail__sub">{active.subtitle}</p>
           <ol className="quest-detail__stops">
             {active.stops.map((s, i) => {
               const done = (progress[active.id] ?? []).includes(s.id)

@@ -13,8 +13,9 @@ export function Layers() {
   const showCompanies = useStore((s) => s.showCompanies)
   const showLandmarks = useStore((s) => s.showLandmarks)
   const toggle = useStore((s) => s.toggle)
+  const quest = useStore((s) => s.activeQuest)
   return (
-    <aside className="layers">
+    <aside className={'layers' + (quest ? ' is-away' : '')} aria-hidden={!!quest}>
       <div className="layers__title">Layers</div>
       {MODES.map(({ m, label, swatch }) => (
         <label key={m} className="layers__row">

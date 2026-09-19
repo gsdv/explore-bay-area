@@ -11,6 +11,7 @@ const fmtCap = (b: number) => (b >= 1000 ? `$${(b / 1000).toFixed(1)}T` : `$${Ma
 
 export function Companies({ world }: { world: World }) {
   const show = useStore((s) => s.showCompanies)
+  const quest = useStore((s) => s.activeQuest)
   const tier = useZoomTier()
   const placed = useMemo(
     () =>
@@ -21,7 +22,9 @@ export function Companies({ world }: { world: World }) {
     [world],
   )
   if (!show) return null
-  const visible = tier === 'far' ? placed.filter((p) => p.c.cap >= 150) : tier === 'mid' ? placed.filter((p) => p.c.cap >= 40) : placed
+  const visible = quest
+    ? placed.filter((p) => quest.stops.some((s) => s.ref?.kind === 'company' && s.ref.id === p.c.id))
+    : tier === 'far' ? placed.filter((p) => p.c.cap >= 150) : tier === 'mid' ? placed.filter((p) => p.c.cap >= 40) : placed
   return (
     <group>
       {visible.map((p) => (

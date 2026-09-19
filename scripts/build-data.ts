@@ -11,7 +11,7 @@ import { buildLand } from './lib/land.ts'
 import { buildHeightmap, writeHeightmap } from './lib/terrain.ts'
 import { PX, polygonPath, linePath, svgDoc, rasterize } from './lib/svg.ts'
 import { P, ROAD_STYLE, lerp, clamp01, smooth } from './lib/palette.ts'
-import { project, toUV, elevationToY, BUILDING_EXAGGERATION, UNIT } from '../src/lib/geo.ts'
+import { project, toUV, elevationToY, BUILDING_EXAGGERATION, UNIT, WORLD } from '../src/lib/geo.ts'
 
 const t0 = Date.now()
 const land = await buildLand()
@@ -217,6 +217,41 @@ for (const r of tr.elements) {
   const prev = best.get(key)
   if (!prev || ways > prev.ways) best.set(key, { r, ways })
 }
+/** Clip an [x,y,z,...] polyline to the terrain rectangle; may split it into several lines. */
+const HX = WORLD.width / 2 - 0.5, HZ = WORLD.depth / 2 - 0.5
+const inside = (x: number, z: number) => x >= -HX && x <= HX && z >= -HZ && z <= HZ
+function clipToWorld(line: number[]): number[][] {
+  const out: number[][] = []
+  let cur: number[] = []
+  const flush = () => { if (cur.length >= 6) out.push(cur); cur = [] }
+  const edgeHit = (ax: number, ay: number, az: number, bx: number, by: number, bz: number) => {
+    // Liang–Barsky on x/z, returns the entering/leaving parameter range [t0, t1]
+    let t0 = 0, t1 = 1
+    const dx = bx - ax, dz = bz - az
+    for (const [p, q] of [[-dx, ax + HX], [dx, HX - ax], [-dz, az + HZ], [dz, HZ - az]]) {
+      if (p === 0) { if (q < 0) return null; continue }
+      const r = q / p
+      if (p < 0) { if (r > t1) return null; if (r > t0) t0 = r }
+      else { if (r < t0) return null; if (r < t1) t1 = r }
+    }
+    const at = (t: number) => [ax + dx * t, ay + (by - ay) * t, az + dz * t].map((v) => Math.round(v * 100) / 100)
+    return [t0, t1, at] as const
+  }
+  for (let i = 0; i + 5 < line.length; i += 3) {
+    const [ax, ay, az, bx, by, bz] = [line[i], line[i + 1], line[i + 2], line[i + 3], line[i + 4], line[i + 5]]
+    const ai = inside(ax, az), bi = inside(bx, bz)
+    if (ai && bi) { if (!cur.length) cur.push(ax, ay, az); cur.push(bx, by, bz); continue }
+    const hit = edgeHit(ax, ay, az, bx, by, bz)
+    if (!hit) { flush(); continue }
+    const [t0, t1, at] = hit
+    if (ai && !bi) { if (!cur.length) cur.push(ax, ay, az); cur.push(...at(t1)); flush() }
+    else if (!ai && bi) { flush(); cur.push(...at(t0), bx, by, bz) }
+    else { flush(); cur.push(...at(t0), ...at(t1)); flush() }
+  }
+  flush()
+  return out
+}
+
 const DEFAULT_COLOR: Record<string, string> = { bus: '#f08a3e', rail: '#d13c3c', cable: '#8b5a2b', ferry: '#2f7fb8' }
 const routes: Route[] = []
 for (const { r } of best.values()) {
@@ -234,7 +269,7 @@ for (const { r } of best.values()) {
       const [x, z] = project(g.lat, g.lon)
       line.push(Math.round(x * 100) / 100, Math.round((elevationToY(elevAt(g.lat, g.lon)) + 0.06) * 100) / 100, Math.round(z * 100) / 100)
     }
-    if (line.length >= 6) lines.push(line)
+    if (line.length >= 6) lines.push(...clipToWorld(line))
   }
   if (!lines.length) continue
   routes.push({ id: r.id, ref: t.ref ?? '', name, network: t.network, mode, color: t.colour ?? DEFAULT_COLOR[mode], lines })

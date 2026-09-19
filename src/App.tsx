@@ -8,6 +8,7 @@ import { DetailCard } from './ui/DetailCard'
 import { Help } from './ui/Help'
 import { DeepLink } from './ui/DeepLink'
 import { Minimap } from './ui/Minimap'
+import { QuestFrame } from './ui/QuestFrame'
 
 export default function App() {
   const [world, setWorld] = useState<World | null>(null)
@@ -29,6 +30,7 @@ export default function App() {
           <Help />
           <DeepLink />
           <Minimap />
+          <QuestFrame />
         </>
       )}
     </div>

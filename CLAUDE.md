@@ -76,6 +76,14 @@ public/data/            generated, committed (≈9 MB) so deploys don't need the
   its frame loop, so it's safe to call before the rig mounts.
 - **Deep links** (`#at=lat,lng,dist`, `#quest=`, `#company=`, `#landmark=`) are applied by
   `ui/DeepLink.tsx`; the first application is instant, later hash changes animate.
+- **Quest mode.** While `store.activeQuest` is set: `QuestFrame` draws a coloured viewport border, the
+  header swaps to the quest title (quest colour) with an Exit button, the Layers panel slides away, only
+  companies referenced by the quest's stops keep chips, and landmarks lose labels/hover/select. Esc exits
+  the quest when nothing else is open. Anything new that adds clutter should also respect `activeQuest`.
+- **Landmark hit-testing** uses an invisible bounding box around each model (`Landmarks.tsx`), so gaps
+  between tower legs or bridge spans still count as hovering. Keep it when adding kinds.
+- **Transit lines are clipped** to the terrain rectangle in `build-data.ts` (`clipToWorld`); Overpass
+  returns whole ways that cross the bbox, so never skip this for new line data.
 
 ## Style rules (from the owner — treat as requirements)
 

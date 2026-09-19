@@ -37,7 +37,7 @@ Other scripts: `pnpm typecheck`, `pnpm build`, `pnpm preview`.
 | Stations | OSM railway=station for BART, Caltrain, Muni | Discs, labels when zoomed in |
 | Landmarks | Curated (`src/data/landmarks.ts`) | Procedural low-poly models; hover = silhouette outline + pop |
 | Companies | Curated (`src/data/companies.ts`), > $10 B | HQ block + logo chip → detail card |
-| Quests | Curated (`src/data/quests.ts`) | Draped, animated route with numbered pins and a checklist |
+| Quests | Curated (`src/data/quests.ts`) | Draped, animated route with numbered pins and a checklist; starting one puts the whole UI into a focused quest mode |
 
 ## Controls
 
