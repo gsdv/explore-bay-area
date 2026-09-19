@@ -58,8 +58,12 @@ function CompanyMarker({ c, x, y, z, h, compact }: { c: Company; x: number; y: n
           }}
         >
           <img src={logoUrl(c)} alt="" width={16} height={16} loading="lazy" />
-          <span className="company-chip__name">{c.name}</span>
-          <span className="company-chip__cap">{fmtCap(c.cap)}</span>
+          <span className="company-chip__text">
+            <span className="company-chip__inner">
+              <span className="company-chip__name">{c.name}</span>
+              <span className="company-chip__cap">{fmtCap(c.cap)}</span>
+            </span>
+          </span>
         </button>
       </Html>
     </group>
