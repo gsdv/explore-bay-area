@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Html } from '@react-three/drei'
 import * as THREE from 'three'
 import { companies, logoUrl, type Company } from '../data/companies'
@@ -42,6 +42,18 @@ function CompanyMarker({ c, x, y, z, h, compact }: { c: Company; x: number; y: n
   const select = useStore((s) => s.select)
   const selected = useStore((s) => s.selected?.kind === 'company' && s.selected.item.id === c.id)
   const color = useMemo(() => new THREE.Color().setHSL((c.name.length * 0.137) % 1, 0.25, 0.62), [c])
+  // Measure the natural text width so the collapse can animate a real width. drei's Html renders
+  // children in its own React root, so a ref callback (which runs when the span actually attaches)
+  // is the reliable place to measure; re-measure once web fonts have loaded.
+  const inner = useRef<HTMLSpanElement | null>(null)
+  const [textW, setTextW] = useState<number | null>(null)
+  const measure = useCallback((el: HTMLSpanElement | null) => {
+    inner.current = el
+    if (el && el.scrollWidth > 0) setTextW((w) => (w === el.scrollWidth ? w : el.scrollWidth))
+  }, [])
+  useEffect(() => {
+    document.fonts?.ready.then(() => measure(inner.current))
+  }, [measure])
   return (
     <group position={[x, y, z]}>
       <mesh position-y={h / 2} raycast={() => null}>
@@ -58,8 +70,8 @@ function CompanyMarker({ c, x, y, z, h, compact }: { c: Company; x: number; y: n
           }}
         >
           <img src={logoUrl(c)} alt="" width={16} height={16} loading="lazy" />
-          <span className="company-chip__text">
-            <span className="company-chip__inner">
+          <span className="company-chip__text" style={textW !== null ? { width: compact && !selected ? 0 : textW } : undefined}>
+            <span ref={measure} className="company-chip__inner">
               <span className="company-chip__name">{c.name}</span>
               <span className="company-chip__cap">{fmtCap(c.cap)}</span>
             </span>
