@@ -9,6 +9,7 @@
  *   pnpm tweets                       all companies
  *   pnpm tweets -- --only anthropic,openai
  *   pnpm tweets -- --dry              fetch and report, don't write
+ *   pnpm tweets -- --from-cache       re-normalise data-cache/tweets-raw without calling Apify
  *
  * Needs APIFY_TOKEN (read from .env.local if present, else the environment). Raw actor output is kept in
  * data-cache/tweets-raw/<id>.json for debugging.
@@ -16,6 +17,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { companies } from '../src/data/companies.ts'
+import type { Post, TweetsFile } from '../src/lib/tweets.ts'
 import { CACHE, OUT, ROOT, log, readJSON } from './lib/util.ts'
 
 const ACTOR = 'kaitoeasyapi~twitter-x-data-tweet-scraper-pay-per-result-cheapest'
@@ -27,22 +29,6 @@ const MAX_ITEMS = 20
 const MAX_CHARGE_USD = 0.05
 const RUN_TIMEOUT_S = 240
 
-export interface Post {
-  id: string
-  url: string
-  text: string
-  /** ISO 8601 */
-  createdAt: string
-  likes: number
-  reposts: number
-  replies: number
-  views?: number
-}
-export interface TweetsFile {
-  fetchedAt: string
-  /** companyId -> newest first */
-  posts: Record<string, Post[]>
-}
 
 const args = process.argv.slice(2)
 const flag = (name: string) => args.includes(`--${name}`)
@@ -117,6 +103,20 @@ function toISO(s: unknown): string | undefined {
   return Number.isNaN(d.getTime()) ? undefined : d.toISOString()
 }
 
+/**
+ * Drop the bare t.co links X appends for attached media (the post links to X anyway) and expand the
+ * remaining t.co links so the text reads as written.
+ */
+function cleanText(text: string, it: any): string {
+  for (const m of it.extendedEntities?.media ?? it.entities?.media ?? []) {
+    if (m?.url) text = text.split(m.url).join('')
+  }
+  for (const u of it.entities?.urls ?? []) {
+    if (u?.url && u.expanded_url) text = text.split(u.url).join(u.expanded_url)
+  }
+  return text.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim()
+}
+
 function normalise(items: any[], handle: string): Post[] {
   const posts: Post[] = []
   for (const it of items) {
@@ -129,7 +129,7 @@ function normalise(items: any[], handle: string): Post[] {
     if (author && author.toLowerCase() !== handle.toLowerCase()) continue
     const createdAt = toISO(it.createdAt)
     if (!createdAt) continue
-    const text = String(it.fullText ?? it.text ?? '').trim()
+    const text = cleanText(String(it.fullText ?? it.text ?? ''), it)
     if (!text) continue
     const post: Post = {
       id: String(it.id),
@@ -150,6 +150,7 @@ function normalise(items: any[], handle: string): Post[] {
 async function main() {
   const only = opt('only')?.split(',').filter(Boolean)
   const dry = flag('dry')
+  const fromCache = flag('from-cache')
   const targets = companies.filter((c) => c.twitter && (!only || only.includes(c.id)))
   if (only) {
     for (const id of only) if (!targets.some((c) => c.id === id)) log('warn: no company with handle for id', id)
@@ -168,17 +169,32 @@ async function main() {
     const handle = c.twitter!
     const started = Date.now()
     try {
-      const { run, items } = await runActor(handle)
-      fs.writeFileSync(path.join(RAW, `${c.id}.json`), JSON.stringify(items, null, 2))
+      const rawFile = path.join(RAW, `${c.id}.json`)
+      let items: any[]
+      let took = ''
+      if (fromCache) {
+        if (!fs.existsSync(rawFile)) throw new Error(`no cached raw file ${path.relative(ROOT, rawFile)}`)
+        items = readJSON<any[]>(rawFile)
+      } else {
+        const res = await runActor(handle)
+        items = res.items
+        fs.writeFileSync(rawFile, JSON.stringify(items, null, 2))
+        usd += res.run.usageTotalUsd ?? 0
+        took = `${((Date.now() - started) / 1000).toFixed(0)}s` + (res.run.usageTotalUsd ? `  $${res.run.usageTotalUsd.toFixed(4)}` : '')
+      }
+      ok++
+      const head = `${c.id.padEnd(16)} @${handle.padEnd(18)}`
+      // When X search finds nothing the actor pads the dataset with `mock_tweet` items (its minimum
+      // charge). That is "no results", not a failure: keep whatever we had rather than blanking it.
+      if (items.length > 0 && items.every((it) => !it || it.type !== 'tweet')) {
+        const had = posts[c.id]?.length ?? 0
+        posts[c.id] = posts[c.id] ?? []
+        log(`${head} no results${had ? ` (keeping ${had} previous)` : ''}  ${took}`)
+        continue
+      }
       const kept = normalise(items, handle)
       posts[c.id] = kept
-      ok++
-      usd += run.usageTotalUsd ?? 0
-      log(
-        `${c.id.padEnd(16)} @${handle.padEnd(18)} ${String(items.length).padStart(3)} raw -> ${kept.length} kept` +
-          `  ${((Date.now() - started) / 1000).toFixed(0)}s` +
-          (run.usageTotalUsd ? `  $${run.usageTotalUsd.toFixed(4)}` : ''),
-      )
+      log(`${head} ${String(items.length).padStart(3)} raw -> ${kept.length} kept  ${took}`)
       if (kept.length === 0) log(`  warn: nothing kept for @${handle} — check the handle / raw file`)
     } catch (e) {
       failed++
@@ -189,7 +205,7 @@ async function main() {
   // stable key order so the committed file diffs cleanly
   const sorted: Record<string, Post[]> = {}
   for (const id of Object.keys(posts).sort()) sorted[id] = posts[id]
-  const out: TweetsFile = { fetchedAt: new Date().toISOString(), posts: sorted }
+  const out: TweetsFile = { fetchedAt: fromCache ? existing.fetchedAt : new Date().toISOString(), posts: sorted }
 
   // Apify settles usage shortly after a run ends, so this is usually a lower bound; the console has exact figures.
   log(`done: ${ok} ok, ${failed} failed, ${((Date.now() - t0) / 1000).toFixed(0)}s, ~$${usd.toFixed(3)} (≈$${(ok * 0.005).toFixed(2)} expected)`)

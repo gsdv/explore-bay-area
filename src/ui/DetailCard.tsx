@@ -2,6 +2,41 @@ import { useEffect } from 'react'
 import { useStore } from '../store'
 import { logoUrl } from '../data/companies'
 import { project } from '../lib/geo'
+import { fmtCount, fmtDate, fmtWhen, useTweets } from '../lib/tweets'
+
+function Feed({ companyId, handle }: { companyId: string; handle: string }) {
+  const feed = useTweets(companyId)
+  const profile = `https://x.com/${handle}`
+  return (
+    <section className="card__feed">
+      <div className="card__feed-head">
+        <a href={profile} target="_blank" rel="noopener noreferrer">Latest from @{handle}</a>
+        {feed.status === 'ready' && feed.posts.length > 0 && <span>as of {fmtDate(feed.fetchedAt)}</span>}
+      </div>
+      {feed.status === 'loading' && <div className="card__feed-empty">Loading posts…</div>}
+      {feed.status === 'error' && <div className="card__feed-empty">Posts are unavailable right now.</div>}
+      {feed.status === 'ready' && feed.posts.length === 0 && (
+        <div className="card__feed-empty">No recent posts found for @{handle}.</div>
+      )}
+      {feed.status === 'ready' && feed.posts.length > 0 && (
+        <ol className="card__posts">
+          {feed.posts.map((p) => (
+            <li key={p.id}>
+              <a className="card__post" href={p.url} target="_blank" rel="noopener noreferrer">
+                <time dateTime={p.createdAt}>{fmtWhen(p.createdAt)}</time>
+                <p>{p.text}</p>
+                <span className="card__post-meta">
+                  {fmtCount(p.likes)} likes · {fmtCount(p.reposts)} reposts
+                  {p.views != null && p.views > 0 && ` · ${fmtCount(p.views)} views`}
+                </span>
+              </a>
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
+  )
+}
 
 const fmtCap = (b: number) => (b >= 1000 ? `$${(b / 1000).toFixed(2)} trillion` : `$${Math.round(b)} billion`)
 const fmtN = (n: number) => n.toLocaleString('en-US')
@@ -37,12 +72,7 @@ export function DetailCard() {
           <dt>Founded</dt>
           <dd>{c.founded}</dd>
         </dl>
-        <div className="card__feed">
-          <div className="card__feed-head">
-            Latest from {c.twitter ? `@${c.twitter}` : 'the company'}
-          </div>
-          <div className="card__feed-empty">Feed coming soon. Posts will be pulled from X via Apify.</div>
-        </div>
+        {c.twitter && <Feed companyId={c.id} handle={c.twitter} />}
         <button className="card__fly" onClick={() => { const [x, z] = project(c.lat, c.lng); flyTo(x, z, 10) }}>Fly there →</button>
       </article>
     )

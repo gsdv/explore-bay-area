@@ -122,8 +122,9 @@ Live at **https://explore-bay-area.vercel.app**, hosted on Vercel and connected 
 
 `vercel.json` holds the build settings (Vite preset, `pnpm build` → `dist/`) and cache headers:
 hashed `/assets/*` are immutable, `/data/*` revalidates so a pipeline rebuild shows up immediately.
-Because `public/data` is committed, deploys never run the pipeline. When the company feed is wired up,
-put the Apify call in a serverless function (`api/`) so the token never reaches the browser.
+Because `public/data` is committed, deploys never run the pipeline. That includes the company X feed:
+`pnpm tweets` (with `APIFY_TOKEN` in `.env.local`) bakes the newest original posts per company into
+`public/data/tweets.json` through Apify, so nothing is fetched from X at runtime and no token is deployed.
 
 ## Troubleshooting
 
@@ -138,7 +139,7 @@ put the Apify call in a serverless function (`api/`) so the token never reaches 
 
 ## Roadmap
 
-- Company X posts via Apify (needs a token), events feed.
+- Nightly refresh of the company X feed (GitHub Action running `pnpm tweets`), events feed.
 - Real walking/transit routes for quests.
 - Vector streets and higher-detail texture for SF proper when zoomed in.
 - Live market-cap/headcount source for companies.

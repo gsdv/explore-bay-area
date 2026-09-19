@@ -15,6 +15,7 @@ pnpm typecheck            # tsc -b over src/ and scripts/ (must be clean before 
 pnpm build                # production build to dist/
 pnpm data                 # rebuild public/data from data-cache/ (≈6 s when sources are cached)
 pnpm data:fetch           # only download sources into data-cache/ (Overpass, terrain tiles, census)
+pnpm tweets               # bake company X posts into public/data/tweets.json via Apify (needs APIFY_TOKEN; ~$0.005/company)
 ```
 
 There are no tests yet. Verification is: `pnpm typecheck`, then run the app and look at it.
@@ -26,6 +27,7 @@ Pushing `main` deploys to production immediately (see Hosting), so verify locall
 scripts/                data pipeline (run with tsx; Node 24)
   fetch.ts              downloads everything into data-cache/ (gitignored, ~170 MB)
   build-data.ts         composes public/data/* from the cache (the only place output files are written)
+  fetch-tweets.ts       one Apify run per company → public/data/tweets.json (raw runs in data-cache/tweets-raw/)
   lib/overpass.ts       Overpass client: cached, retries, IPv4-first, one query at a time
   lib/osm.ts            the Overpass queries (bboxes for SF, downtown, full region)
   lib/terrain.ts        terrarium tiles → 1024² heightmap, RGB-encoded PNG
@@ -35,6 +37,7 @@ scripts/                data pipeline (run with tsx; Node 24)
   lib/palette.ts        map colours and road stroke styles
 src/
   lib/geo.ts            THE shared projection + constants (imported by scripts AND app)
+  lib/tweets.ts         Post/TweetsFile types (shared with the script), lazy loader + useTweets(companyId)
   lib/rent.ts           rent classes/colours shared by the pipeline (paints rent.webp) and the legend
   lib/world.ts          loads public/data, decodes the heightmap, exposes heights.yAt(x,z)
   lib/extrude.ts        building footprints → one merged geometry (earcut roofs, quad walls)
@@ -158,8 +161,17 @@ vercel.json             build settings + cache headers for Vercel (see Hosting)
   in `src/lib/rent.ts`; `rent.json` carries the as-of month for the legend. Not live: refresh = `pnpm data` + commit.
 - Washes are exclusive: `store.heat` is `'food' | 'rent' | null` and `toggleHeat(kind)` swaps; each `Heatmap` instance
   fades itself in/out, so switching cross-fades.
-- Company X/Twitter feed is intentionally stubbed until the owner supplies an Apify token; it should be
-  proxied through a serverless function so the token stays server-side.
+- Company X feed: **baked, never fetched at runtime.** `pnpm tweets` runs one Apify run per company
+  (`kaitoeasyapi~twitter-x-data-tweet-scraper-pay-per-result-cheapest`, query
+  `from:HANDLE -filter:replies -filter:retweets`, 20 items, ~16 s and $0.005 each) and writes the newest 5
+  original posts per company to `public/data/tweets.json`, which `DetailCard` loads lazily. The token
+  lives in `.env.local` as `APIFY_TOKEN` (gitignored) and must never reach Vercel or the browser.
+  Gotchas: the apidojo actors refuse API use on Apify's Free plan and return `{demo: true}` items with a
+  SUCCEEDED status (the script treats all-demo output as a failure); when X search finds nothing this
+  actor pads the run with `mock_tweet` items and still bills its minimum (logged as "no results", the
+  previous posts are kept); `usageTotalUsd` settles after the run so per-run cost logs read 0.
+  `--only id,id`, `--dry`, `--from-cache` (re-normalise the raw files for free). Refresh = `pnpm tweets` +
+  commit; a nightly GitHub Action for this is planned but not set up.
 
 ## Hosting
 
