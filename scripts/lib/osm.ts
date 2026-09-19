@@ -48,3 +48,6 @@ export async function fetchTransitRoutes(): Promise<{ elements: any[] }> {
 }
 
 export const fetchStations = () => overpass('stations', `node["railway"~"^(station|halt)$"](${bbox()});out;`)
+
+/** Places to eat: one point each (ways/relations collapse to their centre). Bars and pubs are deliberately excluded. */
+export const fetchFood = () => overpass('food', `nwr["amenity"~"^(restaurant|cafe|fast_food)$"](${bbox()});out center;`)

@@ -80,6 +80,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .layers__swatch { width: 18px; height: 4px; display: inline-block; }
 .layers__swatch--sq { width: 10px; height: 10px; background: #b7a7c7; border: 1px solid var(--ink); }
 .layers__swatch--tri { width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 10px solid var(--orange); }
+.layers__swatch--heat { width: 18px; height: 8px; border: 1px solid var(--ink); background: linear-gradient(90deg, #f5c391, var(--orange) 55%, #5e1800); }
 .layers__sep { height: 1px; background: var(--ink-3); opacity: 0.5; margin: 6px 0; }
 
 /* ---------- detail card ---------- */

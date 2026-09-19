@@ -42,6 +42,7 @@ src/
   scene/viewStore.ts    camera state published for UI (minimap, label tiers)
   scene/Terrain.tsx     512² displaced grid + map texture
   scene/Water.tsx       translucent sea-level plane
+  scene/Heatmap.tsx     restaurant-density wash (heat-food.webp) draped on the shared terrain grid; fades on toggle
   scene/Buildings.tsx   downtown extrusions + instanced procedural blocks (10×10 chunks)
   scene/Transit.tsx     LineSegments2 per mode + station discs/labels
   scene/Landmarks.tsx   landmark groups: hover outline (inverted hull), pop-up scale, labels
@@ -147,6 +148,9 @@ vercel.json             build settings + cache headers for Vercel (see Hosting)
 - `src/data/landmarks.ts`: each has a `kind` mapped to a procedural model in `LandmarkModel.tsx`. Add a
   new kind there (parts list, optional `landmarkLines` for thin geometry).
 - `src/data/quests.ts`: ordered stops with a to-do and a tour `view` each. No persisted progress.
+- Restaurant heatmap: `osm.fetchFood()` (amenity=restaurant|cafe|fast_food, bars excluded on purpose) is binned,
+  gaussian-blurred (σ ≈ 200 m), sqrt-normalised to the 99.5th percentile and coloured through `palette.ts`'s heat
+  ramp in `build-data.ts` step 8. Retune the ramp or radius there and run `pnpm data`; the app only drapes the texture.
 - Company X/Twitter feed is intentionally stubbed until the owner supplies an Apify token; it should be
   proxied through a serverless function so the token stays server-side.
 

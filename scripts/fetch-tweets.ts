@@ -1,9 +1,10 @@
 /**
  * Bake the latest original X posts for every company into public/data/tweets.json.
  *
- * One Apify run per company (apidojo/twitter-scraper-lite), sequential — the actor allows a single
- * concurrent run and its `maxItems` is global, not per handle. Replies and retweets are dropped, the
- * newest 5 kept. A company's entry is only replaced on success so a bad night keeps yesterday's posts.
+ * One Apify run per company, sequential, using kaitoeasyapi's pay-per-result tweet scraper (works on
+ * the free plan; ~$0.005 per company at 20 items). The X advanced-search query already excludes
+ * replies and retweets; the normaliser re-checks and keeps the newest 5. A company's entry is only
+ * replaced on success so a bad night keeps yesterday's posts.
  *
  *   pnpm tweets                       all companies
  *   pnpm tweets -- --only anthropic,openai
@@ -17,13 +18,13 @@ import path from 'node:path'
 import { companies } from '../src/data/companies.ts'
 import { CACHE, OUT, ROOT, log, readJSON } from './lib/util.ts'
 
-const ACTOR = 'apidojo~twitter-scraper-lite'
+const ACTOR = 'kaitoeasyapi~twitter-x-data-tweet-scraper-pay-per-result-cheapest'
 const API = 'https://api.apify.com/v2'
 const KEEP = 5
-/** tweets requested per profile; the first ~40 are covered by the actor's flat per-query fee */
-const MAX_ITEMS = 40
+/** tweets requested per company; 20 is the actor's minimum and is billed at $0.25 / 1000 */
+const MAX_ITEMS = 20
 /** hard cap per run, USD — a runaway run cannot cost more than this */
-const MAX_CHARGE_USD = 0.1
+const MAX_CHARGE_USD = 0.05
 const RUN_TIMEOUT_S = 240
 
 export interface Post {
@@ -87,7 +88,11 @@ async function runActor(handle: string): Promise<{ run: Run; items: any[] }> {
   })
   let { data: run } = await api<{ data: Run }>(`${API}/acts/${ACTOR}/runs?${q}`, {
     method: 'POST',
-    body: JSON.stringify({ twitterHandles: [handle], maxItems: MAX_ITEMS, sort: 'Latest' }),
+    body: JSON.stringify({
+      twitterContent: `from:${handle} -filter:replies -filter:retweets`,
+      queryType: 'Latest',
+      maxItems: MAX_ITEMS,
+    }),
   })
   const terminal = new Set(['SUCCEEDED', 'FAILED', 'ABORTED', 'TIMED-OUT'])
   while (!terminal.has(run.status)) {
@@ -172,7 +177,7 @@ async function main() {
       log(
         `${c.id.padEnd(16)} @${handle.padEnd(18)} ${String(items.length).padStart(3)} raw -> ${kept.length} kept` +
           `  ${((Date.now() - started) / 1000).toFixed(0)}s` +
-          (run.usageTotalUsd != null ? `  $${run.usageTotalUsd.toFixed(4)}` : ''),
+          (run.usageTotalUsd ? `  $${run.usageTotalUsd.toFixed(4)}` : ''),
       )
       if (kept.length === 0) log(`  warn: nothing kept for @${handle} — check the handle / raw file`)
     } catch (e) {
@@ -186,7 +191,8 @@ async function main() {
   for (const id of Object.keys(posts).sort()) sorted[id] = posts[id]
   const out: TweetsFile = { fetchedAt: new Date().toISOString(), posts: sorted }
 
-  log(`done: ${ok} ok, ${failed} failed, ${((Date.now() - t0) / 1000).toFixed(0)}s, ~$${usd.toFixed(3)}`)
+  // Apify settles usage shortly after a run ends, so this is usually a lower bound; the console has exact figures.
+  log(`done: ${ok} ok, ${failed} failed, ${((Date.now() - t0) / 1000).toFixed(0)}s, ~$${usd.toFixed(3)} (≈$${(ok * 0.005).toFixed(2)} expected)`)
   if (dry) {
     log('dry run — not writing', path.relative(process.cwd(), OUT_FILE))
     return

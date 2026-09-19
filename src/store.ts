@@ -29,6 +29,8 @@ interface State {
   transit: Record<TransitMode, boolean>
   showCompanies: boolean
   showLandmarks: boolean
+  /** restaurant-density wash over the terrain */
+  showFood: boolean
   fly: FlyTarget | null
   loaded: boolean
   setHoveredLandmark: (id: string | null) => void
@@ -41,7 +43,7 @@ interface State {
   nextStop: () => void
   prevStop: () => void
   toggleTransit: (m: TransitMode) => void
-  toggle: (k: 'showCompanies' | 'showLandmarks') => void
+  toggle: (k: 'showCompanies' | 'showLandmarks' | 'showFood') => void
   flyTo: (x: number, z: number, distance?: number, instant?: boolean, extra?: { yaw?: number; duration?: number }) => void
   setLoaded: () => void
 }
@@ -54,6 +56,7 @@ export const useStore = create<State>((set, get) => ({
   transit: { rail: true, bus: false, cable: true, ferry: true },
   showCompanies: true,
   showLandmarks: true,
+  showFood: false,
   fly: null,
   loaded: false,
   setHoveredLandmark: (id) => set({ hoveredLandmark: id }),

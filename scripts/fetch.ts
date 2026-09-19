@@ -6,7 +6,7 @@ import { buildHeightmap } from './lib/terrain.ts'
 const t = Date.now()
 await buildLand()
 await buildHeightmap()
-for (const f of [osm.fetchStations, osm.fetchTransitRoutes, osm.fetchBuildingsDowntown, osm.fetchParks, osm.fetchRoadsMinorSF, osm.fetchRoadsMajor]) {
+for (const f of [osm.fetchStations, osm.fetchFood, osm.fetchTransitRoutes, osm.fetchBuildingsDowntown, osm.fetchParks, osm.fetchRoadsMinorSF, osm.fetchRoadsMajor]) {
   const r = await f()
   log(f.name, 'elements:', r.elements.length)
 }

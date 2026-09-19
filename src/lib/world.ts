@@ -36,6 +36,8 @@ export interface Building {
 export interface World {
   heights: Heightmap
   mapTexture: THREE.Texture
+  /** restaurant-density wash, RGBA, draped over the terrain when the layer is on */
+  heatFood: THREE.Texture
   buildings: Building[]
   filler: Float32Array
   transit: TransitRoute[]
@@ -71,7 +73,7 @@ async function loadHeightmap(onProgress: (s: string) => void): Promise<Heightmap
 
 export async function loadWorld(onProgress: (s: string) => void): Promise<World> {
   const loader = new THREE.TextureLoader()
-  const [heights, mapTexture, buildings, fillerBuf, transit, stations] = await Promise.all([
+  const [heights, mapTexture, heatFood, buildings, fillerBuf, transit, stations] = await Promise.all([
     loadHeightmap(onProgress),
     loader.loadAsync('/data/map.webp').then((t) => {
       t.colorSpace = THREE.SRGBColorSpace
@@ -80,12 +82,17 @@ export async function loadWorld(onProgress: (s: string) => void): Promise<World>
       t.generateMipmaps = true
       return t
     }),
+    loader.loadAsync('/data/heat-food.webp').then((t) => {
+      t.colorSpace = THREE.SRGBColorSpace
+      t.anisotropy = 4
+      return t
+    }),
     fetch('/data/buildings.json').then((r) => r.json()),
     fetch('/data/filler.bin').then((r) => r.arrayBuffer()),
     fetch('/data/transit.json').then((r) => r.json()),
     fetch('/data/stations.json').then((r) => r.json()),
   ])
   onProgress('city')
-  return { heights, mapTexture, buildings, filler: new Float32Array(fillerBuf), transit, stations }
+  return { heights, mapTexture, heatFood, buildings, filler: new Float32Array(fillerBuf), transit, stations }
 }
 

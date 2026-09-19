@@ -12,6 +12,7 @@ export function Layers() {
   const toggleTransit = useStore((s) => s.toggleTransit)
   const showCompanies = useStore((s) => s.showCompanies)
   const showLandmarks = useStore((s) => s.showLandmarks)
+  const showFood = useStore((s) => s.showFood)
   const toggle = useStore((s) => s.toggle)
   const quest = useStore((s) => s.activeQuest)
   return (
@@ -34,6 +35,12 @@ export function Layers() {
         <input type="checkbox" checked={showLandmarks} onChange={() => toggle('showLandmarks')} />
         <i className="layers__swatch layers__swatch--tri" />
         <span>Landmarks</span>
+      </label>
+      <div className="layers__sep" />
+      <label className="layers__row" title="Where the restaurants, cafés and fast food are (OpenStreetMap)">
+        <input type="checkbox" checked={showFood} onChange={() => toggle('showFood')} />
+        <i className="layers__swatch layers__swatch--heat" />
+        <span>Restaurants</span>
       </label>
     </aside>
   )

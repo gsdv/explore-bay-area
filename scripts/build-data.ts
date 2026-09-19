@@ -10,7 +10,7 @@ import * as osm from './lib/osm.ts'
 import { buildLand } from './lib/land.ts'
 import { buildHeightmap, writeHeightmap } from './lib/terrain.ts'
 import { PX, polygonPath, linePath, svgDoc, rasterize } from './lib/svg.ts'
-import { P, ROAD_STYLE, lerp, clamp01, smooth } from './lib/palette.ts'
+import { P, ROAD_STYLE, heatColor, lerp, clamp01, smooth } from './lib/palette.ts'
 import { project, toUV, elevationToY, BUILDING_EXAGGERATION, UNIT, WORLD } from '../src/lib/geo.ts'
 
 const t0 = Date.now()
@@ -289,4 +289,60 @@ for (const n of st.elements) {
   stations.push({ name: t.name, network, x: +x.toFixed(2), y: +elevationToY(elevAt(n.lat, n.lon)).toFixed(2), z: +z.toFixed(2) })
 }
 writeJSON(path.join(OUT, 'stations.json'), stations)
-log('stations:', stations.length, 'done in', ((Date.now() - t0) / 1000).toFixed(0), 's')
+log('stations:', stations.length)
+
+// ---------- 8. restaurant density ----------
+// Every place to eat becomes a point; the points are binned onto a grid, gaussian-blurred and mapped through the
+// palette's heat ramp. The app drapes the result over the terrain as a translucent wash (scene/Heatmap.tsx).
+log('restaurants')
+const food = await osm.fetchFood()
+const HPX = 2048
+const HEAT_SIGMA_M = 260 // blur radius in metres: neighbourhood-scale blobs, not individual venues
+const counts = new Float32Array(HPX * HPX)
+let nFood = 0
+for (const e of food.elements) {
+  const lat = e.lat ?? e.center?.lat, lon = e.lon ?? e.center?.lon
+  if (lat == null || lon == null) continue
+  const [u, v] = toUV(lat, lon)
+  if (u < 0 || u >= 1 || v < 0 || v >= 1) continue
+  counts[Math.floor(v * HPX) * HPX + Math.floor(u * HPX)] += 1
+  nFood++
+}
+const sigma = HEAT_SIGMA_M / (WORLD.width / UNIT / HPX)
+const R = Math.ceil(sigma * 3)
+const kern = Array.from({ length: 2 * R + 1 }, (_, i) => Math.exp(-((i - R) ** 2) / (2 * sigma * sigma)))
+const kSum = kern.reduce((a, b) => a + b, 0)
+for (let i = 0; i < kern.length; i++) kern[i] /= kSum
+const tmp = new Float32Array(HPX * HPX), dens = new Float32Array(HPX * HPX)
+for (let j = 0; j < HPX; j++) {
+  for (let i = 0; i < HPX; i++) {
+    let s = 0
+    for (let k = -R; k <= R; k++) { const x = i + k; if (x >= 0 && x < HPX) s += counts[j * HPX + x] * kern[k + R] }
+    tmp[j * HPX + i] = s
+  }
+}
+for (let j = 0; j < HPX; j++) {
+  for (let i = 0; i < HPX; i++) {
+    let s = 0
+    for (let k = -R; k <= R; k++) { const y = j + k; if (y >= 0 && y < HPX) s += tmp[y * HPX + i] * kern[k + R] }
+    dens[j * HPX + i] = s
+  }
+}
+// normalise: a gentle power curve so the outer neighbourhoods still register, clamped at the 99.5th percentile so
+// downtown SF doesn't own the whole ramp
+const nonZero = dens.filter((d) => d > 1e-4).sort()
+const top = nonZero[Math.floor(nonZero.length * 0.995)] || 1
+const heat = Buffer.alloc(HPX * HPX * 4)
+for (let j = 0; j < HPX; j++) {
+  const mj = Math.floor(((j + 0.5) / HPX) * PX) * PX
+  for (let i = 0; i < HPX; i++) {
+    const k = j * HPX + i
+    const land = landMask[mj + Math.floor(((i + 0.5) / HPX) * PX)] > 127
+    const [r, g, b, a] = heatColor(Math.pow(dens[k] / top, 0.6))
+    heat[k * 4] = r; heat[k * 4 + 1] = g; heat[k * 4 + 2] = b; heat[k * 4 + 3] = land ? Math.round(a * 255) : 0
+  }
+}
+await sharp(heat, { raw: { width: HPX, height: HPX, channels: 4 } }).webp({ quality: 88, alphaQuality: 90 }).toFile(path.join(OUT, 'heat-food.webp'))
+log('restaurants:', nFood, 'wrote heat-food.webp', (fs.statSync(path.join(OUT, 'heat-food.webp')).size / 1e6).toFixed(2), 'MB')
+
+log('done in', ((Date.now() - t0) / 1000).toFixed(0), 's')

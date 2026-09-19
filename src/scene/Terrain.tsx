@@ -5,8 +5,13 @@ import type { World } from '../lib/world'
 
 const GRID = 512
 
-export function Terrain({ world }: { world: World }) {
-  const geometry = useMemo(() => {
+const cache = new WeakMap<World, THREE.BufferGeometry>()
+
+/** The displaced terrain grid, built once per world and shared by every layer that drapes over the ground. */
+export function useTerrainGeometry(world: World): THREE.BufferGeometry {
+  return useMemo(() => {
+    const hit = cache.get(world)
+    if (hit) return hit
     const n = GRID
     const pos = new Float32Array(n * n * 3)
     const uv = new Float32Array(n * n * 2)
@@ -37,9 +42,13 @@ export function Terrain({ world }: { world: World }) {
     g.setIndex(new THREE.BufferAttribute(idx, 1))
     g.computeVertexNormals()
     g.computeBoundingSphere()
+    cache.set(world, g)
     return g
   }, [world])
+}
 
+export function Terrain({ world }: { world: World }) {
+  const geometry = useTerrainGeometry(world)
   return (
     <mesh geometry={geometry} raycast={() => null} receiveShadow>
       <meshStandardMaterial map={world.mapTexture} roughness={1} metalness={0} />

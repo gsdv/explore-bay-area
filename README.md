@@ -36,6 +36,7 @@ https://explore-bay-area.vercel.app (see Deploying).
 | Everything else | Procedural "row blocks" along streets | ~126k instances in chunked `InstancedMesh`es |
 | Transit | OSM route relations: Muni (bus, trolley, Metro, cable car), BART, Caltrain, VTA light rail, ferries | `LineSegments2`, one draw call per mode, official colours |
 | Stations | OSM railway=station for BART, Caltrain, Muni | Discs, labels when zoomed in |
+| Restaurants | OSM amenity=restaurant/cafe/fast_food (~13k places) | Density baked to a 2048² wash, draped over the terrain as a toggle |
 | Landmarks | Curated (`src/data/landmarks.ts`) | Procedural low-poly models; hover = silhouette outline + pop |
 | Companies | Curated (`src/data/companies.ts`), > $10 B | HQ block + logo chip → detail card |
 | Quests | Curated (`src/data/quests.ts`) | Guided tours: an overview, then Begin / Next fly you stop to stop along a draped route, with a dot-line progress indicator |

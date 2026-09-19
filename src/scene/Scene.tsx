@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import type { World } from '../lib/world'
 import { Terrain } from './Terrain'
 import { Water } from './Water'
+import { Heatmap } from './Heatmap'
 import { Buildings } from './Buildings'
 import { Transit } from './Transit'
 import { Landmarks } from './Landmarks'
@@ -31,6 +32,7 @@ export function Scene({ world }: { world: World }) {
       <directionalLight position={[300, 120, -200]} intensity={0.35} color="#cfe3ff" />
       <Terrain world={world} />
       <Water />
+      <Heatmap world={world} />
       <Buildings world={world} />
       <Transit world={world} />
       <Landmarks world={world} />
