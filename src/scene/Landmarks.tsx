@@ -47,9 +47,13 @@ function LandmarkObject({ landmark: l, world }: { landmark: Landmark; world: Wor
   const bounds = useMemo(() => {
     let minX = Infinity, minY = Infinity, minZ = Infinity, maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity
     for (const p of parts) {
-      const r = Math.hypot(p.scale[0], p.scale[2]) / 2
-      minX = Math.min(minX, p.pos[0] - r); maxX = Math.max(maxX, p.pos[0] + r)
-      minZ = Math.min(minZ, p.pos[2] - r); maxZ = Math.max(maxZ, p.pos[2] + r)
+      // rotated parts get a conservative circle; axis-aligned ones use their real half-extents, otherwise a long
+      // thin bridge deck would turn the box into a deck-length square that catches clicks kilometres away
+      const rotated = p.rot && (p.rot[0] !== 0 || p.rot[1] !== 0 || p.rot[2] !== 0)
+      const rx = rotated ? Math.hypot(p.scale[0], p.scale[2]) / 2 : p.scale[0] / 2
+      const rz = rotated ? rx : p.scale[2] / 2
+      minX = Math.min(minX, p.pos[0] - rx); maxX = Math.max(maxX, p.pos[0] + rx)
+      minZ = Math.min(minZ, p.pos[2] - rz); maxZ = Math.max(maxZ, p.pos[2] + rz)
       minY = Math.min(minY, p.pos[1] - p.scale[1] / 2); maxY = Math.max(maxY, p.pos[1] + p.scale[1] / 2)
     }
     const pad = 0.12
