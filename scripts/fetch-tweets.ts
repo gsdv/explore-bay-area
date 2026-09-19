@@ -114,7 +114,19 @@ function cleanText(text: string, it: any): string {
   for (const u of it.entities?.urls ?? []) {
     if (u?.url && u.expanded_url) text = text.split(u.url).join(u.expanded_url)
   }
-  return text.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim()
+  return decodeEntities(text).replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim()
+}
+
+/** X returns text with HTML entities (&amp; &lt; &gt; &quot; &#39;) */
+function decodeEntities(s: string): string {
+  const named: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' }
+  return s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, e: string) => {
+    if (e[0] === '#') {
+      const code = e[1].toLowerCase() === 'x' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10)
+      return Number.isFinite(code) ? String.fromCodePoint(code) : m
+    }
+    return named[e.toLowerCase()] ?? m
+  })
 }
 
 function normalise(items: any[], handle: string): Post[] {
