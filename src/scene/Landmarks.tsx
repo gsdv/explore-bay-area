@@ -7,7 +7,7 @@ import { project } from '../lib/geo'
 import type { World } from '../lib/world'
 import { useStore } from '../store'
 import { landmarkParts, partGeometry, type Part } from './LandmarkModel'
-import { useZoomTier } from './CameraRig'
+import { useZoomTier } from './viewStore'
 
 const OUTLINE = new THREE.MeshBasicMaterial({ color: '#1b1d1a', side: THREE.BackSide })
 const geoCache = new Map<string, THREE.BufferGeometry>()

@@ -3,7 +3,7 @@ import { Line, Html } from '@react-three/drei'
 import * as THREE from 'three'
 import type { World, TransitRoute } from '../lib/world'
 import { useStore, type TransitMode } from '../store'
-import { useZoomTier } from './CameraRig'
+import { useZoomTier } from './viewStore'
 
 const WIDTH: Record<TransitMode, number> = { rail: 3, bus: 1.25, cable: 2.5, ferry: 1.5 }
 const OPACITY: Record<TransitMode, number> = { rail: 1, bus: 0.75, cable: 1, ferry: 0.9 }

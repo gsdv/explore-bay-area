@@ -5,7 +5,7 @@ import { companies, logoUrl, type Company } from '../data/companies'
 import { project, UNIT, BUILDING_EXAGGERATION } from '../lib/geo'
 import type { World } from '../lib/world'
 import { useStore } from '../store'
-import { useZoomTier } from './CameraRig'
+import { useZoomTier } from './viewStore'
 
 const fmtCap = (b: number) => (b >= 1000 ? `$${(b / 1000).toFixed(1)}T` : `$${Math.round(b)}B`)
 

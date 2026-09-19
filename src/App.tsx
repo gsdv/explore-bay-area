@@ -7,6 +7,7 @@ import { Layers } from './ui/Layers'
 import { DetailCard } from './ui/DetailCard'
 import { Hint } from './ui/Hint'
 import { DeepLink } from './ui/DeepLink'
+import { Minimap } from './ui/Minimap'
 
 export default function App() {
   const [world, setWorld] = useState<World | null>(null)
@@ -27,6 +28,7 @@ export default function App() {
           <DetailCard />
           <Hint />
           <DeepLink />
+          <Minimap />
         </>
       )}
     </div>

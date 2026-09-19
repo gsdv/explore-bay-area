@@ -36,6 +36,20 @@ Pipeline gotchas learned the hard way:
 - `overpass-api.de` is IPv6-first and its v6 address is unreachable from some networks; the scripts force `ipv4first` DNS ordering.
 - SFMTA's own GTFS host times out from outside, which is why Muni comes from OSM route relations instead.
 
+## Controls
+
+| Input | Action |
+| --- | --- |
+| Arrow keys / WASD (shift = faster) | Move over the map, relative to the view direction |
+| Left-drag | Orbit: yaw and pitch |
+| Right-drag | Pan |
+| Scroll | Camera height (orbit distance) |
+| Q / E | Rotate |
+
+Bounds are hard walls: the camera target is clamped to the region, distance to 2.2–520 units, and the camera can never drop below the terrain (+100 m) or the tallest rooftop nearby (+70 m, from a 160² grid of building tops). When you scroll in against a rooftop the view tilts down first, then stops.
+
+The minimap (bottom right) shows the shoreline and where you are. Click it to expand into a labelled map; click anywhere on that map to fly there.
+
 ## Deep links
 
 The URL hash drives the camera and selection, so views are shareable:
@@ -46,7 +60,7 @@ The URL hash drives the camera and selection, so views are shareable:
 #landmark=ggb   #company=anthropic
 ```
 
-In dev, `<html data-perf>` carries fps, worst frame and draw stats once a second.
+In dev, `<html data-perf>` carries fps, worst frame and draw stats once a second, and `data-view` the camera state.
 
 ## Coordinates
 

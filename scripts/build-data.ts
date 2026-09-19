@@ -103,8 +103,21 @@ for (let j = 0; j < PX; j++) {
 }
 await sharp(map, { raw: { width: PX, height: PX, channels: 3 } }).webp({ quality: 90, effort: 5 }).toFile(path.join(OUT, 'map.webp'))
 log('wrote map.webp', (fs.statSync(path.join(OUT, 'map.webp')).size / 1e6).toFixed(2), 'MB')
-// a preview for eyeballing
+// a preview for eyeballing, and the same at web size for the minimap
 await sharp(map, { raw: { width: PX, height: PX, channels: 3 } }).resize(1024).png().toFile(path.join('data-cache', 'map-preview.png'))
+await sharp(map, { raw: { width: PX, height: PX, channels: 3 } }).resize(1024).webp({ quality: 78 }).toFile(path.join(OUT, 'map-small.webp'))
+// shoreline outline in texture uv space for the minimap
+const outline: number[][][] = []
+const pushRing = (ring: number[][]) => {
+  if (ring.length < 4) return
+  outline.push(ring.map(([lng, lat]) => toUV(lat, lng).map((v) => Math.round(v * 1000) / 1000)))
+}
+for (const f of land.features) {
+  const g = f.geometry
+  if (g.type === 'Polygon') g.coordinates.forEach(pushRing)
+  else if (g.type === 'MultiPolygon') g.coordinates.forEach((p) => p.forEach(pushRing))
+}
+writeJSON(path.join(OUT, 'outline.json'), outline)
 
 const uvAt = (lat: number, lng: number) => toUV(lat, lng)
 const maskAt = (lat: number, lng: number) => {

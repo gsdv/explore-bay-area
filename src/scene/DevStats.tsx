@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
+import { viewStore } from './viewStore'
 
 /** Dev-only: writes frame time and draw stats to <html data-perf> once a second. */
 export function DevStats() {
@@ -17,6 +18,8 @@ export function DevStats() {
         calls: gl.info.render.calls,
         triangles: gl.info.render.triangles,
       })
+      const v = viewStore.getState()
+      document.documentElement.dataset.view = JSON.stringify({ x: +v.x.toFixed(1), z: +v.z.toFixed(1), yaw: +v.yaw.toFixed(2), dist: +v.dist.toFixed(1), tier: v.tier })
       a.t = 0; a.n = 0; a.worst = 0
     }
   })

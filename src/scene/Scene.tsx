@@ -36,7 +36,7 @@ export function Scene({ world }: { world: World }) {
       <Landmarks world={world} />
       <Companies world={world} />
       <QuestRoute world={world} />
-      <CameraRig />
+      <CameraRig world={world} />
       {import.meta.env.DEV && <DevStats />}
     </Canvas>
   )
