@@ -85,8 +85,9 @@ vercel.json             build settings + cache headers for Vercel (see Hosting)
   infinite render loop once.
 - **Camera requests** go through `store.flyTo(x, z, distance?, instant?)`; the rig picks them up in
   its frame loop, so it's safe to call before the rig mounts.
-- **Deep links** (`#at=lat,lng,dist`, `#quest=`, `#company=`, `#landmark=`) are applied by
-  `ui/DeepLink.tsx`; the first application is instant, later hash changes animate.
+- **Deep links** (`#at=lat,lng,dist[,yaw]`, `#quest=`, `#company=`, `#landmark=`) are applied by
+  `ui/DeepLink.tsx`; the first application is instant, later hash changes animate. Yaw is radians: 0 looks north,
+  π looks south from the north side, ~4.3 looks in from the west-north-west (handy downtown, where towers block the south).
 - **Quest mode / tour.** `store.openQuest(q)` selects a quest and flies to an overview; `questStep` is
   `null` (overview) or the current stop index; `beginQuest/nextStop/prevStop/goToStop` fly to each stop's
   predefined `view` (dist + yaw in `quests.ts`). While active: `QuestFrame` draws the coloured border, the
@@ -94,6 +95,10 @@ vercel.json             build settings + cache headers for Vercel (see Hosting)
   shows the dot line top-right, the quest list and Layers panel hide, company chips hide (route pins carry
   the names), landmarks lose labels/hover/select. No check-off state: the owner removed it on purpose.
   Esc exits when nothing else is open. Anything new that adds clutter should respect `activeQuest`.
+- **Layers panel folds.** Its header is a button and `L` toggles it (local state in `Layers.tsx`, like the quest list).
+  The fold is a `grid-template-rows: 1fr → 0fr` transition; rows are pinned to the panel's bottom edge so they stay put
+  while the top edge comes down. The body uses `overflow: clip` (unscrollable) and the rent key sits outside it, hidden
+  while folded. Global key handlers must let checkboxes through: they keep focus after a click.
 - **Landmark hit-testing** uses an invisible bounding box around each model (`Landmarks.tsx`), so gaps
   between tower legs or bridge spans still count as hovering. Keep it when adding kinds.
 - **Transit lines are clipped** to the terrain rectangle in `build-data.ts` (`clipToWorld`); Overpass
@@ -154,14 +159,18 @@ vercel.json             build settings + cache headers for Vercel (see Hosting)
 - `src/data/companies.ts`: > $10 B market cap/valuation with a Bay Area HQ or major campus; figures are
   hand-written snapshots and need a live source before launch. Logos come from Google's favicon service.
 - `src/data/landmarks.ts`: each has a `kind` mapped to a procedural model in `LandmarkModel.tsx`. Add a
-  new kind there (parts list, optional `landmarkLines` for thin geometry).
+  new kind there (parts list, optional `landmarkLines` for thin geometry). Mark thin surface parts (stripes, struts)
+  `detail: true` so the hover hull skips them, and give grid-aligned buildings a `bearing` (downtown SF is −9°).
+  A landmark that *is* the building (kind `pyramid` so far) has its OSM footprint dropped in `build-data.ts` step 5
+  (`MODELLED`), otherwise the footprint extrudes as a prism around the model.
 - `src/data/quests.ts`: ordered stops with a to-do and a tour `view` each. No persisted progress.
 - Restaurant heatmap: `osm.fetchFood()` (amenity=restaurant|cafe|fast_food, bars excluded on purpose) is binned,
   gaussian-blurred (σ ≈ 200 m), sqrt-normalised to the 99.5th percentile and coloured through `palette.ts`'s heat
   ramp in `build-data.ts` step 8. Retune the ramp or radius there and run `pnpm data`; the app only drapes the texture.
 - Rent heatmap: Zillow's ZORI ZIP CSV (`data-cache/zori-zip.csv`, free, no key; delete it to pull a newer month) joined to
   Census 2020 ZCTA polygons (67 MB national zip, clipped with mapshaper) in `build-data.ts` step 9. Classes and colours are
-  in `src/lib/rent.ts`; `rent.json` carries the as-of month for the legend. Not live: refresh = `pnpm data` + commit.
+  in `src/lib/rent.ts`; `rent.json` carries the as-of month (no longer shown in the UI). The legend is a key tab hanging off the
+  Layers panel beside the Rent row (absolute, always mounted, placed by `--key-b` measured in `Layers.tsx`) so toggling never resizes the panel. Not live: refresh = `pnpm data` + commit.
 - Neighborhood atlas: `build-data.ts` step 10 paints SF's 37 classic neighborhoods (Zillow boundaries via the
   `blackmad/neighborhoods` GitHub mirror, because DataSF's export was returning 503) plus Census 2023 places for every
   other city/town into `hoods.webp`, greedy-coloured from `HOOD_TINTS` so bbox-neighbours differ. `hoods.json` holds one

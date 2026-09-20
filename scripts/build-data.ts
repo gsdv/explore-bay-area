@@ -17,6 +17,7 @@ import { P, ROAD_STYLE, heatColor, lerp, clamp01, smooth } from './lib/palette.t
 import { project, toUV, elevationToY, BUILDING_EXAGGERATION, UNIT, WORLD, BBOX } from '../src/lib/geo.ts'
 import { RENT_ALPHA, rentClass, type RentData } from '../src/lib/rent.ts'
 import { HOOD_TINTS, HOODS_ALPHA, type HoodsData } from '../src/lib/hoods.ts'
+import { landmarks } from '../src/data/landmarks.ts'
 
 const t0 = Date.now()
 const land = await buildLand()
@@ -145,10 +146,21 @@ function parseHeight(tags: any): number {
   if (tags['building:levels']) return parseFloat(tags['building:levels']) * 3.6
   return 9
 }
+// Landmarks whose model is the building itself: their OSM footprint would extrude as a prism around the model, so drop it.
+const MODELLED = landmarks.filter((l) => l.kind === 'pyramid')
+const contains = (ring: { lat: number; lon: number }[], lat: number, lng: number) => {
+  let inside = false
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const a = ring[i], b = ring[j]
+    if (a.lat > lat !== b.lat > lat && lng < ((b.lon - a.lon) * (lat - a.lat)) / (b.lat - a.lat) + a.lon) inside = !inside
+  }
+  return inside
+}
 const bld = await osm.fetchBuildingsDowntown()
 const buildings: { p: number[]; h: number; y: number }[] = []
 for (const w of bld.elements) {
   if (w.type !== 'way' || !w.geometry || w.geometry.length < 4) continue
+  if (MODELLED.some((l) => contains(w.geometry, l.lat, l.lng))) continue
   const pts = w.geometry.slice(0, -1).map((g: any) => project(g.lat, g.lon))
   const cLat = w.geometry.reduce((s: number, g: any) => s + g.lat, 0) / w.geometry.length
   const cLng = w.geometry.reduce((s: number, g: any) => s + g.lon, 0) / w.geometry.length

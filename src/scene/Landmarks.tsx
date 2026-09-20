@@ -65,6 +65,8 @@ function LandmarkObject({ landmark: l, world }: { landmark: Landmark; world: Wor
     if (l.kind === 'bridge') {
       const [x2, z2] = project(l.lat2!, l.lng2!)
       rotY = Math.atan2(-(z2 - z), x2 - x)
+    } else if (l.bearing) {
+      rotY = (-l.bearing * Math.PI) / 180
     }
     const y = l.kind === 'bridge' || l.kind === 'island' ? 0 : world.heights.yAt(x, z)
     return { pos: new THREE.Vector3(x, y, z), rotY, scaleT: { v: 1 } }
@@ -111,7 +113,7 @@ function LandmarkObject({ landmark: l, world }: { landmark: Landmark; world: Wor
           <mesh geometry={geoFor(p)} scale={p.scale}>
             <meshStandardMaterial color={p.color} roughness={0.85} metalness={0} flatShading />
           </mesh>
-          {hovered && (
+          {hovered && !p.detail && (
             <mesh
               geometry={geoFor(p)}
               material={OUTLINE}

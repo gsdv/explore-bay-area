@@ -9,6 +9,8 @@ export interface Part {
   scale: [number, number, number]
   color: string
   args?: (number | boolean)[]
+  /** surface detail (stripes, struts): left out of the hover outline, whose hull would swallow anything this thin */
+  detail?: boolean
 }
 
 const ORANGE = '#f04a00'
@@ -58,11 +60,51 @@ export function landmarkParts(l: Landmark, ground?: BridgeGround): Part[] {
         { geo: 'cyl', pos: [0, H(l.height ?? 200) / 2, 0], scale: [1, H(l.height ?? 200), 1], color: '#cfd6dd', args: [0.55, 0.7, 24] },
         { geo: 'cyl', pos: [0, H(l.height ?? 200) + 0.12, 0], scale: [1, 0.25, 1], color: '#f4f2ec', args: [0.4, 0.55, 24] },
       ]
-    case 'pyramid':
-      return [
-        { geo: 'cone', pos: [0, H(l.height ?? 200) / 2, 0], scale: [1, H(l.height ?? 200), 1], color: '#e9e6df', args: [0.6, 4] },
-        { geo: 'box', pos: [0, H(l.height ?? 200) * 0.9, 0], scale: [0.16, H(l.height ?? 200) * 0.25, 0.16], color: '#d0cdc4' },
+    case 'pyramid': {
+      // Transamerica: a truss colonnade under the widest floor (the 5th), 48 tapering floors of white precast, two blank
+      // wings (elevators east, stairs west) that start flush with the face at the 29th floor and stand proud of it as the
+      // floors shrink, and an aluminium spire for the top quarter. Horizontal size is ~2x true so the 1.8x height
+      // exaggeration keeps the real silhouette.
+      const h = H(l.height ?? 260)
+      const BODY = '#ece8df', BAND = '#c9c5b9', SPIRE = '#d5d8d8', GLASS = '#4a4f4e'
+      const yBase = 0.07 * h, ySpire = 0.75 * h
+      const a0 = 0.44, a1 = 0.136
+      const halfAt = (y: number) => a0 + ((a1 - a0) * (y - yBase)) / (ySpire - yBase)
+      // square frustum between two heights; a 4-sided cylinder has its corners on the axes, so start it an eighth of a
+      // turn round (in the geometry rather than `rot`, which would inflate the hover box)
+      const frustum = (y0: number, y1: number, r0: number, r1: number, color: string): Part => ({
+        geo: 'cyl', pos: [0, (y0 + y1) / 2, 0], scale: [1, y1 - y0, 1], color,
+        args: [+(r1 * Math.SQRT2).toFixed(4), +(r0 * Math.SQRT2).toFixed(4), 4, 1, false, Math.PI / 4],
+      })
+      const p: Part[] = [
+        frustum(yBase, ySpire, a0, a1, BODY),
+        frustum(ySpire, h, a1, 0.014, SPIRE),
+        // lobby glass set back behind the trusses, and the skirt slab they carry
+        { geo: 'box', pos: [0, yBase / 2, 0], scale: [a0 * 1.45, yBase, a0 * 1.45], color: GLASS },
+        { geo: 'box', pos: [0, yBase, 0], scale: [a0 * 2 + 0.05, 0.05, a0 * 2 + 0.05], color: BODY, detail: true },
       ]
+      // window bands: thin frustums standing a hair proud of the face read as painted stripes
+      const floors = 20
+      for (let i = 0; i < floors; i++) {
+        const y = yBase + ((ySpire - yBase) * (i + 0.5)) / floors, t = 0.045
+        p.push({ ...frustum(y - t / 2, y + t / 2, halfAt(y - t / 2) + 0.004, halfAt(y + t / 2) + 0.004, BAND), detail: true })
+      }
+      // wings: one box through the tower, as wide as the face at the 29th floor
+      const yWing = ySpire * (29 / 48), yWingTop = ySpire + 0.03 * h
+      p.push({ geo: 'box', pos: [0, (yWing + yWingTop) / 2, 0], scale: [halfAt(yWing) * 2, yWingTop - yWing, 0.17], color: BODY })
+      // truss colonnade: a zigzag of struts on each face
+      const cells = 3, w = (a0 * 2) / cells, lean = Math.atan2(w / 2, yBase), len = Math.hypot(w / 2, yBase)
+      for (let c = 0; c < cells; c++) {
+        for (const dir of [-1, 1]) {
+          const u = -a0 + w * (c + 0.5) + (dir * w) / 4
+          for (const side of [-1, 1]) {
+            p.push({ geo: 'box', pos: [u, yBase / 2, side * a0], rot: [0, 0, dir * lean], scale: [0.04, len, 0.04], color: BODY, detail: true })
+            p.push({ geo: 'box', pos: [side * a0, yBase / 2, u], rot: [-dir * lean, 0, 0], scale: [0.04, len, 0.04], color: BODY, detail: true })
+          }
+        }
+      }
+      return p
+    }
     case 'coit':
       return [
         { geo: 'cyl', pos: [0, 0.1, 0], scale: [1, 0.2, 1], color: STONE, args: [0.6, 0.6, 16] },
@@ -352,7 +394,7 @@ export function partGeometry(p: Part): THREE.BufferGeometry {
   const a = (p.args ?? []) as number[]
   switch (p.geo) {
     case 'box': return new THREE.BoxGeometry(1, 1, 1)
-    case 'cyl': return new THREE.CylinderGeometry(a[0] ?? 0.5, a[1] ?? 0.5, 1, a[2] ?? 16, 1, !!a[4])
+    case 'cyl': return new THREE.CylinderGeometry(a[0] ?? 0.5, a[1] ?? 0.5, 1, a[2] ?? 16, 1, !!a[4], a[5] ?? 0)
     case 'cone': return new THREE.ConeGeometry(a[0] ?? 0.5, 1, a[1] ?? 8)
     case 'sphere': return new THREE.SphereGeometry(1, a[1] ?? 16, a[2] ?? 12, a[3] ?? 0, a[4] ?? Math.PI * 2, a[5] ?? 0, a[6] ?? Math.PI)
     case 'ring': return new THREE.TorusGeometry(1, 0.1, 8, 24)

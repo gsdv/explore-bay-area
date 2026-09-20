@@ -12,6 +12,7 @@ const ROWS: [string, string][] = [
   ['Q  /  E', 'rotate'],
   ['double-click', 'fly to that spot'],
   ['click', 'open a company or landmark'],
+  ['L', 'fold the layers panel away, or bring it back'],
   ['esc', 'close anything'],
   ['?', 'this help'],
 ]

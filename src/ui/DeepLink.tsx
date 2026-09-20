@@ -6,7 +6,7 @@ import { companies } from '../data/companies'
 import { landmarks } from '../data/landmarks'
 
 /**
- * URL hash deep links:  #at=lat,lng,dist   #quest=id   #company=id   #landmark=id
+ * URL hash deep links:  #at=lat,lng,dist[,yaw]   #quest=id   #company=id   #landmark=id
  * Applied on load and whenever the hash changes.
  */
 export function DeepLink() {
@@ -20,7 +20,7 @@ export function DeepLink() {
       const at = h.get('at')?.split(',').map(Number)
       if (at && at.length >= 2 && at.every((n) => Number.isFinite(n))) {
         const [x, z] = project(at[0], at[1])
-        s.flyTo(x, z, at[2] || 20, instant)
+        s.flyTo(x, z, at[2] || 20, instant, at.length > 3 ? { yaw: at[3] } : undefined)
       }
       const q = h.get('quest')
       if (q) {

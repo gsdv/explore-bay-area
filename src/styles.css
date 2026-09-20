@@ -74,9 +74,20 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .quest-detail__back:hover { color: var(--orange); }
 
 /* ---------- layers ---------- */
-.layers { position: absolute; left: 22px; bottom: 22px; padding: 10px 14px 12px; z-index: 110; min-width: 230px; transition: transform 0.4s cubic-bezier(.2,.8,.2,1), opacity 0.3s; }
+.layers { position: absolute; left: 22px; bottom: 22px; z-index: 110; min-width: 230px; transition: transform 0.4s cubic-bezier(.2,.8,.2,1), opacity 0.3s; }
 .layers.is-away { transform: translateY(40px); opacity: 0; pointer-events: none; }
-.layers__title { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 6px; }
+.layers__head { display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 14px 7px; text-align: left; }
+.layers__title { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-3); }
+.layers__key { font-family: var(--mono); font-size: 9.5px; line-height: 1; color: var(--ink-3); border: 1px solid var(--ink-3); padding: 1px 4px; }
+.layers__chev { margin-left: auto; font-family: var(--mono); font-size: 14px; line-height: 1; color: var(--ink-3); }
+.layers__head:hover .layers__title, .layers__head:hover .layers__chev { color: var(--ink); }
+/* folds like a blind: the row track animates 1fr → 0fr and the rows stay put against the bottom edge while the top comes down over them; the width never changes */
+.layers__fold { display: grid; grid-template-rows: 1fr; transition: grid-template-rows 0.36s cubic-bezier(.2,.8,.2,1); }
+.layers__body { display: flex; flex-direction: column; justify-content: flex-end; min-height: 0; overflow: hidden; overflow: clip; /* clip can't be scrolled by focus/scrollIntoView mid-fold */ padding: 0 14px; transition: opacity 0.24s 0.08s, visibility 0s; }
+.layers__body > * { flex: none; }
+.layers__body::after { content: ''; flex: none; height: 10px; }
+.is-collapsed .layers__fold { grid-template-rows: 0fr; }
+.is-collapsed .layers__body { opacity: 0; visibility: hidden; transition: opacity 0.18s, visibility 0s 0.36s; }
 .layers__row { display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 11.5px; padding: 3px 0; cursor: pointer; user-select: none; }
 .layers__row input { accent-color: var(--ink); margin: 0; }
 .layers__swatch { width: 18px; height: 5px; display: inline-block; }
@@ -86,12 +97,13 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .layers__swatch--heat { width: 18px; height: 8px; border: 1px solid var(--ink); background: linear-gradient(90deg, #f5c391, var(--orange) 55%, #5e1800); }
 .layers__swatch--rent { width: 18px; height: 8px; border: 1px solid var(--ink); background: linear-gradient(90deg, #f6e3c8 0 17%, #f5c391 17% 33%, #f39b5c 33% 50%, var(--orange) 50% 67%, #b23300 67% 83%, #5e1800 83%); }
 .layers__sep { height: 1px; background: var(--ink-3); opacity: 0.5; margin: 6px 0; }
-.layers__legend { margin: 4px 0 3px 26px; width: 176px; animation: rise-in 0.3s cubic-bezier(.2,.8,.2,1) both; }
+/* a key tab hanging off the panel's right edge, level with its row (--key-b, measured in Layers.tsx): showing it never resizes the panel */
+.layers__legend { position: absolute; left: 100%; bottom: var(--key-b, 50%); width: 196px; padding: 7px 10px 4px; background: var(--paper); border: 1.5px solid var(--rule); box-shadow: var(--shadow); opacity: 0; transform: translate(-10px, 50%); pointer-events: none; transition: transform 0.3s cubic-bezier(.2,.8,.2,1), opacity 0.2s; }
+.layers__legend.is-on { opacity: 1; transform: translate(0, 50%); }
 .layers__legend-bar { display: grid; grid-template-columns: repeat(6, 1fr); height: 9px; border: 1px solid var(--ink); }
 .layers__legend-bar i { display: block; }
 .layers__legend-ticks { position: relative; height: 14px; font-family: var(--mono); font-size: 9.5px; color: var(--ink-2); }
 .layers__legend-ticks span { position: absolute; top: 2px; transform: translateX(-50%); white-space: nowrap; }
-.layers__legend-note { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.04em; color: var(--ink-3); margin-top: 1px; }
 
 /* ---------- detail card ---------- */
 .card { --card-top: var(--edge); position: absolute; right: var(--edge); top: var(--card-top); width: 360px; max-height: calc(100% - var(--card-top) - var(--minimap-size) - var(--edge) - 20px); overflow: auto; padding: 18px 20px 20px; z-index: 120; animation: card-in 0.32s cubic-bezier(.2,.8,.2,1) both; }
@@ -172,6 +184,11 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   .quests { width: calc(100% - 44px); top: 88px; max-height: 40%; }
   .card { width: calc(100% - 44px); top: auto; bottom: 22px; max-height: 55%; }
   .layers { left: 22px; bottom: 22px; }
+}
+/* no room beside the panel: the key sits on top of it instead */
+@media (max-width: 520px) {
+  .layers__legend { left: -1.5px; bottom: calc(100% + 8px); transform: translateY(8px); }
+  .layers__legend.is-on { transform: none; }
 }
 
 /* ---------- minimap ---------- */

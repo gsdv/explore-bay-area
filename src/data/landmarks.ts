@@ -16,6 +16,8 @@ export interface Landmark {
   tip?: string
   /** metres, for towers */
   height?: number
+  /** compass bearing in degrees of the model's local north (−Z); downtown SF's street grid is −9 */
+  bearing?: number
   tags?: ('nature' | 'icon' | 'culture' | 'view' | 'food' | 'hike')[]
 }
 
@@ -23,7 +25,7 @@ export const landmarks: Landmark[] = [
   { id: 'ggb', name: 'Golden Gate Bridge', kind: 'bridge', lat: 37.8104, lng: -122.4772, lat2: 37.8322, lng2: -122.4796, area: 'Presidio', blurb: 'Opened in 1937, the 1.7-mile suspension bridge in "International Orange" is the symbol of the city. Walk or bike across for free.', tip: 'Go early on a weekday; fog usually burns off by noon in summer, but bring a jacket regardless.', tags: ['icon', 'view'] },
   { id: 'baybridge', name: 'Bay Bridge', kind: 'bridge', lat: 37.7866, lng: -122.3890, lat2: 37.8203, lng2: -122.3210, area: 'Embarcadero', blurb: 'Two bridges in one: a double suspension span to Yerba Buena Island, then the newer self-anchored span to Oakland. The west span glows with the Bay Lights at night.', tags: ['icon'] },
   { id: 'coit', name: 'Coit Tower', kind: 'coit', lat: 37.8024, lng: -122.4058, area: 'Telegraph Hill', blurb: 'A 210-foot art-deco tower from 1933 with WPA murals inside and a 360° view from the top.', tip: 'Take the Filbert Steps up from the Embarcadero; the gardens are the best part.', height: 64, tags: ['icon', 'view'] },
-  { id: 'transamerica', name: 'Transamerica Pyramid', kind: 'pyramid', lat: 37.7952, lng: -122.4028, area: 'Financial District', blurb: 'The 853-foot pyramid defined the skyline from 1972 until Salesforce Tower topped it. A redwood grove hides at its base.', height: 260, tags: ['icon'] },
+  { id: 'transamerica', name: 'Transamerica Pyramid', kind: 'pyramid', lat: 37.79516, lng: -122.40279, bearing: -9, area: 'Financial District', blurb: 'The 853-foot pyramid defined the skyline from 1972 until Salesforce Tower topped it. A redwood grove hides at its base.', height: 260, tags: ['icon'] },
   { id: 'salesforcetower', name: 'Salesforce Tower', kind: 'tower', lat: 37.7897, lng: -122.3972, area: 'SoMa', blurb: 'At 1,070 feet, the tallest building in San Francisco. The crown becomes a video artwork every night after dusk.', height: 326, tags: ['icon'] },
   { id: 'ferrybuilding', name: 'Ferry Building', kind: 'ferry', lat: 37.7955, lng: -122.3937, area: 'Embarcadero', blurb: 'The 1898 terminal is now a food hall. Ferries still leave from behind it, and the Saturday farmers market is the best in the city.', tip: 'Saturday morning: farmers market outside, Blue Bottle and Hog Island oysters inside.', tags: ['food', 'icon'] },
   { id: 'sutro', name: 'Sutro Tower', kind: 'sutro', lat: 37.7552, lng: -122.4528, area: 'Twin Peaks', blurb: 'The 977-foot three-pronged antenna that locals use as a compass. It is visible from almost everywhere in the city.', height: 298, tags: ['icon'] },
