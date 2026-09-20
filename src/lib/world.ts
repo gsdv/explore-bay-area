@@ -3,6 +3,7 @@
  */
 import * as THREE from 'three'
 import { HEIGHTMAP_SIZE, HEIGHT_OFFSET, WORLD, elevationToY, worldToUV } from './geo'
+import type { HoodLabel, HoodsData } from './hoods'
 
 export interface Heightmap {
   size: number
@@ -33,19 +34,20 @@ export interface Building {
   y: number
 }
 
-/** The ground washes the pipeline bakes (public/data/heat-food.webp, rent.webp). */
-export type HeatKind = 'food' | 'rent'
+/** The ground washes the pipeline bakes (public/data/heat-food.webp, rent.webp, hoods.webp). */
+export type HeatKind = 'food' | 'rent' | 'hoods'
 
 export interface World {
   heights: Heightmap
   mapTexture: THREE.Texture
-  /** restaurant-density wash, RGBA, draped over the terrain when the layer is on */
   /** pre-coloured washes draped over the terrain by scene/Heatmap.tsx */
   heat: Record<HeatKind, THREE.Texture>
   buildings: Building[]
   filler: Float32Array
   transit: TransitRoute[]
   stations: Station[]
+  /** neighborhood / city names for the atlas wash, biggest area first */
+  hoods: HoodLabel[]
 }
 
 async function loadHeightmap(onProgress: (s: string) => void): Promise<Heightmap> {
@@ -83,7 +85,7 @@ export async function loadWorld(onProgress: (s: string) => void): Promise<World>
       t.anisotropy = 4
       return t
     })
-  const [heights, mapTexture, heatFood, heatRent, buildings, fillerBuf, transit, stations] = await Promise.all([
+  const [heights, mapTexture, heatFood, heatRent, heatHoods, buildings, fillerBuf, transit, stations, hoods] = await Promise.all([
     loadHeightmap(onProgress),
     loader.loadAsync('/data/map.webp').then((t) => {
       t.colorSpace = THREE.SRGBColorSpace
@@ -94,12 +96,14 @@ export async function loadWorld(onProgress: (s: string) => void): Promise<World>
     }),
     wash('/data/heat-food.webp'),
     wash('/data/rent.webp'),
+    wash('/data/hoods.webp'),
     fetch('/data/buildings.json').then((r) => r.json()),
     fetch('/data/filler.bin').then((r) => r.arrayBuffer()),
     fetch('/data/transit.json').then((r) => r.json()),
     fetch('/data/stations.json').then((r) => r.json()),
+    fetch('/data/hoods.json').then((r) => r.json() as Promise<HoodsData>),
   ])
   onProgress('city')
-  return { heights, mapTexture, heat: { food: heatFood, rent: heatRent }, buildings, filler: new Float32Array(fillerBuf), transit, stations }
+  return { heights, mapTexture, heat: { food: heatFood, rent: heatRent, hoods: heatHoods }, buildings, filler: new Float32Array(fillerBuf), transit, stations, hoods: hoods.labels }
 }
 

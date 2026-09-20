@@ -4,6 +4,7 @@ import type { World } from '../lib/world'
 import { Terrain } from './Terrain'
 import { Water } from './Water'
 import { Heatmap } from './Heatmap'
+import { HoodLabels } from './HoodLabels'
 import { Buildings } from './Buildings'
 import { Transit } from './Transit'
 import { Landmarks } from './Landmarks'
@@ -34,6 +35,8 @@ export function Scene({ world }: { world: World }) {
       <Water />
       <Heatmap world={world} kind="food" />
       <Heatmap world={world} kind="rent" />
+      <Heatmap world={world} kind="hoods" />
+      <HoodLabels world={world} />
       <Buildings world={world} />
       <Transit world={world} />
       <Landmarks world={world} />

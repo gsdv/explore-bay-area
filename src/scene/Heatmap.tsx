@@ -5,11 +5,11 @@ import type { HeatKind, World } from '../lib/world'
 import { useStore } from '../store'
 import { useTerrainGeometry } from './Terrain'
 
-/** Each wash sits at its own height so the two never z-fight while one fades into the other. */
-const WASH_Y: Record<HeatKind, number> = { food: 0.04, rent: 0.05 }
+/** Each wash sits at its own height so they never z-fight while one fades into the other. */
+const WASH_Y: Record<HeatKind, number> = { food: 0.04, rent: 0.05, hoods: 0.06 }
 
 /**
- * A ground wash: a pre-coloured raster from the pipeline (public/data/heat-food.webp or rent.webp) draped over a copy of
+ * A ground wash: a pre-coloured raster from the pipeline (public/data/heat-food.webp, rent.webp or hoods.webp) draped over a copy of
  * the terrain grid, a few metres above the ground so buildings still poke through. Fades in and out on toggle and is
  * skipped by the renderer entirely while hidden. The store allows one wash at a time, so switching cross-fades.
  */

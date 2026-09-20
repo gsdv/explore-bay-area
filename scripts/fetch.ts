@@ -3,12 +3,14 @@ import * as osm from './lib/osm.ts'
 import { buildLand } from './lib/land.ts'
 import { buildHeightmap } from './lib/terrain.ts'
 import { buildZctas, fetchRentByZip } from './lib/rent.ts'
+import { buildHoods } from './lib/hoods.ts'
 
 const t = Date.now()
 await buildLand()
 await buildHeightmap()
 await buildZctas()
 log('rent ZIPs:', (await fetchRentByZip()).byZip.size)
+log('neighborhood polygons:', (await buildHoods()).length)
 for (const f of [osm.fetchStations, osm.fetchFood, osm.fetchTransitRoutes, osm.fetchBuildingsDowntown, osm.fetchParks, osm.fetchRoadsMinorSF, osm.fetchRoadsMajor]) {
   const r = await f()
   log(f.name, 'elements:', r.elements.length)

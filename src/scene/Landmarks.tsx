@@ -94,7 +94,10 @@ function LandmarkObject({ landmark: l, world }: { landmark: Landmark; world: Wor
     select({ kind: 'landmark', item: l })
   }
 
-  const showLabel = !inQuest && (tier !== 'far' || l.tags?.includes('icon'))
+  // while the neighborhood atlas is up its names own the ground (several landmarks share a name with their
+  // neighborhood), so a landmark only names itself on hover
+  const atlas = useStore((s) => s.heat === 'hoods')
+  const showLabel = !inQuest && (atlas ? hovered : tier !== 'far' || l.tags?.includes('icon'))
   const labelHeight = Math.max(...parts.map((p) => p.pos[1] + p.scale[1] / 2)) + 0.6
 
   return (

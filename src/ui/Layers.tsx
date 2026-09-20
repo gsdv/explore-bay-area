@@ -51,6 +51,11 @@ export function Layers() {
         <span>Rent</span>
       </label>
       {heat === 'rent' && <RentLegend />}
+      <label className="layers__row" title="San Francisco's neighborhoods and every other city and town, coloured like an atlas">
+        <input type="checkbox" checked={heat === 'hoods'} onChange={() => toggleHeat('hoods')} />
+        <span className="layers__emoji" aria-hidden>🗺️</span>
+        <span>Neighborhoods</span>
+      </label>
     </aside>
   )
 }

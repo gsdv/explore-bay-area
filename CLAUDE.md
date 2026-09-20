@@ -33,12 +33,14 @@ scripts/                data pipeline (run with tsx; Node 24)
   lib/terrain.ts        terrarium tiles → 1024² heightmap, RGB-encoded PNG
   lib/land.ts           census counties → shoreline polygons (mapshaper)
   lib/rent.ts           Zillow ZORI CSV + census ZCTA polygons for the rent choropleth
+  lib/hoods.ts          SF neighborhood polygons + Census places for the neighborhood atlas
   lib/svg.ts            SVG builder + sharp rasteriser for the 4096² map texture
   lib/palette.ts        map colours and road stroke styles
 src/
   lib/geo.ts            THE shared projection + constants (imported by scripts AND app)
   lib/tweets.ts         Post/TweetsFile types (shared with the script), lazy loader + useTweets(companyId)
   lib/rent.ts           rent classes/colours shared by the pipeline (paints rent.webp) and the legend
+  lib/hoods.ts          atlas tints, wash alpha and the hoods.json label type (shared with the pipeline)
   lib/world.ts          loads public/data, decodes the heightmap, exposes heights.yAt(x,z)
   lib/extrude.ts        building footprints → one merged geometry (earcut roofs, quad walls)
   store.ts              zustand app state: selection, active quest, layer toggles, flyTo requests
@@ -47,7 +49,8 @@ src/
   scene/viewStore.ts    camera state published for UI (minimap, label tiers)
   scene/Terrain.tsx     512² displaced grid + map texture
   scene/Water.tsx       translucent sea-level plane
-  scene/Heatmap.tsx     ground washes (heat-food.webp, rent.webp) draped on the shared terrain grid; one per kind, cross-fade
+  scene/HoodLabels.tsx  names for the neighborhood atlas; shown by apparent size (sqrt(area)/camera distance), culled to the view
+  scene/Heatmap.tsx     ground washes (heat-food.webp, rent.webp, hoods.webp) draped on the shared terrain grid; one per kind, cross-fade
   scene/Buildings.tsx   downtown extrusions + instanced procedural blocks (10×10 chunks)
   scene/Transit.tsx     LineSegments2 per mode + station discs/labels
   scene/Landmarks.tsx   landmark groups: hover outline (inverted hull), pop-up scale, labels
@@ -159,7 +162,13 @@ vercel.json             build settings + cache headers for Vercel (see Hosting)
 - Rent heatmap: Zillow's ZORI ZIP CSV (`data-cache/zori-zip.csv`, free, no key; delete it to pull a newer month) joined to
   Census 2020 ZCTA polygons (67 MB national zip, clipped with mapshaper) in `build-data.ts` step 9. Classes and colours are
   in `src/lib/rent.ts`; `rent.json` carries the as-of month for the legend. Not live: refresh = `pnpm data` + commit.
-- Washes are exclusive: `store.heat` is `'food' | 'rent' | null` and `toggleHeat(kind)` swaps; each `Heatmap` instance
+- Neighborhood atlas: `build-data.ts` step 10 paints SF's 37 classic neighborhoods (Zillow boundaries via the
+  `blackmad/neighborhoods` GitHub mirror, because DataSF's export was returning 503) plus Census 2023 places for every
+  other city/town into `hoods.webp`, greedy-coloured from `HOOD_TINTS` so bbox-neighbours differ. `hoods.json` holds one
+  label per area (pole of inaccessibility, km²). The SF city polygon is unpainted and flagged `group`, so its label
+  hands over to the neighborhoods as you descend. While this wash is on, landmark labels show on hover only (several
+  share a name with their neighborhood). Oakland/Berkeley/San Jose are single areas for now.
+- Washes are exclusive: `store.heat` is `'food' | 'rent' | 'hoods' | null` and `toggleHeat(kind)` swaps; each `Heatmap` instance
   fades itself in/out, so switching cross-fades.
 - Company X feed: **baked, never fetched at runtime.** `pnpm tweets` runs one Apify run per company
   (`kaitoeasyapi~twitter-x-data-tweet-scraper-pay-per-result-cheapest`, query

@@ -30,7 +30,7 @@ interface State {
   transit: Record<TransitMode, boolean>
   showCompanies: boolean
   showLandmarks: boolean
-  /** which wash is draped over the terrain (restaurants or rent); at most one at a time */
+  /** which wash is draped over the terrain (restaurants, rent or the neighborhood atlas); at most one at a time */
   heat: HeatKind | null
   fly: FlyTarget | null
   loaded: boolean

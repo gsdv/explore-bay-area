@@ -10,10 +10,13 @@ import * as osm from './lib/osm.ts'
 import { buildLand } from './lib/land.ts'
 import { buildHeightmap, writeHeightmap } from './lib/terrain.ts'
 import { buildZctas, fetchRentByZip } from './lib/rent.ts'
+import { buildHoods } from './lib/hoods.ts'
+import polylabel from 'polylabel'
 import { PX, polygonPath, linePath, svgDoc, rasterize } from './lib/svg.ts'
 import { P, ROAD_STYLE, heatColor, lerp, clamp01, smooth } from './lib/palette.ts'
-import { project, toUV, elevationToY, BUILDING_EXAGGERATION, UNIT, WORLD } from '../src/lib/geo.ts'
+import { project, toUV, elevationToY, BUILDING_EXAGGERATION, UNIT, WORLD, BBOX } from '../src/lib/geo.ts'
 import { RENT_ALPHA, rentClass, type RentData } from '../src/lib/rent.ts'
+import { HOOD_TINTS, HOODS_ALPHA, type HoodsData } from '../src/lib/hoods.ts'
 
 const t0 = Date.now()
 const land = await buildLand()
@@ -377,5 +380,81 @@ await sharp(rentRaw, { raw: { width: RPX, height: RPX, channels: 4 } }).webp({ q
 rentZips.sort((a, b) => a.zip.localeCompare(b.zip))
 writeJSON(path.join(OUT, 'rent.json'), { asOf, source: 'Zillow Observed Rent Index', zips: rentZips } satisfies RentData)
 log('rent: ZIPs painted', rentZips.length, 'of', zctas.features.length, 'in view · as of', asOf, '· wrote rent.webp', (fs.statSync(path.join(OUT, 'rent.webp')).size / 1e6).toFixed(2), 'MB')
+
+// ---------- 10. neighborhood atlas ----------
+// SF's classic neighborhoods plus every other city and town in the region, tinted like countries in an atlas (touching
+// areas get different tints, greedily) with ink borders, baked to the same kind of 2048² wash. Labels go to hoods.json
+// with the pole of inaccessibility of each polygon and its area, so the app can show big areas from afar and small
+// ones only up close. The SF city polygon is not painted (its neighborhoods are) but still yields the far-zoom label.
+log('neighborhoods')
+const hoods = await buildHoods()
+type Ring = number[][]
+const ringArea = (ring: Ring) => {
+  let a = 0
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [x1, z1] = project(ring[j][1], ring[j][0]), [x2, z2] = project(ring[i][1], ring[i][0])
+    a += x1 * z2 - x2 * z1
+  }
+  return Math.abs(a) / 2
+}
+const polys = (g: GeoJSON.Polygon | GeoJSON.MultiPolygon) => (g.type === 'Polygon' ? [g.coordinates] : g.coordinates)
+const hoodInfo = hoods.map((h) => {
+  const ps = polys(h.geometry)
+  // area in world units² (1 unit = 100 m, so 100 unit² = 1 km²), holes subtracted; label goes in the biggest part
+  let area = 0, best: Ring[] = ps[0], bestArea = -1
+  for (const p of ps) {
+    const a = ringArea(p[0]) - p.slice(1).reduce((s, r) => s + ringArea(r), 0)
+    area += a
+    if (a > bestArea) { bestArea = a; best = p }
+  }
+  const [lng, lat] = polylabel(best as [number, number][][], 1e-4)
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  for (const p of ps) for (const [x, y] of p[0]) { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y) }
+  return { ...h, area, lat, lng, bbox: [minX, minY, maxX, maxY] as const, tint: -1 }
+})
+// greedy colouring, biggest first: a tint no bbox-neighbour uses, else the one the neighbours use least
+const hoodOrder = hoodInfo.map((_, i) => i).filter((i) => hoodInfo[i].paint).sort((a, b) => hoodInfo[b].area - hoodInfo[a].area)
+const EPS = 0.0005
+const tintCount = new Array(HOOD_TINTS.length).fill(0)
+for (const i of hoodOrder) {
+  const me = hoodInfo[i]
+  const used = new Array(HOOD_TINTS.length).fill(0)
+  for (const j of hoodOrder) {
+    const o = hoodInfo[j]
+    if (j === i || o.tint < 0) continue
+    if (o.bbox[0] > me.bbox[2] + EPS || o.bbox[2] < me.bbox[0] - EPS || o.bbox[1] > me.bbox[3] + EPS || o.bbox[3] < me.bbox[1] - EPS) continue
+    used[o.tint]++
+  }
+  // among the tints no neighbour uses, take the one used least so far, so the whole palette shows up evenly
+  const free = used.map((n, t) => (n === 0 ? t : -1)).filter((t) => t >= 0)
+  const pick = free.length ? free.reduce((a, b) => (tintCount[b] < tintCount[a] ? b : a)) : used.indexOf(Math.min(...used))
+  me.tint = pick
+  tintCount[pick]++
+}
+let hoodSvg = ''
+for (const i of hoodOrder) {
+  const h = hoodInfo[i]
+  hoodSvg += `<path fill="${HOOD_TINTS[h.tint]}" fill-rule="evenodd" stroke="#1b1d1a" stroke-opacity="0.8" stroke-width="4" stroke-linejoin="round" d="${polygonPath(h.geometry)}"/>`
+}
+const HOPX = 2048
+const hoodRaw = await rasterize(svgDoc(hoodSvg, HOPX))
+for (let j = 0; j < HOPX; j++) {
+  const mj = Math.floor(((j + 0.5) / HOPX) * PX) * PX
+  for (let i = 0; i < HOPX; i++) {
+    const k = (j * HOPX + i) * 4
+    const land = landMask[mj + Math.floor(((i + 0.5) / HOPX) * PX)] > 127
+    hoodRaw[k + 3] = land ? Math.round(hoodRaw[k + 3] * HOODS_ALPHA) : 0
+  }
+}
+await sharp(hoodRaw, { raw: { width: HOPX, height: HOPX, channels: 4 } }).webp({ quality: 92, alphaQuality: 95 }).toFile(path.join(OUT, 'hoods.webp'))
+const hoodLabels: HoodsData['labels'] = hoodInfo
+  .filter((h) => h.lat > BBOX.south && h.lat < BBOX.north && h.lng > BBOX.west && h.lng < BBOX.east)
+  .map((h) => {
+    const [x, z] = project(h.lat, h.lng)
+    return { name: h.name, kind: h.kind, x: +x.toFixed(2), y: +elevationToY(elevAt(h.lat, h.lng)).toFixed(2), z: +z.toFixed(2), area: +(h.area / 100).toFixed(2), tint: Math.max(0, h.tint), ...(h.paint ? {} : { group: true }) }
+  })
+  .sort((a, b) => b.area - a.area)
+writeJSON(path.join(OUT, 'hoods.json'), { source: 'Zillow neighborhoods (SF) · Census places', labels: hoodLabels } satisfies HoodsData)
+log('neighborhoods: painted', hoodOrder.length, '· labels', hoodLabels.length, '· wrote hoods.webp', (fs.statSync(path.join(OUT, 'hoods.webp')).size / 1e6).toFixed(2), 'MB')
 
 log('done in', ((Date.now() - t0) / 1000).toFixed(0), 's')
