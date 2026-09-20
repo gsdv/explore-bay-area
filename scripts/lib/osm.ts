@@ -1,7 +1,8 @@
 import { overpass, bbox } from './overpass.ts'
+import { SF_BBOX } from '../../src/lib/geo.ts'
 
 /** San Francisco proper (plus a little margin) */
-export const SF = { south: 37.70, west: -122.53, north: 37.84, east: -122.35 }
+export const SF = SF_BBOX
 /** Downtown / SoMa / Mission Bay: real building footprints here, procedural elsewhere */
 export const DOWNTOWN = { south: 37.765, west: -122.425, north: 37.812, east: -122.385 }
 

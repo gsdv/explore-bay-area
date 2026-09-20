@@ -37,9 +37,21 @@ export function polygonPath(geom: GeoJSON.Geometry): string {
   return ''
 }
 
-/** Geometry is always in PX (4096²) space; `size` renders it at another pixel size (the washes are 2048²). */
-export function svgDoc(body: string, size = PX): string {
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${PX} ${PX}">${body}</svg>`
+/** A window onto PX space, in PX pixels. */
+export interface View {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+export const FULL: View = { x: 0, y: 0, w: PX, h: PX }
+
+/**
+ * Geometry is always in PX (4096²) space; `size` renders it at another pixel size (the washes are 2048²) and
+ * `view` crops to a window of it (the SF inset), so stroke widths keep their ground size at any resolution.
+ */
+export function svgDoc(body: string, size = PX, view: View = FULL): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="${view.x} ${view.y} ${view.w} ${view.h}" preserveAspectRatio="none">${body}</svg>`
 }
 
 /** Render an SVG to raw RGBA pixels. */

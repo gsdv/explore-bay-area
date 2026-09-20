@@ -20,6 +20,12 @@ export const BBOX: LatLngBox = {
   east: -121.8,
 }
 
+/**
+ * San Francisco proper (plus a little margin). The pipeline fetches minor streets here and bakes a sharper
+ * inset of the map texture over it (map-sf.webp), which the terrain blends in on top of the regional one.
+ */
+export const SF_BBOX: LatLngBox = { south: 37.7, west: -122.53, north: 37.84, east: -122.35 }
+
 export const LAT0 = (BBOX.south + BBOX.north) / 2
 export const LNG0 = (BBOX.west + BBOX.east) / 2
 
@@ -68,6 +74,8 @@ export function worldToUV(x: number, z: number): [number, number] {
 export const HEIGHT_OFFSET = 1000
 export const HEIGHTMAP_SIZE = 1024
 export const MAP_TEXTURE_SIZE = 4096
+/** The SF inset: ≈3.9 m per pixel against the regional texture's ≈20 m. */
+export const SF_TEXTURE_SIZE = 4096
 
 /** metres of elevation -> world y */
 export function elevationToY(m: number): number {

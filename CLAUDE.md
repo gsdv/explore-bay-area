@@ -47,7 +47,7 @@ src/
   scene/Scene.tsx       Canvas, lights, fog; mounts every scene layer
   scene/CameraRig.tsx   custom camera (keys/drag/scroll), bounds, floor, fly-to animation
   scene/viewStore.ts    camera state published for UI (minimap, label tiers)
-  scene/Terrain.tsx     512² displaced grid + map texture
+  scene/Terrain.tsx     512² displaced grid + map texture, with the sharper SF inset mixed in by the shader
   scene/Water.tsx       translucent sea-level plane
   scene/HoodLabels.tsx  names for the neighborhood atlas; shown by apparent size (sqrt(area)/camera distance), culled to the view
   scene/Heatmap.tsx     ground washes (heat-food.webp, rent.webp, hoods.webp) draped on the shared terrain grid; one per kind, cross-fade
@@ -141,6 +141,10 @@ vercel.json             build settings + cache headers for Vercel (see Hosting)
   would allow official GTFS shapes later.
 - Census county boundaries come back as a `GeometryCollection` after `-dissolve`; `land.ts` normalises it.
 - `map.webp` (4096², q90) replaced a 14 MB PNG. Keep textures as WebP.
+- Ground sharpness: `map.webp` covers the whole region at ≈20 m/px; `map-sf.webp` (4096² over `SF_BBOX` in `geo.ts`, ≈3.9 m/px)
+  is the same layers re-rasterised through an SVG `viewBox` window (`composeMap(size, view, …)` in step 4), so strokes keep their
+  ground width. `Terrain.tsx` patches the standard material (`onBeforeCompile`) to mix it over its rectangle with a feathered edge.
+  Another sharp area = another inset; an 8192² regional texture was avoided on purpose (~360 MB of GPU memory with mipmaps).
 - Procedural filler density is tuned in `build-data.ts` (spacing/prob). ~126k instances today.
 
 ## Verifying in the Claude Code browser pane

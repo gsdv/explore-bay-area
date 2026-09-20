@@ -12,9 +12,9 @@ import { buildHeightmap, writeHeightmap } from './lib/terrain.ts'
 import { buildZctas, fetchRentByZip } from './lib/rent.ts'
 import { buildHoods } from './lib/hoods.ts'
 import polylabel from 'polylabel'
-import { PX, polygonPath, linePath, svgDoc, rasterize } from './lib/svg.ts'
+import { PX, FULL, polygonPath, linePath, svgDoc, rasterize, type View } from './lib/svg.ts'
 import { P, ROAD_STYLE, heatColor, lerp, clamp01, smooth } from './lib/palette.ts'
-import { project, toUV, elevationToY, BUILDING_EXAGGERATION, UNIT, WORLD, BBOX } from '../src/lib/geo.ts'
+import { project, toUV, elevationToY, BUILDING_EXAGGERATION, UNIT, WORLD, BBOX, SF_BBOX, SF_TEXTURE_SIZE } from '../src/lib/geo.ts'
 import { RENT_ALPHA, rentClass, type RentData } from '../src/lib/rent.ts'
 import { HOOD_TINTS, HOODS_ALPHA, type HoodsData } from '../src/lib/hoods.ts'
 import { landmarks } from '../src/data/landmarks.ts'
@@ -25,7 +25,8 @@ const hm = await buildHeightmap()
 
 // ---------- 1. land mask ----------
 log('rasterising land mask')
-const landRaw = await rasterize(svgDoc(`<path fill="#fff" fill-rule="evenodd" d="${land.features.map((f) => polygonPath(f.geometry)).join('')}"/>`))
+const landSvg = `<path fill="#fff" fill-rule="evenodd" d="${land.features.map((f) => polygonPath(f.geometry)).join('')}"/>`
+const landRaw = await rasterize(svgDoc(landSvg))
 const landMask = new Uint8Array(PX * PX)
 for (let i = 0; i < PX * PX; i++) landMask[i] = landRaw[i * 4 + 3]
 await writeHeightmap(hm, landMask, PX)
@@ -41,9 +42,8 @@ for (const f of parksGeo.features) {
   if (wild) wildD += polygonPath(f.geometry)
   else cityD += polygonPath(f.geometry)
 }
-const parksRaw = await rasterize(
-  svgDoc(`<path fill="#00ff00" fill-opacity="0.8" fill-rule="evenodd" d="${wildD}"/><path fill="#ff0000" fill-opacity="0.9" fill-rule="evenodd" d="${cityD}"/>`),
-)
+const parksSvg = `<path fill="#00ff00" fill-opacity="0.8" fill-rule="evenodd" d="${wildD}"/><path fill="#ff0000" fill-opacity="0.9" fill-rule="evenodd" d="${cityD}"/>`
+const parksRaw = await rasterize(svgDoc(parksSvg))
 
 // ---------- 3. roads ----------
 log('roads')
@@ -69,46 +69,60 @@ const roadsRaw = await rasterize(svgDoc(roadSvg))
 // ---------- 4. compose map texture ----------
 log('composing map texture')
 const N = hm.size
-const map = Buffer.alloc(PX * PX * 3)
-for (let j = 0; j < PX; j++) {
-  const v = (j + 0.5) / PX
-  for (let i = 0; i < PX; i++) {
-    const k = j * PX + i
-    const u = (i + 0.5) / PX
-    let r: number, g: number, b: number
-    if (landMask[k] < 128) {
-      ;[r, g, b] = P.water
-    } else {
-      const h = hm.sample(u, v)
-      const s = 1.5 / N
-      const dx = hm.sample(u + s, v) - hm.sample(u - s, v)
-      const dz = hm.sample(u, v + s) - hm.sample(u, v - s)
-      const slope = Math.hypot(dx, dz) / (2 * s * 80_000) // ~ metres per metre
-      const t = smooth(clamp01((h - 25) / 220))
-      const tp = smooth(clamp01((h - 450) / 400))
-      r = lerp(lerp(P.sand[0], P.hill[0], t), P.peak[0], tp)
-      g = lerp(lerp(P.sand[1], P.hill[1], t), P.peak[1], tp)
-      b = lerp(lerp(P.sand[2], P.hill[2], t), P.peak[2], tp)
-      // parks
-      const pr = parksRaw[k * 4], pg = parksRaw[k * 4 + 1], pa = parksRaw[k * 4 + 3] / 255
-      if (pa > 0.02) {
-        const col = pr > pg ? P.parkCity : P.parkWild
-        r = lerp(r, col[0], pa); g = lerp(g, col[1], pa); b = lerp(b, col[2], pa)
+/** Paint `size`² pixels of the map over a window of PX space from the three rasterised layers (RGBA, same size and window). */
+function composeMap(size: number, view: View, landPx: Buffer, parksPx: Buffer, roadsPx: Buffer): Buffer {
+  const out = Buffer.alloc(size * size * 3)
+  for (let j = 0; j < size; j++) {
+    const v = (view.y + ((j + 0.5) / size) * view.h) / PX
+    for (let i = 0; i < size; i++) {
+      const k = j * size + i
+      const u = (view.x + ((i + 0.5) / size) * view.w) / PX
+      let r: number, g: number, b: number
+      if (landPx[k * 4 + 3] < 128) {
+        ;[r, g, b] = P.water
+      } else {
+        const h = hm.sample(u, v)
+        const s = 1.5 / N
+        const dx = hm.sample(u + s, v) - hm.sample(u - s, v)
+        const dz = hm.sample(u, v + s) - hm.sample(u, v - s)
+        const slope = Math.hypot(dx, dz) / (2 * s * 80_000) // ~ metres per metre
+        const t = smooth(clamp01((h - 25) / 220))
+        const tp = smooth(clamp01((h - 450) / 400))
+        r = lerp(lerp(P.sand[0], P.hill[0], t), P.peak[0], tp)
+        g = lerp(lerp(P.sand[1], P.hill[1], t), P.peak[1], tp)
+        b = lerp(lerp(P.sand[2], P.hill[2], t), P.peak[2], tp)
+        // parks
+        const pr = parksPx[k * 4], pg = parksPx[k * 4 + 1], pa = parksPx[k * 4 + 3] / 255
+        if (pa > 0.02) {
+          const col = pr > pg ? P.parkCity : P.parkWild
+          r = lerp(r, col[0], pa); g = lerp(g, col[1], pa); b = lerp(b, col[2], pa)
+        }
+        // hillshade-ish darkening on slopes
+        const shade = 1 - 0.28 * clamp01(slope * 2.2)
+        r *= shade; g *= shade; b *= shade
+        // roads
+        const ra = roadsPx[k * 4 + 3] / 255
+        if (ra > 0.02) {
+          r = lerp(r, roadsPx[k * 4], ra); g = lerp(g, roadsPx[k * 4 + 1], ra); b = lerp(b, roadsPx[k * 4 + 2], ra)
+        }
       }
-      // hillshade-ish darkening on slopes
-      const shade = 1 - 0.28 * clamp01(slope * 2.2)
-      r *= shade; g *= shade; b *= shade
-      // roads
-      const ra = roadsRaw[k * 4 + 3] / 255
-      if (ra > 0.02) {
-        r = lerp(r, roadsRaw[k * 4], ra); g = lerp(g, roadsRaw[k * 4 + 1], ra); b = lerp(b, roadsRaw[k * 4 + 2], ra)
-      }
+      out[k * 3] = r; out[k * 3 + 1] = g; out[k * 3 + 2] = b
     }
-    map[k * 3] = r; map[k * 3 + 1] = g; map[k * 3 + 2] = b
   }
+  return out
 }
+const map = composeMap(PX, FULL, landRaw, parksRaw, roadsRaw)
 await sharp(map, { raw: { width: PX, height: PX, channels: 3 } }).webp({ quality: 90, effort: 5 }).toFile(path.join(OUT, 'map.webp'))
 log('wrote map.webp', (fs.statSync(path.join(OUT, 'map.webp')).size / 1e6).toFixed(2), 'MB')
+// the same layers again over San Francisco only, ~5x sharper: the terrain blends this inset over the regional texture
+{
+  const [u0, v0] = toUV(SF_BBOX.north, SF_BBOX.west), [u1, v1] = toUV(SF_BBOX.south, SF_BBOX.east)
+  const view: View = { x: u0 * PX, y: v0 * PX, w: (u1 - u0) * PX, h: (v1 - v0) * PX }
+  const S = SF_TEXTURE_SIZE
+  const [l, p, r] = [await rasterize(svgDoc(landSvg, S, view)), await rasterize(svgDoc(parksSvg, S, view)), await rasterize(svgDoc(roadSvg, S, view))]
+  await sharp(composeMap(S, view, l, p, r), { raw: { width: S, height: S, channels: 3 } }).webp({ quality: 90, effort: 5 }).toFile(path.join(OUT, 'map-sf.webp'))
+  log('wrote map-sf.webp', (fs.statSync(path.join(OUT, 'map-sf.webp')).size / 1e6).toFixed(2), 'MB')
+}
 // a preview for eyeballing, and the same at web size for the minimap
 await sharp(map, { raw: { width: PX, height: PX, channels: 3 } }).resize(1024).png().toFile(path.join('data-cache', 'map-preview.png'))
 await sharp(map, { raw: { width: PX, height: PX, channels: 3 } }).resize(1024).webp({ quality: 78 }).toFile(path.join(OUT, 'map-small.webp'))

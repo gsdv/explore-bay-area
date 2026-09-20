@@ -40,6 +40,8 @@ export type HeatKind = 'food' | 'rent' | 'hoods'
 export interface World {
   heights: Heightmap
   mapTexture: THREE.Texture
+  /** the sharper inset over SF_BBOX, blended over mapTexture by the terrain */
+  mapTextureSF: THREE.Texture
   /** pre-coloured washes draped over the terrain by scene/Heatmap.tsx */
   heat: Record<HeatKind, THREE.Texture>
   buildings: Building[]
@@ -85,15 +87,18 @@ export async function loadWorld(onProgress: (s: string) => void): Promise<World>
       t.anisotropy = 4
       return t
     })
-  const [heights, mapTexture, heatFood, heatRent, heatHoods, buildings, fillerBuf, transit, stations, hoods] = await Promise.all([
-    loadHeightmap(onProgress),
-    loader.loadAsync('/data/map.webp').then((t) => {
+  const ground = (file: string) =>
+    loader.loadAsync(file).then((t) => {
       t.colorSpace = THREE.SRGBColorSpace
-      t.anisotropy = 8
+      t.anisotropy = 16 // the ground is mostly seen at a grazing angle; three clamps this to what the GPU offers
       t.minFilter = THREE.LinearMipmapLinearFilter
       t.generateMipmaps = true
       return t
-    }),
+    })
+  const [heights, mapTexture, mapTextureSF, heatFood, heatRent, heatHoods, buildings, fillerBuf, transit, stations, hoods] = await Promise.all([
+    loadHeightmap(onProgress),
+    ground('/data/map.webp'),
+    ground('/data/map-sf.webp'),
     wash('/data/heat-food.webp'),
     wash('/data/rent.webp'),
     wash('/data/hoods.webp'),
@@ -104,6 +109,6 @@ export async function loadWorld(onProgress: (s: string) => void): Promise<World>
     fetch('/data/hoods.json').then((r) => r.json() as Promise<HoodsData>),
   ])
   onProgress('city')
-  return { heights, mapTexture, heat: { food: heatFood, rent: heatRent, hoods: heatHoods }, buildings, filler: new Float32Array(fillerBuf), transit, stations, hoods: hoods.labels }
+  return { heights, mapTexture, mapTextureSF, heat: { food: heatFood, rent: heatRent, hoods: heatHoods }, buildings, filler: new Float32Array(fillerBuf), transit, stations, hoods: hoods.labels }
 }
 

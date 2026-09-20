@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import * as THREE from 'three'
-import { WORLD } from '../lib/geo'
+import { SF_BBOX, WORLD, toUV } from '../lib/geo'
 import type { World } from '../lib/world'
 
 const GRID = 512
@@ -47,11 +47,31 @@ export function useTerrainGeometry(world: World): THREE.BufferGeometry {
   }, [world])
 }
 
+/** The regional map with the sharper SF inset mixed in over its rectangle, feathered so the seam never shows. */
+function groundMaterial(world: World): THREE.MeshStandardMaterial {
+  const m = new THREE.MeshStandardMaterial({ map: world.mapTexture, roughness: 1, metalness: 0 })
+  const [u0, v0] = toUV(SF_BBOX.north, SF_BBOX.west), [u1, v1] = toUV(SF_BBOX.south, SF_BBOX.east)
+  // the mesh's uv is (u, 1 - v), so the inset's south edge is its origin
+  const rect = new THREE.Vector4(u0, 1 - v1, 1 / (u1 - u0), 1 / (v1 - v0))
+  m.onBeforeCompile = (shader) => {
+    shader.uniforms.insetMap = { value: world.mapTextureSF }
+    shader.uniforms.insetRect = { value: rect }
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <map_pars_fragment>', '#include <map_pars_fragment>\nuniform sampler2D insetMap;\nuniform vec4 insetRect;')
+      .replace(
+        '#include <map_fragment>',
+        `#include <map_fragment>
+        vec2 insetUv = (vMapUv - insetRect.xy) * insetRect.zw;
+        vec2 insetEdge = min(insetUv, 1.0 - insetUv);
+        float insetMix = smoothstep(0.0, 0.015, min(insetEdge.x, insetEdge.y));
+        diffuseColor.rgb = mix(diffuseColor.rgb, texture2D(insetMap, insetUv).rgb, insetMix);`,
+      )
+  }
+  return m
+}
+
 export function Terrain({ world }: { world: World }) {
   const geometry = useTerrainGeometry(world)
-  return (
-    <mesh geometry={geometry} raycast={() => null} receiveShadow>
-      <meshStandardMaterial map={world.mapTexture} roughness={1} metalness={0} />
-    </mesh>
-  )
+  const material = useMemo(() => groundMaterial(world), [world])
+  return <mesh geometry={geometry} material={material} raycast={() => null} receiveShadow />
 }
