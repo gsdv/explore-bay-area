@@ -3,7 +3,7 @@ import type { Landmark } from '../data/landmarks'
 import { project, UNIT, BUILDING_EXAGGERATION } from '../lib/geo'
 
 export interface Part {
-  geo: 'box' | 'cyl' | 'cone' | 'sphere' | 'ring' | 'stack' | 'fluted' | 'arcade'
+  geo: 'box' | 'cyl' | 'cone' | 'sphere' | 'ring' | 'stack' | 'fluted' | 'arcade' | 'arches'
   pos: [number, number, number]
   rot?: [number, number, number]
   scale: [number, number, number]
@@ -18,7 +18,32 @@ const STONE = '#efe8d8'
 const CONCRETE = '#d9d5cc'
 const GREEN = '#6fa35a'
 const RED = '#c9463d'
+const SHADE = '#5f594e'
 const H = (m: number) => m * UNIT * BUILDING_EXAGGERATION
+
+const box = (x: number, y0: number, y1: number, z: number, sx: number, sz: number, color: string, detail = false): Part =>
+  ({ geo: 'box', pos: [x, (y0 + y1) / 2, z], scale: [sx, y1 - y0, sz], color, detail })
+// round parts are unit-normalised (radius 0.5, height 1) so the hover hull and bounds see their true size
+const drum = (y0: number, y1: number, rb: number, rt: number, color: string, detail = false): Part =>
+  ({ geo: 'cyl', pos: [0, (y0 + y1) / 2, 0], scale: [2 * rb, y1 - y0, 2 * rb], color, detail, args: [+(0.5 * rt / rb).toFixed(4), 0.5, 24] })
+// dark openings painted a hair proud of a drum of radius r: eight bays of `group` panels, arched unless `flat`
+const drumOpenings = (y0: number, y1: number, r: number, width: number, group = 1, flat = false): Part => {
+  const d = 2 * (r + 0.003)
+  return { geo: 'arcade', pos: [0, (y0 + y1) / 2, 0], scale: [d, y1 - y0, d], color: SHADE, detail: true,
+    args: [8, +(width / d).toFixed(4), flat ? 0 : +(width / 2 / (y1 - y0)).toFixed(4), group, +((width * 1.9) / r).toFixed(4)] }
+}
+/**
+ * The same for a flat façade: `n` openings `w` wide in `rows` storeys between y0 and y1, on a wall `len` long. The wall runs
+ * along x and faces z (`axis` 0) or the reverse (1); `depth` is the distance between the two opposite walls, centred on the
+ * part, and `sides` picks the +face (1), the -face (-1) or both (0).
+ */
+const wallOpenings = (x: number, z: number, y0: number, y1: number, len: number, depth: number, n: number, w: number,
+  o: { rows?: number; axis?: 0 | 1; sides?: -1 | 0 | 1; flat?: boolean } = {}): Part => {
+  const d = depth + 0.006, axis = o.axis ?? 0
+  return { geo: 'arches', pos: [x, (y0 + y1) / 2, z], scale: axis ? [d, y1 - y0, len] : [len, y1 - y0, d], color: SHADE, detail: true,
+    args: [n, +(w / len).toFixed(4), o.flat ? 0 : +(w / 2 / (y1 - y0)).toFixed(4), o.rows ?? 1, 0.12, axis, o.sides ?? 0] }
+}
+const shift = (p: Part, z: number): Part => ({ ...p, pos: [p.pos[0], p.pos[1], p.pos[2] + z] })
 
 /** Returns primitive parts in landmark-local space (y up, origin at ground). Bridges take the ground profile from `bridgeGround`. */
 export function landmarkParts(l: Landmark, ground?: BridgeGround): Part[] {
@@ -141,18 +166,9 @@ export function landmarkParts(l: Landmark, ground?: BridgeGround): Part[] {
       // eight tall arches, a row of slit windows in threes, and a narrower roofless ring of small arches. The real tower
       // is only 64 m by 10 m, so the whole model is 1.5x the usual building scale (and ~2.7x in plan) to read as an icon.
       const h = H(l.height ?? 64) * 1.5
-      const PLINTH = '#e6dfcd', SHADE = '#5f594e', KNOLL = '#b3cc96'
+      const PLINTH = '#e6dfcd', KNOLL = '#b3cc96'
       const yShaft = 0.2 * h, yLoggia = 0.72 * h, yRing = yLoggia + 0.64 * (h - yLoggia)
       const r0 = 0.155, r1 = 0.135, rRing = 0.122
-      // round parts are unit-normalised (radius 0.5, height 1) so the hover hull and bounds see their true size
-      const drum = (y0: number, y1: number, rb: number, rt: number, color: string, detail = false): Part =>
-        ({ geo: 'cyl', pos: [0, (y0 + y1) / 2, 0], scale: [2 * rb, y1 - y0, 2 * rb], color, detail, args: [+(0.5 * rt / rb).toFixed(4), 0.5, 24] })
-      // dark openings painted a hair proud of a drum of radius r: `n` bays of `group` panels, arched unless `flat`
-      const openings = (y0: number, y1: number, r: number, width: number, group = 1, flat = false): Part => {
-        const d = 2 * (r + 0.003)
-        return { geo: 'arcade', pos: [0, (y0 + y1) / 2, 0], scale: [d, y1 - y0, d], color: SHADE, detail: true,
-          args: [8, +(width / d).toFixed(4), flat ? 0 : +(width / 2 / (y1 - y0)).toFixed(4), group, +((width * 1.9) / r).toFixed(4)] }
-      }
       const hl = h - yLoggia
       return [
         // knoll and plinth run below the origin: the hilltop falls away from the centre point the model stands on
@@ -168,9 +184,9 @@ export function landmarkParts(l: Landmark, ground?: BridgeGround): Part[] {
         drum(yLoggia, yRing, r1, r1, STONE),
         drum(yRing, h, rRing, rRing, STONE),
         drum(h, h + 0.004, rRing - 0.025, rRing - 0.025, SHADE, true),
-        openings(yLoggia + 0.06 * hl, yLoggia + 0.46 * hl, r1, 0.062),
-        openings(yLoggia + 0.53 * hl, yLoggia + 0.6 * hl, r1, 0.011, 3, true),
-        openings(yRing + 0.2 * (h - yRing), yRing + 0.78 * (h - yRing), rRing, 0.04),
+        drumOpenings(yLoggia + 0.06 * hl, yLoggia + 0.46 * hl, r1, 0.062),
+        drumOpenings(yLoggia + 0.53 * hl, yLoggia + 0.6 * hl, r1, 0.011, 3, true),
+        drumOpenings(yRing + 0.2 * (h - yRing), yRing + 0.78 * (h - yRing), rRing, 0.04),
       ]
     }
     case 'sutro': {
@@ -208,12 +224,64 @@ export function landmarkParts(l: Landmark, ground?: BridgeGround): Part[] {
       p.push({ geo: 'box', pos: [0, 0.12, 0], scale: [0.5, 0.24, 0.4], color: '#d9d5cc' })
       return p
     }
-    case 'ferry':
-      return [
-        { geo: 'box', pos: [0, 0.22, 0], scale: [2.6, 0.44, 0.45], color: '#e6dcc4' },
-        { geo: 'box', pos: [0, 0.75, 0], scale: [0.36, 1.1, 0.36], color: '#e6dcc4' },
-        { geo: 'cone', pos: [0, 1.42, 0], scale: [1, 0.3, 1], color: '#b7b0a0', args: [0.25, 4] },
+    case 'ferry': {
+      // Ferry Building: a 200 m, three-storey arcaded hall along the Embarcadero (local +z is the street front) under a
+      // long skylit roof, pavilions at the centre and both ends, and the Giralda-style clock tower rising just behind the
+      // central pavilion: plain shaft, four dials, a colonnaded belfry, two shrinking stages, a lantern, bronze dome and
+      // flag. Plan is 1.2x true (any longer and it runs into Pier 1); the tower is ~1.8x in plan to keep its silhouette.
+      const WALL = '#e3dfd3', TRIM = '#efece3', TOWER = '#eae7dd', ROOF = '#7d7e78', GLASS = '#a9b6b8', DIAL = '#f6f1e2', BRONZE = '#a98a4e'
+      const L = 2.4, D = 0.56, EAVE = 0.3, SUNK = -0.15
+      const tz = 0.17, TW = 0.21
+      const p: Part[] = [
+        box(0, SUNK, EAVE, 0, L, D, WALL),
+        box(0, EAVE - 0.012, EAVE + 0.018, 0, L + 0.04, D + 0.04, TRIM, true),
+        box(0, EAVE + 0.018, EAVE + 0.06, 0, L - 0.12, D - 0.12, ROOF),
+        box(0, EAVE + 0.06, EAVE + 0.095, -0.03, L - 0.5, 0.14, GLASS, true),
+        box(0, SUNK, EAVE + 0.07, D / 2 + 0.02, 0.52, 0.12, WALL),
+        wallOpenings(0, 0, 0.03, 0.28, 0.44, 2 * (D / 2 + 0.08), 3, 0.1, { sides: 1 }),
+        wallOpenings(0, 0, 0.02, 0.27, L - 0.5, D, 21, 0.055, { rows: 2, sides: -1 }),
+        wallOpenings(0, 0, 0.02, 0.27, D - 0.12, L, 4, 0.055, { rows: 2, axis: 1 }),
       ]
+      for (const side of [-1, 1]) {
+        p.push(box(side * (L / 2 - 0.11), SUNK, EAVE + 0.04, 0, 0.22, D + 0.05, WALL))
+        p.push(wallOpenings(side * 0.62, 0, 0.02, 0.27, 0.7, D, 8, 0.055, { rows: 2, sides: 1 }))
+      }
+      // tower, bottom to top
+      const yClock = 0.7, yBelfry = 0.86, yStage = 1.04, yLantern = 1.16, yDome = 1.28
+      p.push(
+        box(0, 0.2, yBelfry, tz, TW, TW, TOWER),
+        box(0, yBelfry, yBelfry + 0.025, tz, TW + 0.05, TW + 0.05, TRIM, true),
+        box(0, yBelfry + 0.025, yStage, tz, TW - 0.02, TW - 0.02, TOWER),
+        box(0, yStage - 0.01, yStage + 0.012, tz, TW + 0.03, TW + 0.03, TRIM, true),
+        box(0, yStage + 0.012, yLantern, tz, 0.135, 0.135, TOWER),
+        box(0, yLantern - 0.008, yLantern + 0.01, tz, 0.165, 0.165, TRIM, true),
+        shift(drum(yLantern + 0.01, yDome, 0.042, 0.042, TOWER), tz),
+        shift(drum(yDome - 0.006, yDome + 0.008, 0.052, 0.052, TRIM, true), tz),
+        shift(drumOpenings(yLantern + 0.03, yDome - 0.02, 0.042, 0.018), tz),
+        { geo: 'sphere', pos: [0, yDome + 0.008, tz], scale: [0.04, 0.06, 0.04], color: BRONZE, args: [1, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2] },
+        box(0, yDome + 0.06, yDome + 0.26, tz, 0.008, 0.008, SHADE, true),
+        box(0.04, yDome + 0.21, yDome + 0.255, tz, 0.07, 0.004, RED, true),
+      )
+      // belfry colonnade and the stage above it, on all four faces
+      for (const axis of [0, 1] as const) {
+        p.push(shift(wallOpenings(0, 0, yBelfry + 0.05, yStage - 0.03, TW - 0.06, TW - 0.02, 4, 0.021, { axis, flat: true }), tz))
+        p.push(shift(wallOpenings(0, 0, yStage + 0.03, yLantern - 0.025, 0.1, 0.135, 2, 0.032, { axis }), tz))
+      }
+      // clocks: a rim, a dial and two hands, each run straight through the shaft so one part shows on two opposite faces
+      const hand = (len: number, deg: number, axis: 0 | 1): Part => {
+        const a = (deg * Math.PI) / 180, u = (-Math.sin(a) * len) / 2, v = (Math.cos(a) * len) / 2
+        return axis
+          ? { geo: 'box', pos: [0, yClock + v, tz - u], rot: [a, 0, 0], scale: [TW + 0.034, len, 0.009], color: SHADE, detail: true }
+          : { geo: 'box', pos: [u, yClock + v, tz], rot: [0, 0, a], scale: [0.009, len, TW + 0.034], color: SHADE, detail: true }
+      }
+      for (const axis of [0, 1] as const) {
+        const rot: [number, number, number] = axis ? [0, 0, Math.PI / 2] : [Math.PI / 2, 0, 0]
+        p.push({ geo: 'cyl', pos: [0, yClock, tz], rot, scale: [0.17, TW + 0.012, 0.17], color: SHADE, args: [0.5, 0.5, 24], detail: true })
+        p.push({ geo: 'cyl', pos: [0, yClock, tz], rot, scale: [0.142, TW + 0.022, 0.142], color: DIAL, args: [0.5, 0.5, 24], detail: true })
+        p.push(hand(0.062, -60, axis), hand(0.045, 55, axis))
+      }
+      return p
+    }
     case 'rotunda':
       return [
         { geo: 'cyl', pos: [0, 0.5, 0], scale: [1, 1, 1], color: '#e5cfa8', args: [0.75, 0.8, 8, 1, true] },
@@ -463,6 +531,7 @@ export function partGeometry(p: Part): THREE.BufferGeometry {
     case 'stack': return stackGeometry(a)
     case 'fluted': return flutedGeometry(a)
     case 'arcade': return arcadeGeometry(a)
+    case 'arches': return archesGeometry(a)
   }
 }
 
@@ -517,9 +586,7 @@ function flutedGeometry(a: number[]): THREE.BufferGeometry {
  */
 function arcadeGeometry(a: number[]): THREE.BufferGeometry {
   const [bays, width, rise, group = 1, pitch = 0] = a
-  const outline: [number, number][] = [[-width / 2, -0.5], [width / 2, -0.5], [width / 2, 0.5 - rise]]
-  if (rise > 0) for (let i = 1; i < 8; i++) outline.push([(width / 2) * Math.cos((i * Math.PI) / 8), 0.5 - rise + rise * Math.sin((i * Math.PI) / 8)])
-  outline.push([-width / 2, 0.5 - rise])
+  const outline = archOutline(width, -0.5, 0.5, rise)
   const pos: number[] = []
   for (let k = 0; k < bays; k++) {
     for (let j = 0; j < group; j++) {
@@ -530,6 +597,38 @@ function arcadeGeometry(a: number[]): THREE.BufferGeometry {
     }
   }
   return fromPositions(pos)
+}
+
+/**
+ * Flat openings on the walls of a unit box: args [openings per row, opening width, arch rise (0 = square head), rows, gap
+ * between rows, axis (0: walls face z, 1: walls face x), sides (1: + wall, -1: - wall, 0: both)], fractions of the box.
+ */
+function archesGeometry(a: number[]): THREE.BufferGeometry {
+  const [n, width, rise, rows = 1, gap = 0, axis = 0, sides = 0] = a
+  const rowH = (1 - gap * (rows - 1)) / rows
+  const pos: number[] = []
+  for (const side of sides === 0 ? [-1, 1] : [sides]) {
+    // seen from outside, u runs to the right: that is +x on the +z wall and -z on the +x wall
+    const at = ([u, v]: [number, number]) => (axis ? [side * 0.5, v, -side * u] : [side * u, v, side * 0.5])
+    for (let r = 0; r < rows; r++) {
+      const v0 = -0.5 + r * (rowH + gap)
+      for (let k = 0; k < n; k++) {
+        const c = -0.5 + (k + 0.5) / n
+        const outline = archOutline(width, v0, v0 + rowH, rise).map(([u, v]) => [u + c, v] as [number, number])
+        const mid = at([c, v0 + rowH / 2])
+        for (let i = 0; i < outline.length; i++) pos.push(...mid, ...at(outline[i]), ...at(outline[(i + 1) % outline.length]))
+      }
+    }
+  }
+  return fromPositions(pos)
+}
+
+/** An opening's outline, anticlockwise in (u, v): a rectangle from v0 up, closed by a semicircular head of height `rise` under v1. */
+function archOutline(width: number, v0: number, v1: number, rise: number): [number, number][] {
+  const pts: [number, number][] = [[-width / 2, v0], [width / 2, v0], [width / 2, v1 - rise]]
+  if (rise > 0) for (let i = 1; i < 8; i++) pts.push([(width / 2) * Math.cos((i * Math.PI) / 8), v1 - rise + rise * Math.sin((i * Math.PI) / 8)])
+  pts.push([-width / 2, v1 - rise])
+  return pts
 }
 
 /** Side faces between two rings of equal length (xyz triples running anticlockwise seen from below, i.e. x = cos, z = sin), plus an optional top cap fanned from the axis. */
