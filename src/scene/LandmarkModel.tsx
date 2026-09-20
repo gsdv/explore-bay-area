@@ -3,7 +3,7 @@ import type { Landmark } from '../data/landmarks'
 import { project, UNIT, BUILDING_EXAGGERATION } from '../lib/geo'
 
 export interface Part {
-  geo: 'box' | 'cyl' | 'cone' | 'sphere' | 'ring'
+  geo: 'box' | 'cyl' | 'cone' | 'sphere' | 'ring' | 'stack'
   pos: [number, number, number]
   rot?: [number, number, number]
   scale: [number, number, number]
@@ -55,11 +55,42 @@ export function landmarkParts(l: Landmark, ground?: BridgeGround): Part[] {
       for (const x of b.anchorsX) parts.push({ geo: 'box', pos: [x, b.deckH * 0.55, 0], scale: [0.36, b.deckH * 1.1, b.deckW + 0.2], color: b.pier })
       return parts
     }
-    case 'tower':
-      return [
-        { geo: 'cyl', pos: [0, H(l.height ?? 200) / 2, 0], scale: [1, H(l.height ?? 200), 1], color: '#cfd6dd', args: [0.55, 0.7, 24] },
-        { geo: 'cyl', pos: [0, H(l.height ?? 200) + 0.12, 0], scale: [1, 0.25, 1], color: '#f4f2ec', args: [0.4, 0.55, 24] },
+    case 'tower': {
+      // Salesforce Tower: a rounded square that stays plumb for its lower third and then curves in to a flat, open top;
+      // glass wrapped in white sunshade rings at every floor, a paler perforated crown for the top seventh with a
+      // vertical slot down the middle of each face. As with the pyramid, plan size is ~1.8x true so the height
+      // exaggeration keeps the real silhouette.
+      const h = H(l.height ?? 326)
+      const GLASS = '#a3b8c8', RING = '#f1f2ee', CROWN = '#dbe3e6', LOBBY = '#56626a', VOID = '#6f7d86'
+      const a0 = 0.45, CORNER = 0.42, SEGS = 4
+      const halfAt = (y: number) => a0 * (1 - 0.4 * Math.pow(Math.max(0, y / h), 2.4))
+      // slabs [y0, y1] following the taper, `proud` of the face, normalised into a unit box so bounds and the hover hull work
+      const stack = (slabs: [number, number][], color: string, proud = 0, detail = false): Part => {
+        const y0 = slabs[0][0], y1 = slabs[slabs.length - 1][1], w = 2 * (halfAt(y0) + proud)
+        const u = (y: number) => [+((y - (y0 + y1) / 2) / (y1 - y0)).toFixed(4), +((halfAt(y) + proud) / w).toFixed(4)]
+        return { geo: 'stack', pos: [0, (y0 + y1) / 2, 0], scale: [w, y1 - y0, w], color, detail, args: [CORNER, SEGS, ...slabs.flatMap(([a, b]) => [...u(a), ...u(b)])] }
+      }
+      const run = (from: number, to: number, n: number): [number, number][] =>
+        Array.from({ length: n }, (_, i) => [from + ((to - from) * i) / n, from + ((to - from) * (i + 1)) / n])
+      const yLobby = 0.035 * h, yCrown = 0.86 * h
+      const floors = 34, t = 0.034
+      const p: Part[] = [
+        stack([[0, yLobby]], LOBBY, -0.03),
+        stack(run(yLobby, yCrown, 14), GLASS),
+        stack(run(yCrown, h, 4), CROWN),
+        stack(Array.from({ length: floors }, (_, i) => { const y = yLobby + ((h - yLobby) * (i + 0.5)) / floors; return [y - t / 2, y + t / 2] as [number, number] }), RING, 0.006, true),
+        // the crown is a hollow screen: a dark inset on the roof reads as the opening
+        stack([[h, h + 0.004]], VOID, -0.05, true),
       ]
+      // slots: a strip through the rings on each face, leaning with the taper
+      const ySlot = 0.76 * h, yMid = (ySlot + h) / 2
+      const lean = Math.atan2(halfAt(ySlot) - halfAt(h), h - ySlot), len = Math.hypot(halfAt(ySlot) - halfAt(h), h - ySlot)
+      for (const side of [-1, 1]) {
+        p.push({ geo: 'box', pos: [side * (halfAt(yMid) + 0.004), yMid, 0], rot: [0, 0, side * lean], scale: [0.02, len, 0.075], color: CROWN, detail: true })
+        p.push({ geo: 'box', pos: [0, yMid, side * (halfAt(yMid) + 0.004)], rot: [-side * lean, 0, 0], scale: [0.075, len, 0.02], color: CROWN, detail: true })
+      }
+      return p
+    }
     case 'pyramid': {
       // Transamerica: a truss colonnade under the widest floor (the 5th), 48 tapering floors of white precast, two blank
       // wings (elevators east, stairs west) that start flush with the face at the 29th floor and stand proud of it as the
@@ -398,5 +429,48 @@ export function partGeometry(p: Part): THREE.BufferGeometry {
     case 'cone': return new THREE.ConeGeometry(a[0] ?? 0.5, 1, a[1] ?? 8)
     case 'sphere': return new THREE.SphereGeometry(1, a[1] ?? 16, a[2] ?? 12, a[3] ?? 0, a[4] ?? Math.PI * 2, a[5] ?? 0, a[6] ?? Math.PI)
     case 'ring': return new THREE.TorusGeometry(1, 0.1, 8, 24)
+    case 'stack': return stackGeometry(a)
   }
+}
+
+/**
+ * Rounded-square slabs stacked along y: args are [corner radius as a fraction of the half-width, segments per corner,
+ * then y0, half0, y1, half1 per slab] in unit space. A slab is capped unless the next one starts where it ends, so one
+ * geometry serves both a tapering body (touching slabs) and its floor bands (spaced slabs).
+ */
+function stackGeometry(a: number[]): THREE.BufferGeometry {
+  const [corner, segs] = a
+  const n = 4 * (segs + 1)
+  const ring = (y: number, half: number) => {
+    const r = half * corner, pts: number[] = []
+    for (let k = 0; k < 4; k++) {
+      const mid = ((k + 0.5) * Math.PI) / 2
+      const cx = Math.sign(Math.cos(mid)) * (half - r), cz = Math.sign(Math.sin(mid)) * (half - r)
+      for (let s = 0; s <= segs; s++) {
+        const th = ((k + s / segs) * Math.PI) / 2
+        pts.push(cx + r * Math.cos(th), y, cz + r * Math.sin(th))
+      }
+    }
+    return pts
+  }
+  const pos: number[] = []
+  const tri = (p: number[], i: number, q: number[], j: number, r: number[], k: number) =>
+    pos.push(p[i * 3], p[i * 3 + 1], p[i * 3 + 2], q[j * 3], q[j * 3 + 1], q[j * 3 + 2], r[k * 3], r[k * 3 + 1], r[k * 3 + 2])
+  for (let i = 2; i + 3 < a.length; i += 4) {
+    const lo = ring(a[i], a[i + 1]), hi = ring(a[i + 2], a[i + 3])
+    for (let j = 0; j < n; j++) {
+      const j2 = (j + 1) % n
+      tri(lo, j, hi, j, lo, j2)
+      tri(hi, j, hi, j2, lo, j2)
+    }
+    const next = a[i + 4]
+    if (next === undefined || next > a[i + 2] + 1e-4) {
+      const c = [0, a[i + 2], 0]
+      for (let j = 0; j < n; j++) tri(c, 0, hi, (j + 1) % n, hi, j)
+    }
+  }
+  const g = new THREE.BufferGeometry()
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+  g.computeVertexNormals()
+  return g
 }

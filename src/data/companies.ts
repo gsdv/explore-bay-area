@@ -18,6 +18,8 @@ export interface Company {
   twitter?: string
   /** rough HQ footprint height in metres, purely visual */
   height?: number
+  /** id of the landmark that already models this HQ: the chip sits on it and no block is drawn */
+  landmark?: string
   tags?: ('ai' | 'chips' | 'fintech' | 'social' | 'saas' | 'bio' | 'hardware' | 'auto')[]
 }
 
@@ -25,7 +27,7 @@ export const companies: Company[] = [
   // ---- San Francisco ----
   { id: 'anthropic', name: 'Anthropic', domain: 'anthropic.com', lat: 37.7877, lng: -122.3960, city: 'San Francisco', blurb: 'AI safety company behind the Claude models, headquartered a block from the Transbay terminal.', cap: 183, isPrivate: true, employees: 2500, founded: 2021, twitter: 'AnthropicAI', height: 120, tags: ['ai'] },
   { id: 'openai', name: 'OpenAI', domain: 'openai.com', lat: 37.7679, lng: -122.3900, city: 'San Francisco', blurb: 'Maker of ChatGPT and the GPT models, based in Mission Bay next to the ballpark and Chase Center.', cap: 500, isPrivate: true, employees: 4500, founded: 2015, twitter: 'OpenAI', height: 40, tags: ['ai'] },
-  { id: 'salesforce', name: 'Salesforce', domain: 'salesforce.com', lat: 37.7897, lng: -122.3972, city: 'San Francisco', blurb: 'Cloud CRM pioneer whose tower is the tallest building on the SF skyline.', cap: 240, employees: 76000, founded: 1999, twitter: 'salesforce', height: 326, tags: ['saas'] },
+  { id: 'salesforce', name: 'Salesforce', domain: 'salesforce.com', lat: 37.78978, lng: -122.39693, city: 'San Francisco', blurb: 'Cloud CRM pioneer whose tower is the tallest building on the SF skyline.', cap: 240, employees: 76000, founded: 1999, twitter: 'salesforce', height: 326, landmark: 'salesforcetower', tags: ['saas'] },
   { id: 'uber', name: 'Uber', domain: 'uber.com', lat: 37.7695, lng: -122.3902, city: 'San Francisco', blurb: 'Ride-hailing and delivery platform with a glassy campus in Mission Bay.', cap: 180, employees: 31000, founded: 2009, twitter: 'Uber', height: 50 },
   { id: 'airbnb', name: 'Airbnb', domain: 'airbnb.com', lat: 37.7717, lng: -122.4051, city: 'San Francisco', blurb: 'Home-sharing marketplace, born from an air mattress in a SoMa apartment.', cap: 80, employees: 7300, founded: 2008, twitter: 'Airbnb', height: 30 },
   { id: 'databricks', name: 'Databricks', domain: 'databricks.com', lat: 37.7917, lng: -122.3927, city: 'San Francisco', blurb: 'Data and AI platform built by the creators of Apache Spark.', cap: 100, isPrivate: true, employees: 8000, founded: 2013, twitter: 'databricks', height: 100, tags: ['ai', 'saas'] },

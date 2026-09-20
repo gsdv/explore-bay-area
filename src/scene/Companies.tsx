@@ -44,11 +44,14 @@ function CompanyMarker({ c, x, y, z, h, compact }: { c: Company; x: number; y: n
   const color = useMemo(() => new THREE.Color().setHSL((c.name.length * 0.137) % 1, 0.25, 0.62), [c])
   return (
     <group position={[x, y, z]}>
-      <mesh position-y={h / 2} raycast={() => null}>
-        <boxGeometry args={[0.7, h, 0.7]} />
-        <meshStandardMaterial color={color} roughness={0.8} flatShading />
-      </mesh>
-      <Html position={[0, h + 0.5, 0]} center zIndexRange={[30, 20]} style={{ pointerEvents: 'auto' }}>
+      {!c.landmark && (
+        <mesh position-y={h / 2} raycast={() => null}>
+          <boxGeometry args={[0.7, h, 0.7]} />
+          <meshStandardMaterial color={color} roughness={0.8} flatShading />
+        </mesh>
+      )}
+      {/* on a landmark the chip rides above the landmark's own label */}
+      <Html position={[0, h + (c.landmark ? 1.3 : 0.5), 0]} center zIndexRange={[30, 20]} style={{ pointerEvents: 'auto' }}>
         <button
           className={'company-chip' + (selected ? ' is-selected' : '') + (compact && !selected ? ' is-compact' : '')}
           title={compact ? `${c.name} · ${fmtCap(c.cap)}` : undefined}
