@@ -324,6 +324,13 @@ export function CameraRig({ world }: { world: World }) {
     camera.position.copy(s.p)
     dirOf(s.yaw, s.pitch, tmp.d)
     camera.lookAt(tmp.v.copy(s.p).add(tmp.d))
+    // Near plane follows altitude: depth precision scales with it, and with a fixed 0.5 the sea sheet
+    // (3 m under the bayside flats) z-fights through the land from high up. Nothing is this close up there.
+    const near = clamp(s.p.y * 0.1, 0.5, 40)
+    if (Math.abs(near - camera.near) > camera.near * 0.02) {
+      camera.near = near
+      camera.updateProjectionMatrix()
+    }
     // screen-centre ground point (two passes so the terrain height converges)
     let gy = world.heights.yAt(s.center.x, s.center.z)
     for (let i = 0; i < 2; i++) {
