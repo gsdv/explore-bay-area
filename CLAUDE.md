@@ -165,10 +165,12 @@ vercel.json             build settings + cache headers for Vercel (see Hosting)
 - `src/data/landmarks.ts`: each has a `kind` mapped to a procedural model in `LandmarkModel.tsx`. Add a
   new kind there (parts list, optional `landmarkLines` for thin geometry). Mark thin surface parts (stripes, struts)
   `detail: true` so the hover hull skips them, and give grid-aligned buildings a `bearing` (downtown SF is −9°).
-  A landmark that *is* the building (kinds `pyramid` and `tower`) has its OSM footprint dropped in `build-data.ts` step 5
+  A landmark that *is* the building (kinds `pyramid`, `tower`, `coit`) has its OSM footprint dropped in `build-data.ts` step 5
   (`MODELLED`), otherwise the footprint extrudes as a prism around the model. A company housed in one sets `landmark: '<id>'`
   in `companies.ts`, so no HQ block is drawn inside the model and its chip rides above the landmark label.
   The `stack` part geo (rounded-square slabs along y, unit-normalised) builds tapering bodies and their floor bands as one mesh each.
+  `fluted` is a ribbed tapering cylinder and `arcade` paints arched/square openings round a drum in one mesh (both used by Coit Tower).
+  Models on a hilltop stand on the height at their centre only, so run their base below y = 0 (Coit has a green knoll for this).
 - `src/data/quests.ts`: ordered stops with a to-do and a tour `view` each. No persisted progress.
 - Restaurant heatmap: `osm.fetchFood()` (amenity=restaurant|cafe|fast_food, bars excluded on purpose) is binned,
   gaussian-blurred (σ ≈ 200 m), sqrt-normalised to the 99.5th percentile and coloured through `palette.ts`'s heat

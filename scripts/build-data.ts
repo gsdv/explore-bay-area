@@ -161,7 +161,7 @@ function parseHeight(tags: any): number {
   return 9
 }
 // Landmarks whose model is the building itself: their OSM footprint would extrude as a prism around the model, so drop it.
-const MODELLED = landmarks.filter((l) => l.kind === 'pyramid' || l.kind === 'tower')
+const MODELLED = landmarks.filter((l) => l.kind === 'pyramid' || l.kind === 'tower' || l.kind === 'coit')
 const contains = (ring: { lat: number; lon: number }[], lat: number, lng: number) => {
   let inside = false
   for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {

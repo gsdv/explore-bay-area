@@ -3,7 +3,7 @@ import type { Landmark } from '../data/landmarks'
 import { project, UNIT, BUILDING_EXAGGERATION } from '../lib/geo'
 
 export interface Part {
-  geo: 'box' | 'cyl' | 'cone' | 'sphere' | 'ring' | 'stack'
+  geo: 'box' | 'cyl' | 'cone' | 'sphere' | 'ring' | 'stack' | 'fluted' | 'arcade'
   pos: [number, number, number]
   rot?: [number, number, number]
   scale: [number, number, number]
@@ -136,12 +136,43 @@ export function landmarkParts(l: Landmark, ground?: BridgeGround): Part[] {
       }
       return p
     }
-    case 'coit':
+    case 'coit': {
+      // Coit Tower: a stepped plinth (the mural rooms), a fluted shaft with a slight taper, then the open-air loggia:
+      // eight tall arches, a row of slit windows in threes, and a narrower roofless ring of small arches. The real tower
+      // is only 64 m by 10 m, so the whole model is 1.5x the usual building scale (and ~2.7x in plan) to read as an icon.
+      const h = H(l.height ?? 64) * 1.5
+      const PLINTH = '#e6dfcd', SHADE = '#5f594e', KNOLL = '#b3cc96'
+      const yShaft = 0.2 * h, yLoggia = 0.72 * h, yRing = yLoggia + 0.64 * (h - yLoggia)
+      const r0 = 0.155, r1 = 0.135, rRing = 0.122
+      // round parts are unit-normalised (radius 0.5, height 1) so the hover hull and bounds see their true size
+      const drum = (y0: number, y1: number, rb: number, rt: number, color: string, detail = false): Part =>
+        ({ geo: 'cyl', pos: [0, (y0 + y1) / 2, 0], scale: [2 * rb, y1 - y0, 2 * rb], color, detail, args: [+(0.5 * rt / rb).toFixed(4), 0.5, 24] })
+      // dark openings painted a hair proud of a drum of radius r: `n` bays of `group` panels, arched unless `flat`
+      const openings = (y0: number, y1: number, r: number, width: number, group = 1, flat = false): Part => {
+        const d = 2 * (r + 0.003)
+        return { geo: 'arcade', pos: [0, (y0 + y1) / 2, 0], scale: [d, y1 - y0, d], color: SHADE, detail: true,
+          args: [8, +(width / d).toFixed(4), flat ? 0 : +(width / 2 / (y1 - y0)).toFixed(4), group, +((width * 1.9) / r).toFixed(4)] }
+      }
+      const hl = h - yLoggia
       return [
-        { geo: 'cyl', pos: [0, 0.1, 0], scale: [1, 0.2, 1], color: STONE, args: [0.6, 0.6, 16] },
-        { geo: 'cyl', pos: [0, H(l.height ?? 64) / 2, 0], scale: [1, H(l.height ?? 64), 1], color: STONE, args: [0.28, 0.32, 16] },
-        { geo: 'cyl', pos: [0, H(l.height ?? 64) + 0.08, 0], scale: [1, 0.16, 1], color: '#e0d8c4', args: [0.36, 0.28, 16] },
+        // knoll and plinth run below the origin: the hilltop falls away from the centre point the model stands on
+        // (the knoll is ground, not tower, so it stays out of the hover outline)
+        drum(-0.4, 0.02, 0.66, 0.47, KNOLL, true),
+        { geo: 'box', pos: [0, (0.11 * h - 0.4) / 2, 0], scale: [0.62, 0.11 * h + 0.4, 0.62], color: PLINTH },
+        { geo: 'box', pos: [0, 0.155 * h, 0], scale: [0.45, 0.09 * h, 0.45], color: PLINTH },
+        { geo: 'box', pos: [0, 0.045 * h, 0.311], scale: [0.09, 0.09 * h, 0.006], color: SHADE, detail: true },
+        drum(yShaft - 0.04, yShaft + 0.03, 0.19, 0.175, STONE),
+        { geo: 'fluted', pos: [0, (yShaft + yLoggia) / 2, 0], scale: [2 * r0, yLoggia - yShaft, 2 * r0], color: STONE, args: [+(r1 / r0).toFixed(4), 24, 0.07] },
+        // balcony line under the arches, loggia drum, upper ring, and the dark well of the open top
+        drum(yLoggia - 0.012, yLoggia + 0.012, r1 + 0.01, r1 + 0.01, STONE, true),
+        drum(yLoggia, yRing, r1, r1, STONE),
+        drum(yRing, h, rRing, rRing, STONE),
+        drum(h, h + 0.004, rRing - 0.025, rRing - 0.025, SHADE, true),
+        openings(yLoggia + 0.06 * hl, yLoggia + 0.46 * hl, r1, 0.062),
+        openings(yLoggia + 0.53 * hl, yLoggia + 0.6 * hl, r1, 0.011, 3, true),
+        openings(yRing + 0.2 * (h - yRing), yRing + 0.78 * (h - yRing), rRing, 0.04),
       ]
+    }
     case 'sutro': {
       // Three legs flare out at the base and lean in to a "waist", then three straight masts rise to the top,
       // tied by crossbars. Painted in red and white bands like the real one.
@@ -430,6 +461,8 @@ export function partGeometry(p: Part): THREE.BufferGeometry {
     case 'sphere': return new THREE.SphereGeometry(1, a[1] ?? 16, a[2] ?? 12, a[3] ?? 0, a[4] ?? Math.PI * 2, a[5] ?? 0, a[6] ?? Math.PI)
     case 'ring': return new THREE.TorusGeometry(1, 0.1, 8, 24)
     case 'stack': return stackGeometry(a)
+    case 'fluted': return flutedGeometry(a)
+    case 'arcade': return arcadeGeometry(a)
   }
 }
 
@@ -440,7 +473,6 @@ export function partGeometry(p: Part): THREE.BufferGeometry {
  */
 function stackGeometry(a: number[]): THREE.BufferGeometry {
   const [corner, segs] = a
-  const n = 4 * (segs + 1)
   const ring = (y: number, half: number) => {
     const r = half * corner, pts: number[] = []
     for (let k = 0; k < 4; k++) {
@@ -454,21 +486,64 @@ function stackGeometry(a: number[]): THREE.BufferGeometry {
     return pts
   }
   const pos: number[] = []
-  const tri = (p: number[], i: number, q: number[], j: number, r: number[], k: number) =>
-    pos.push(p[i * 3], p[i * 3 + 1], p[i * 3 + 2], q[j * 3], q[j * 3 + 1], q[j * 3 + 2], r[k * 3], r[k * 3 + 1], r[k * 3 + 2])
   for (let i = 2; i + 3 < a.length; i += 4) {
-    const lo = ring(a[i], a[i + 1]), hi = ring(a[i + 2], a[i + 3])
-    for (let j = 0; j < n; j++) {
-      const j2 = (j + 1) % n
-      tri(lo, j, hi, j, lo, j2)
-      tri(hi, j, hi, j2, lo, j2)
-    }
     const next = a[i + 4]
-    if (next === undefined || next > a[i + 2] + 1e-4) {
-      const c = [0, a[i + 2], 0]
-      for (let j = 0; j < n; j++) tri(c, 0, hi, (j + 1) % n, hi, j)
+    skin(pos, ring(a[i], a[i + 1]), ring(a[i + 2], a[i + 3]), next === undefined || next > a[i + 2] + 1e-4)
+  }
+  return fromPositions(pos)
+}
+
+/** A tapering cylinder of flat ribs with a narrow groove between them: args [top radius / bottom radius, flutes, groove depth as a fraction of the radius], unit space. */
+function flutedGeometry(a: number[]): THREE.BufferGeometry {
+  const [top, flutes, depth] = a
+  const ring = (y: number, r: number) => {
+    const pts: number[] = []
+    for (let k = 0; k < flutes; k++) {
+      for (const [f, rr] of [[0, r], [0.72, r], [0.8, r * (1 - depth)], [0.92, r * (1 - depth)]]) {
+        const th = ((k + f) / flutes) * Math.PI * 2
+        pts.push(rr * Math.cos(th), y, rr * Math.sin(th))
+      }
+    }
+    return pts
+  }
+  const pos: number[] = []
+  skin(pos, ring(-0.5, 0.5), ring(0.5, 0.5 * top), true)
+  return fromPositions(pos)
+}
+
+/**
+ * Flat panels standing tangent to a unit drum (radius 0.5, height 1), for painted-on openings: args [bays, panel width,
+ * arch rise as a fraction of the height (0 = square head), panels per bay, angle between panels in a bay].
+ */
+function arcadeGeometry(a: number[]): THREE.BufferGeometry {
+  const [bays, width, rise, group = 1, pitch = 0] = a
+  const outline: [number, number][] = [[-width / 2, -0.5], [width / 2, -0.5], [width / 2, 0.5 - rise]]
+  if (rise > 0) for (let i = 1; i < 8; i++) outline.push([(width / 2) * Math.cos((i * Math.PI) / 8), 0.5 - rise + rise * Math.sin((i * Math.PI) / 8)])
+  outline.push([-width / 2, 0.5 - rise])
+  const pos: number[] = []
+  for (let k = 0; k < bays; k++) {
+    for (let j = 0; j < group; j++) {
+      const th = (k / bays) * Math.PI * 2 + (j - (group - 1) / 2) * pitch
+      const at = ([u, v]: [number, number]) => [0.5 * Math.cos(th) - u * Math.sin(th), v, 0.5 * Math.sin(th) + u * Math.cos(th)]
+      const c = at([0, 0])
+      for (let i = 0; i < outline.length; i++) pos.push(...c, ...at(outline[(i + 1) % outline.length]), ...at(outline[i]))
     }
   }
+  return fromPositions(pos)
+}
+
+/** Side faces between two rings of equal length (xyz triples running anticlockwise seen from below, i.e. x = cos, z = sin), plus an optional top cap fanned from the axis. */
+function skin(pos: number[], lo: number[], hi: number[], cap: boolean) {
+  const n = lo.length / 3
+  const v = (p: number[], i: number) => [p[i * 3], p[i * 3 + 1], p[i * 3 + 2]]
+  for (let j = 0; j < n; j++) {
+    const j2 = (j + 1) % n
+    pos.push(...v(lo, j), ...v(hi, j), ...v(lo, j2), ...v(hi, j), ...v(hi, j2), ...v(lo, j2))
+    if (cap) pos.push(0, hi[1], 0, ...v(hi, j2), ...v(hi, j))
+  }
+}
+
+function fromPositions(pos: number[]): THREE.BufferGeometry {
   const g = new THREE.BufferGeometry()
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
   g.computeVertexNormals()
