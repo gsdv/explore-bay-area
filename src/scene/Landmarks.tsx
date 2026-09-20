@@ -9,7 +9,31 @@ import { useStore } from '../store'
 import { landmarkParts, landmarkLines, bridgeGround, partGeometry, type Part } from './LandmarkModel'
 import { useZoomTier } from './viewStore'
 
-const OUTLINE = new THREE.MeshBasicMaterial({ color: '#1b1d1a', side: THREE.BackSide })
+// Hover outline: still an inverted hull, but in the accent (International Orange, --orange in styles.css) with a
+// band of hot light sweeping diagonally through world space. A second, wider and translucent hull is the glow.
+const shimmer = { uTime: { value: 0 }, uHot: { value: new THREE.Color('#ffc492') } }
+const hullMaterial = (opts: THREE.MeshBasicMaterialParameters) => {
+  const m = new THREE.MeshBasicMaterial({ color: '#f04a00', side: THREE.BackSide, ...opts })
+  m.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, shimmer)
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vShimmerPos;')
+      .replace('#include <project_vertex>', '#include <project_vertex>\nvShimmerPos = (modelMatrix * vec4(transformed, 1.0)).xyz;')
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform float uTime;\nuniform vec3 uHot;\nvarying vec3 vShimmerPos;')
+      .replace(
+        '#include <color_fragment>',
+        `#include <color_fragment>
+        float band = sin(dot(vShimmerPos, vec3(1.0, 1.6, 1.0)) * 1.7 - uTime * 3.4);
+        float breath = 0.5 + 0.5 * sin(uTime * 2.1);
+        diffuseColor.rgb = mix(diffuseColor.rgb, uHot, smoothstep(0.5, 1.0, band) * 0.85 + breath * 0.08);
+        diffuseColor.a *= 0.75 + 0.25 * breath;`,
+      )
+  }
+  return m
+}
+const OUTLINE = hullMaterial({})
+const GLOW = hullMaterial({ color: '#ff7a33', transparent: true, opacity: 0.34, depthWrite: false })
 const geoCache = new Map<string, THREE.BufferGeometry>()
 const geoFor = (p: Part) => {
   const key = p.geo + JSON.stringify(p.args ?? [])
@@ -17,8 +41,14 @@ const geoFor = (p: Part) => {
   return geoCache.get(key)!
 }
 
+// the fluted shaft is an open, grooved tube: as a hull its rim shows as a row of teeth, so it borrows a plain capped taper
+const hullGeoFor = (p: Part) => (p.geo === 'fluted' ? geoFor({ ...p, geo: 'cyl', args: [0.5 * Number(p.args?.[0] ?? 1), 0.5, 24] }) : geoFor(p))
+
 export function Landmarks({ world }: { world: World }) {
   const show = useStore((s) => s.showLandmarks)
+  useFrame(({ clock }) => {
+    shimmer.uTime.value = clock.elapsedTime
+  })
   if (!show) return null
   return (
     <group>
@@ -30,6 +60,8 @@ export function Landmarks({ world }: { world: World }) {
 }
 
 const HULL = 0.09
+const HALO = 0.16
+const grown = (p: Part, by: number): [number, number, number] => [p.scale[0] + by * 2, p.scale[1] + by * 2, p.scale[2] + by * 2]
 
 function LandmarkObject({ landmark: l, world }: { landmark: Landmark; world: World }) {
   const group = useRef<THREE.Group>(null)
@@ -114,12 +146,10 @@ function LandmarkObject({ landmark: l, world }: { landmark: Landmark; world: Wor
             <meshStandardMaterial color={p.color} roughness={0.85} metalness={0} flatShading />
           </mesh>
           {hovered && !p.detail && (
-            <mesh
-              geometry={geoFor(p)}
-              material={OUTLINE}
-              scale={[p.scale[0] + HULL * 2, p.scale[1] + HULL * 2, p.scale[2] + HULL * 2]}
-              raycast={() => null}
-            />
+            <>
+              <mesh geometry={hullGeoFor(p)} material={OUTLINE} scale={grown(p, HULL)} raycast={() => null} />
+              <mesh geometry={hullGeoFor(p)} material={GLOW} scale={grown(p, HALO)} raycast={() => null} />
+            </>
           )}
         </group>
       ))}
