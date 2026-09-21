@@ -59,3 +59,23 @@ export function drapeLine(ring: Pt[], yAt: (x: number, z: number) => number, ste
   out.push(out[0])
   return out
 }
+
+/**
+ * A flat band `width` wide centred on a closed draped polyline (as from `drapeLine`, last point = first), as xyz triples
+ * wound to face up. Corners are mitred by averaging the two edge normals, which is plenty for a park's gentle outline.
+ */
+export function ribbon(line: [number, number, number][], width: number, lift = 0): number[] {
+  const pts = line.slice(0, -1), n = pts.length
+  const side = pts.map((p, i) => {
+    const a = pts[(i + n - 1) % n], b = pts[(i + 1) % n]
+    const dx = b[0] - a[0], dz = b[2] - a[2], len = Math.hypot(dx, dz) || 1
+    const nx = (-dz / len) * (width / 2), nz = (dx / len) * (width / 2)
+    return [[p[0] - nx, p[1] + lift, p[2] - nz], [p[0] + nx, p[1] + lift, p[2] + nz]]
+  })
+  const pos: number[] = []
+  for (let i = 0; i < n; i++) {
+    const [l0, r0] = side[i], [l1, r1] = side[(i + 1) % n]
+    pos.push(...l0, ...r0, ...l1, ...r0, ...r1, ...l1)
+  }
+  return pos
+}

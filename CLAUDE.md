@@ -232,8 +232,9 @@ vercel.json             build settings + cache headers for Vercel (see Hosting)
   `tier` (low-poly frustum), `at` (move a part in plan), `asDetail`.
   Area landmarks: a park too big to be an object gets its real outline instead. `build-data.ts` step 2 writes `areas.json`
   (`AREA_PARKS`: landmark id -> OSM park names; Golden Gate Park + the Panhandle so far) and `scene/LandmarkArea.tsx` drapes it on the
-  terrain (`lib/drape.ts`: the polygon cut into 50 m cells so it follows the ground) as an always-on border plus an invisible fill that
-  is the hover/click target and washes orange under the pointer. It shares the landmark id with the little tree model, so both light
+  terrain (`lib/drape.ts`: the polygon cut into 50 m cells so it follows the ground) as a thin resting border plus an invisible fill that
+  is the hover/click target. Under the pointer the border becomes the landmarks' shimmering hover outline laid flat (two ribbons using
+  `scene/hoverGlow.ts`, the hull material shared with `Landmarks.tsx`) over a faint orange wash. It shares the landmark id with the little tree model, so both light
   up together. Adding the Presidio or Dolores = one entry in `AREA_PARKS` + `pnpm data`.
   Models on a hilltop stand on the height at their centre only, so run their base below y = 0 (Coit has a green knoll for this).
 - `src/data/quests.ts`: ordered stops with a to-do and a tour `view` each. No persisted progress.
