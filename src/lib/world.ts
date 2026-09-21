@@ -2,9 +2,10 @@
  * Loads all generated data (public/data) once and exposes a height sampler.
  */
 import * as THREE from 'three'
-import { DETAIL_AREAS, HEIGHTMAP_SIZE, HEIGHT_OFFSET, WORLD, elevationToY, worldToUV } from './geo'
+import { CITY_PARTS, DETAIL_AREAS, HEIGHTMAP_SIZE, HEIGHT_OFFSET, cityPartAt, elevationToY, project, worldToUV } from './geo'
 import { decodeBlocks } from './blocks'
 import type { HoodLabel, HoodsData } from './hoods'
+import { startPoint } from './start'
 
 export interface Heightmap {
   size: number
@@ -35,19 +36,30 @@ export interface Building {
   y: number
 }
 
+/** The houses, building outlines and sharper ground of one city part (a detail area, or the rest of the region). */
+export interface CityPart {
+  id: string
+  /** index into DETAIL_AREAS, −1 for the rest */
+  area: number
+  /** one box per house, 7 floats each (see blocks.ts) */
+  blocks: Float32Array
+  buildings: Building[]
+  /** the area's sharper inset of the map texture, blended over mapTexture by the terrain (none for the rest) */
+  inset: THREE.Texture | null
+}
+
 /** The ground washes the pipeline bakes (public/data/heat-food.webp, rent.webp, hoods.webp). */
 export type HeatKind = 'food' | 'rent' | 'hoods'
 
 export interface World {
   heights: Heightmap
   mapTexture: THREE.Texture
-  /** the sharper insets, one per DETAIL_AREAS entry and in that order, blended over mapTexture by the terrain */
-  mapInsets: THREE.Texture[]
   /** pre-coloured washes draped over the terrain by scene/Heatmap.tsx */
   heat: Record<HeatKind, THREE.Texture>
-  buildings: Building[]
-  /** one box per house, 7 floats each (see blocks.ts) */
-  filler: Float32Array
+  /** the city part the first view looks at: the only one the first frame waits for */
+  city: CityPart[]
+  /** every other part, nearest first; they download one after another once `city` is in (null = failed). See scene/useCity.ts */
+  cityLater: Promise<CityPart | null>[]
   transit: TransitRoute[]
   stations: Station[]
   /** neighborhood / city names for the atlas wash, biggest area first */
@@ -97,20 +109,48 @@ export async function loadWorld(onProgress: (s: string) => void): Promise<World>
       t.generateMipmaps = true
       return t
     })
-  const [heights, mapTexture, mapInsets, heatFood, heatRent, heatHoods, buildings, fillerBuf, transit, stations, hoods] = await Promise.all([
+  const loadPart = async (id: string): Promise<CityPart> => {
+    const area = DETAIL_AREAS.findIndex((a) => a.id === id)
+    const [buf, buildings, inset] = await Promise.all([
+      fetch(`/data/blocks-${id}.bin`).then((r) => r.arrayBuffer()),
+      fetch(`/data/buildings-${id}.json`).then((r) => r.json() as Promise<Building[]>),
+      area < 0 ? null : ground(`/data/map-${id}.webp`),
+    ])
+    return { id, area, blocks: decodeBlocks(buf), buildings, inset }
+  }
+  // the part under the first view, then the rest of the region (it surrounds everything), then the other areas by distance
+  const [sx, sz] = startPoint()
+  const first = cityPartAt(sx, sz)
+  const away = (id: string) => {
+    const b = DETAIL_AREAS.find((a) => a.id === id)
+    if (!b) return 0
+    const [x, z] = project((b.bbox.south + b.bbox.north) / 2, (b.bbox.west + b.bbox.east) / 2)
+    return Math.hypot(x - sx, z - sz)
+  }
+  const later = CITY_PARTS.filter((id) => id !== first).sort((a, b) => away(a) - away(b))
+
+  const [heights, mapTexture, city, heatFood, heatRent, heatHoods, transit, stations, hoods] = await Promise.all([
     loadHeightmap(onProgress),
     ground('/data/map.webp'),
-    Promise.all(DETAIL_AREAS.map((a) => ground(`/data/map-${a.id}.webp`))),
+    loadPart(first),
     wash('/data/heat-food.webp'),
     wash('/data/rent.webp'),
     wash('/data/hoods.webp'),
-    fetch('/data/buildings.json').then((r) => r.json()),
-    fetch('/data/filler.bin').then((r) => r.arrayBuffer()),
     fetch('/data/transit.json').then((r) => r.json()),
     fetch('/data/stations.json').then((r) => r.json()),
     fetch('/data/hoods.json').then((r) => r.json() as Promise<HoodsData>),
   ])
   onProgress('city')
-  return { heights, mapTexture, mapInsets, heat: { food: heatFood, rent: heatRent, hoods: heatHoods }, buildings, filler: decodeBlocks(fillerBuf), transit, stations, hoods: hoods.labels }
+  // one part at a time, so the nearest is whole soonest instead of all of them sharing the line
+  let queue: Promise<unknown> = Promise.resolve()
+  const cityLater = later.map((id) => {
+    const part = queue.then(() => loadPart(id)).catch((e) => {
+      console.warn(`city part ${id} failed to load`, e)
+      return null
+    })
+    queue = part
+    return part
+  })
+  return { heights, mapTexture, city: [city], cityLater, heat: { food: heatFood, rent: heatRent, hoods: heatHoods }, transit, stations, hoods: hoods.labels }
 }
 

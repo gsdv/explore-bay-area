@@ -41,7 +41,8 @@ scripts/                data pipeline (run with tsx; Node 24)
   lib/palette.ts        map colours and road stroke styles
 src/
   lib/geo.ts            THE shared projection + constants (imported by scripts AND app)
-  lib/blocks.ts         filler.bin codec (one box per house), shared with the pipeline
+  lib/blocks.ts         blocks-<part>.bin codec (one box per house), shared with the pipeline
+  lib/start.ts          the ground point the first view centres on (deep link or HOME_AT): decides which city part loads first
   lib/tweets.ts         Post/TweetsFile types (shared with the script), lazy loader + useTweets(companyId)
   lib/rent.ts           rent classes/colours shared by the pipeline (paints rent.webp) and the legend
   lib/hoods.ts          atlas tints, wash alpha and the hoods.json label type (shared with the pipeline)
@@ -155,8 +156,8 @@ vercel.json             build settings + cache headers for Vercel (see Hosting)
 - Houses in the detail areas are real (experiment, uncommitted at the time of writing). SF: `lib/sfbuildings.ts` downloads DataSF's "Building Footprints" (`ynuv-fyni`, the city's
   lidar survey: ~177k polygons, a measured height each, one keyless 118 MB request cached as `data-cache/sf-footprints.geojson`).
   It is the dataset OSM's SF buildings were imported from; Overpass was tried first and 429'd, then refused connections.
-  `build-data.ts` step 5b fits a box to each footprint (`lib/footprints.ts`) and writes it into `filler.bin` beside the
-  procedural blocks; footprints over 3,000 m², or over 500 m² and far from rectangular, go to `buildings.json` with their
+  `build-data.ts` step 5b fits a box to each footprint (`lib/footprints.ts`) and writes it into the block list beside the
+  procedural blocks; footprints over 3,000 m², or over 500 m² and far from rectangular, go to the buildings list with their
   true outline. Boxes stand on their lowest corner so nothing floats on slopes. Downtown stays OSM (newer towers), split
   from the survey by centroid. Footprints under a landmark model's ground rectangle are dropped (`STANDS_IN_TOWN`, sized
   from `landmarkParts`), so a new landmark kind that stands among buildings belongs in that list; so are footprints under
@@ -165,9 +166,17 @@ vercel.json             build settings + cache headers for Vercel (see Hosting)
   those carry a height; the rest are guessed from floor area. ~417k real boxes + ~6k true outlines in all.
 - `Buildings.tsx` splits every chunk into houses (< 400 m², < ~20 m) and bigger blocks; house chunks are skipped beyond
   `HOUSE_RANGE` (25 km), where a house is about a pixel, so the far view doesn't draw millions of sub-pixel triangles.
-- `filler.bin` is quantised (`src/lib/blocks.ts`, shared codec: float32 x/z, uint16 for the rest, 18 bytes a block).
+- **City parts (SF-first loading).** Blocks and outlines are written once per part: `blocks-<part>.bin` + `buildings-<part>.json` for
+  each detail area and `rest` (`CITY_PARTS` / `cityPartAt` in `geo.ts`; a building belongs to the part its centre is in). `loadWorld`
+  waits only for the part under the first view (`lib/start.ts`) plus its `map-<id>.webp`; the others (`world.cityLater`: rest, then by
+  distance) download one at a time afterwards. `scene/useCity.ts` hands the parts to `Buildings.tsx` (one group per part; late ones
+  rise out of the ground) and `Terrain.tsx` (late insets fade in through `insetOn<i>`; the regional map stands in as the sampler
+  until then). Anything new that is big and per-area should ride on a city part rather than join the blocking `Promise.all`.
+- The block files are quantised (`src/lib/blocks.ts`, shared codec): 5 cm steps everywhere, sorted into 200 m cells, a column at a
+  time (x/z/y as zigzag varint deltas, sizes as varints, bearings as uint16), ≈10 bytes a block after brotli. Decoded order is the
+  encoder's, and house paint is keyed on the index within a part.
 - Procedural filler (step 6) now only fills 150 m cells with no real footprints near them, i.e. everything outside the detail areas.
-  Density is tuned by spacing/prob there. The `-0.03` ground sink is baked into `filler.bin`, not applied by the renderer.
+  Density is tuned by spacing/prob there. The `-0.03` ground sink is baked into the block files, not applied by the renderer.
 - Overpass punishes bursts: several 429s in a row end in refused connections for a good while. Pace any tiled query.
 
 ## Verifying in the Claude Code browser pane

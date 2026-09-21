@@ -17,7 +17,7 @@ import { fetchFootprintsCore } from './lib/overture.ts'
 import polylabel from 'polylabel'
 import { PX, FULL, polygonPath, linePath, svgDoc, rasterize, type View } from './lib/svg.ts'
 import { P, ROAD_STYLE, heatColor, lerp, clamp01, smooth } from './lib/palette.ts'
-import { project, unproject, toUV, elevationToY, BUILDING_EXAGGERATION, UNIT, WORLD, BBOX, DETAIL_AREAS } from '../src/lib/geo.ts'
+import { project, unproject, toUV, elevationToY, BUILDING_EXAGGERATION, UNIT, WORLD, BBOX, DETAIL_AREAS, CITY_PARTS, cityPartAt } from '../src/lib/geo.ts'
 import { RENT_ALPHA, rentClass, type RentData } from '../src/lib/rent.ts'
 import { BLOCK_STRIDE, encodeBlocks } from '../src/lib/blocks.ts'
 import { HOOD_TINTS, HOODS_ALPHA, type HoodsData } from '../src/lib/hoods.ts'
@@ -288,7 +288,6 @@ for (const fp of [...(await fetchFootprintsSF()), ...(await fetchFootprintsCore(
   fill.push(box.x, y, box.z, box.w * k, box.d * k, h * UNIT * BUILDING_EXAGGERATION + (yc - y), box.rot)
 }
 log('real footprints: boxes', nBoxes, '· true outlines', nOutlines)
-writeJSON(path.join(OUT, 'buildings.json'), buildings)
 
 // ---------- 6. procedural filler blocks along streets (wherever there are no real footprints) ----------
 log('filler blocks')
@@ -332,8 +331,22 @@ for (const w of roadWays) {
     carry = d - len
   }
 }
-fs.writeFileSync(path.join(OUT, 'filler.bin'), encodeBlocks(fill))
-log('filler instances:', fill.length / BLOCK_STRIDE)
+// One pair of files per city part (each detail area, then the rest), so the app can show the part under the camera
+// before the others have arrived. A building belongs to the part its centre falls in.
+for (const part of CITY_PARTS) {
+  const blocks: number[] = []
+  for (let o = 0; o < fill.length; o += BLOCK_STRIDE) {
+    if (cityPartAt(fill[o], fill[o + 2]) === part) for (let k = 0; k < BLOCK_STRIDE; k++) blocks.push(fill[o + k])
+  }
+  const outlines = buildings.filter((b) => {
+    let x = 0, z = 0
+    for (let i = 0; i < b.p.length; i += 2) { x += b.p[i]; z += b.p[i + 1] }
+    return cityPartAt(x / (b.p.length / 2), z / (b.p.length / 2)) === part
+  })
+  fs.writeFileSync(path.join(OUT, `blocks-${part}.bin`), encodeBlocks(blocks))
+  writeJSON(path.join(OUT, `buildings-${part}.json`), outlines)
+  log('city part', part, '· blocks', blocks.length / BLOCK_STRIDE, '· outlines', outlines.length)
+}
 
 // ---------- 7. transit ----------
 log('transit')

@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { useStore } from '../store'
-import { project, WORLD } from '../lib/geo'
+import { HOME_AT, project, WORLD } from '../lib/geo'
 import type { World } from '../lib/world'
 import { viewStore, type ZoomTier } from './viewStore'
 
@@ -24,7 +24,7 @@ const PITCH = { min: 0.2, max: 1.5, autoLow: 0.42, autoHigh: 1.3, altLow: 4, alt
 const TILT = { min: -0.5, max: 0.6 }
 const MARGIN = 0.965
 const FIT = 2.4 // fly-to distance per unit of target height (42° lens)
-const [SF_X, SF_Z] = project(37.787, -122.41)
+const [SF_X, SF_Z] = project(HOME_AT.lat, HOME_AT.lng)
 export const HOME = { x: SF_X, z: SF_Z, yaw: 0.46, alt: 30 }
 
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v))

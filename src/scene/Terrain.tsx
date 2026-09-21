@@ -1,7 +1,9 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
+import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { DETAIL_AREAS, WORLD, toUV } from '../lib/geo'
 import type { World } from '../lib/world'
+import { useCity } from './useCity'
 
 const GRID = 512
 
@@ -47,9 +49,18 @@ export function useTerrainGeometry(world: World): THREE.BufferGeometry {
   }, [world])
 }
 
+/** An inset's sampler and how far it is mixed in (0 until its texture has arrived; the regional map stands in as the sampler). */
+interface Inset {
+  map: { value: THREE.Texture }
+  on: { value: number }
+}
+
 /** The regional map with each detail area's sharper inset mixed in over its rectangle, feathered so the seams never show. */
-function groundMaterial(world: World): THREE.MeshStandardMaterial {
+function groundMaterial(world: World): { material: THREE.MeshStandardMaterial; insets: Inset[] } {
   const m = new THREE.MeshStandardMaterial({ map: world.mapTexture, roughness: 1, metalness: 0 })
+  const insets: Inset[] = DETAIL_AREAS.map(() => ({ map: { value: world.mapTexture }, on: { value: 0 } }))
+  // what the first frame waited for is sharp from the start; the others fade in as they arrive (see Terrain)
+  for (const part of world.city) if (part.inset) insets[part.area] = { map: { value: part.inset }, on: { value: 1 } }
   const rects = DETAIL_AREAS.map(({ bbox: b }) => {
     const [u0, v0] = toUV(b.north, b.west), [u1, v1] = toUV(b.south, b.east)
     // the mesh's uv is (u, 1 - v), so an inset's south edge is its origin
@@ -58,16 +69,17 @@ function groundMaterial(world: World): THREE.MeshStandardMaterial {
   m.onBeforeCompile = (shader) => {
     // one sampler per inset, unrolled: GLSL won't index a sampler array with anything but a constant
     rects.forEach((rect, i) => {
-      shader.uniforms[`insetMap${i}`] = { value: world.mapInsets[i] }
+      shader.uniforms[`insetMap${i}`] = insets[i].map
+      shader.uniforms[`insetOn${i}`] = insets[i].on
       shader.uniforms[`insetRect${i}`] = { value: rect }
     })
-    const pars = rects.map((_, i) => `uniform sampler2D insetMap${i};\nuniform vec4 insetRect${i};`).join('\n')
+    const pars = rects.map((_, i) => `uniform sampler2D insetMap${i};\nuniform vec4 insetRect${i};\nuniform float insetOn${i};`).join('\n')
     const mix = rects
       .map(
         (_, i) => `{
           vec2 insetUv = (vMapUv - insetRect${i}.xy) * insetRect${i}.zw;
           vec2 insetEdge = min(insetUv, 1.0 - insetUv);
-          float insetMix = smoothstep(0.0, 0.015, min(insetEdge.x, insetEdge.y));
+          float insetMix = insetOn${i} * smoothstep(0.0, 0.015, min(insetEdge.x, insetEdge.y));
           diffuseColor.rgb = mix(diffuseColor.rgb, texture2D(insetMap${i}, insetUv).rgb, insetMix);
         }`,
       )
@@ -76,11 +88,20 @@ function groundMaterial(world: World): THREE.MeshStandardMaterial {
       .replace('#include <map_pars_fragment>', `#include <map_pars_fragment>\n${pars}`)
       .replace('#include <map_fragment>', `#include <map_fragment>\n${mix}`)
   }
-  return m
+  return { material: m, insets }
 }
 
 export function Terrain({ world }: { world: World }) {
   const geometry = useTerrainGeometry(world)
-  const material = useMemo(() => groundMaterial(world), [world])
+  const { material, insets } = useMemo(() => groundMaterial(world), [world])
+  const city = useCity(world)
+  useEffect(() => {
+    for (const part of city) if (part.inset) insets[part.area].map.value = part.inset
+  }, [city, insets])
+  useFrame((_, dt) => {
+    for (const inset of insets) {
+      if (inset.on.value < 1 && inset.map.value !== world.mapTexture) inset.on.value = Math.min(1, inset.on.value + Math.min(dt, 0.05) / 0.6)
+    }
+  })
   return <mesh geometry={geometry} material={material} raycast={() => null} receiveShadow />
 }

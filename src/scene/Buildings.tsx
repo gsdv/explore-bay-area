@@ -1,13 +1,15 @@
-import { useMemo } from 'react'
+import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { extrudeBuildings } from '../lib/extrude'
 import { WORLD } from '../lib/geo'
-import type { World } from '../lib/world'
+import type { CityPart, World } from '../lib/world'
+import { useCity } from './useCity'
 
 /** World units (25 km): past this a house is about a pixel tall, so its chunk is skipped. */
 const HOUSE_RANGE = 250
 const CHUNKS = 20 // ≈4 km cells: SF alone holds ~200k blocks, so cull it in pieces
+const RISE = 0.9 // seconds a part that arrives after the first frame takes to grow out of the ground
 
 /**
  * House paint, as [hue, saturation, lightness]. SF is mostly cream, white and grey stucco with the odd pastel,
@@ -40,12 +42,40 @@ function blockMaterial(): THREE.MeshStandardMaterial {
   return mat
 }
 
-/** Footprints with a true outline (one merged mesh) + a block per house, real in SF and procedural elsewhere (instanced, chunked for frustum culling). */
+/** One box shared by every block, without its underside (nobody sees it), and the material that greys its roof. */
+function useBlockKit() {
+  return useMemo(() => {
+    const box = new THREE.BoxGeometry(1, 1, 1)
+    box.translate(0, 0.5, 0)
+    // BoxGeometry's faces are +x −x +y −y +z −z, six indices each
+    const idx = Array.from(box.index!.array)
+    box.setIndex([...idx.slice(0, 18), ...idx.slice(24)])
+    return { box, mat: blockMaterial() }
+  }, [])
+}
+
+/**
+ * Footprints with a true outline (one merged mesh) + a block per house, real in the detail areas and procedural elsewhere
+ * (instanced, chunked for frustum culling). Built a city part at a time: the first view's is there from the first frame,
+ * the others rise out of the ground as they arrive.
+ */
 export function Buildings({ world }: { world: World }) {
-  const downtown = useMemo(() => extrudeBuildings(world.buildings), [world])
+  const city = useCity(world)
+  const kit = useBlockKit()
+  return (
+    <group>
+      {city.map((part) => (
+        <Part key={part.id} part={part} kit={kit} rise={!world.city.includes(part)} />
+      ))}
+    </group>
+  )
+}
+
+function Part({ part, kit, rise }: { part: CityPart; kit: ReturnType<typeof useBlockKit>; rise: boolean }) {
+  const outlines = useMemo(() => extrudeBuildings(part.buildings), [part])
 
   const chunks = useMemo(() => {
-    const f = world.filler
+    const f = part.blocks
     const n = f.length / 7
     const buckets: number[][] = Array.from({ length: CHUNKS * CHUNKS * 2 }, () => [])
     for (let i = 0; i < n; i++) {
@@ -57,12 +87,7 @@ export function Buildings({ world }: { world: World }) {
       const house = f[o + 3] * f[o + 4] < 0.04 && f[o + 5] < 0.4 // under 400 m² and ~20 m
       buckets[(cz * CHUNKS + cx) * 2 + (house ? 1 : 0)].push(i)
     }
-    const box = new THREE.BoxGeometry(1, 1, 1)
-    box.translate(0, 0.5, 0)
-    // nobody sees the underside: BoxGeometry's faces are +x −x +y −y +z −z, six indices each
-    const idx = Array.from(box.index!.array)
-    box.setIndex([...idx.slice(0, 18), ...idx.slice(24)])
-    const mat = blockMaterial()
+    const { box, mat } = kit
     const m = new THREE.Matrix4(), p = new THREE.Vector3(), q = new THREE.Quaternion(), s = new THREE.Vector3(), c = new THREE.Color()
     const up = new THREE.Vector3(0, 1, 0)
     return buckets
@@ -87,10 +112,16 @@ export function Buildings({ world }: { world: World }) {
         mesh.userData.house = house
         return mesh
       })
-  }, [world])
+  }, [part, kit])
 
-  // with ~400k real houses the far view would draw millions of sub-pixel triangles: cull house chunks by distance
-  useFrame(({ camera }) => {
+  const group = useRef<THREE.Group>(null)
+  const grown = useRef(rise ? 0 : 1)
+  useFrame(({ camera }, dt) => {
+    if (grown.current < 1 && group.current) {
+      grown.current = Math.min(1, grown.current + Math.min(dt, 0.05) / RISE)
+      group.current.scale.y = Math.max(1e-3, 1 - Math.pow(1 - grown.current, 3))
+    }
+    // with ~400k real houses the far view would draw millions of sub-pixel triangles: cull house chunks by distance
     for (const mesh of chunks) {
       if (!mesh.userData.house) continue
       const sphere = mesh.boundingSphere!
@@ -99,8 +130,8 @@ export function Buildings({ world }: { world: World }) {
   })
 
   return (
-    <group>
-      <mesh geometry={downtown} raycast={() => null} castShadow receiveShadow>
+    <group ref={group} scale-y={rise ? 1e-3 : 1}>
+      <mesh geometry={outlines} raycast={() => null} castShadow receiveShadow>
         <meshStandardMaterial vertexColors roughness={0.9} metalness={0} />
       </mesh>
       {chunks.map((m, i) => (

@@ -77,6 +77,23 @@ export function toUV(lat: number, lng: number): [number, number] {
   return [(lng - BBOX.west) / (BBOX.east - BBOX.west), (BBOX.north - lat) / (BBOX.north - BBOX.south)]
 }
 
+/** Index into DETAIL_AREAS of the area whose box holds world [x, z], or -1. The data files are split along these boxes. */
+export function detailAreaAt(x: number, z: number): number {
+  const [lat, lng] = unproject(x, z)
+  return DETAIL_AREAS.findIndex(({ bbox: b }) => lat >= b.south && lat < b.north && lng >= b.west && lng < b.east)
+}
+
+/**
+ * The houses and building outlines are baked as one pair of files per part (blocks-<part>.bin, buildings-<part>.json):
+ * each detail area, then 'rest' for everything outside them. The app loads the part under the camera first.
+ */
+export const REST = 'rest'
+export const CITY_PARTS: string[] = [...DETAIL_AREAS.map((a) => a.id), REST]
+export const cityPartAt = (x: number, z: number): string => DETAIL_AREAS[detailAreaAt(x, z)]?.id ?? REST
+
+/** Where the camera starts when no deep link says otherwise: downtown SF. */
+export const HOME_AT = { lat: 37.787, lng: -122.41 }
+
 /** world [x, z] -> [u, v] */
 export function worldToUV(x: number, z: number): [number, number] {
   return [x / WORLD.width + 0.5, z / WORLD.depth + 0.5]

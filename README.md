@@ -82,7 +82,7 @@ instantly; later hash changes animate.
 scripts/  (Node, tsx)                          src/  (Vite + React + react-three-fiber)
  fetch.ts ──► data-cache/ ──► build-data.ts ──► public/data/ ──► lib/world.ts ──► scene/*
    Overpass, terrain tiles, census              height.png, map.webp,           Terrain, Water, Buildings,
-                                                buildings.json, filler.bin,     Transit, Landmarks,
+                                                buildings-*.json, blocks-*.bin, Transit, Landmarks,
                                                 transit.json, stations.json,    Companies, QuestRoute,
                                                 outline.json, map-small.webp    CameraRig
                          shared: src/lib/geo.ts (projection, constants)          ui/* (panels, minimap, help)
