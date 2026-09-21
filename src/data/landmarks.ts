@@ -18,6 +18,8 @@ export interface Landmark {
   height?: number
   /** compass bearing in degrees of the model's local north (−Z); downtown SF's street grid is −9 */
   bearing?: number
+  /** other points whose real footprints the model replaces (the pipeline drops any footprint containing one) */
+  covers?: [number, number][]
   tags?: ('nature' | 'icon' | 'culture' | 'view' | 'food' | 'hike')[]
 }
 
@@ -33,7 +35,7 @@ export const landmarks: Landmark[] = [
   { id: 'palace', name: 'Palace of Fine Arts', kind: 'rotunda', lat: 37.80289, lng: -122.44869, bearing: -100, area: 'Marina', blurb: 'A Roman-style rotunda built for the 1915 Panama-Pacific Exposition, kept because the city loved it too much to tear down.', tags: ['icon', 'culture'] },
   { id: 'oraclepark', name: 'Oracle Park', kind: 'stadium', lat: 37.7786, lng: -122.3893, area: 'Mission Bay', blurb: 'Home of the Giants. Home runs over right field splash into McCovey Cove, where kayakers wait.', tags: ['culture'] },
   { id: 'chasecenter', name: 'Chase Center', kind: 'arena', lat: 37.7680, lng: -122.3877, area: 'Mission Bay', blurb: 'Home of the Golden State Warriors since 2019.', tags: ['culture'] },
-  { id: 'paintedladies', name: 'Painted Ladies', kind: 'houses', lat: 37.7763, lng: -122.4328, area: 'Alamo Square', blurb: 'The row of Victorian houses on Steiner Street, with downtown rising behind them. The classic postcard, and the Full House intro.', tags: ['icon'] },
+  { id: 'paintedladies', name: 'Painted Ladies', kind: 'houses', lat: 37.77628, lng: -122.43272, bearing: 81, area: 'Alamo Square', blurb: 'The row of Victorian houses on Steiner Street, with downtown rising behind them. The classic postcard, and the Full House intro.', tags: ['icon'] },
   { id: 'twinpeaks', name: 'Twin Peaks', kind: 'peak', lat: 37.7544, lng: -122.4477, area: 'Twin Peaks', blurb: 'Two 922-foot hills near the geographic centre of the city, with the best free panorama in San Francisco.', tip: 'Sunset is the move; wind is guaranteed.', tags: ['view', 'nature'] },
   { id: 'lombard', name: 'Lombard Street', kind: 'street', lat: 37.8021, lng: -122.4187, area: 'Russian Hill', blurb: 'The "crookedest street", eight hairpin turns on a 27% grade, planted with hydrangeas.', tags: ['icon'] },
   { id: 'ggpark', name: 'Golden Gate Park', kind: 'park', lat: 37.7694, lng: -122.4862, area: 'Richmond / Sunset', blurb: '1,017 acres, bigger than Central Park: the de Young, the Academy of Sciences, a Japanese tea garden, bison, and windmills at the ocean end.', tip: 'JFK Drive is car-free. Rent a bike at Stanyan and ride to the beach.', tags: ['nature', 'culture'] },
@@ -52,7 +54,7 @@ export const landmarks: Landmark[] = [
   { id: 'sausalito', name: 'Sausalito', kind: 'town', lat: 37.8591, lng: -122.4853, area: 'Marin', blurb: 'A waterfront town of houseboats and hillside houses. Bike across the bridge and take the ferry back.', tags: ['view', 'food'] },
   { id: 'angelisland', name: 'Angel Island', kind: 'island', lat: 37.8609, lng: -122.4326, area: 'The Bay', blurb: 'The largest island in the bay, an immigration station turned state park with a 5-mile perimeter loop.', tags: ['hike', 'nature'] },
   { id: 'campanile', name: 'Sather Tower (Campanile)', kind: 'campanile', lat: 37.8721, lng: -122.2578, area: 'Berkeley', blurb: 'The 307-foot bell tower at UC Berkeley. Ride the elevator up for a view across the bay to the Golden Gate.', height: 94, tags: ['view', 'culture'] },
-  { id: 'stanford', name: 'Stanford (Hoover Tower)', kind: 'campus', lat: 37.4275, lng: -122.1697, area: 'Palo Alto', blurb: 'The 8,000-acre farm that seeded Silicon Valley. Hoover Tower and the Main Quad are the postcards; the Dish trail is the hike.', height: 87, tags: ['culture', 'hike'] },
+  { id: 'stanford', name: 'Stanford (Hoover Tower)', kind: 'campus', lat: 37.42763, lng: -122.16699, bearing: 15, covers: [[37.4275, -122.1697]], area: 'Palo Alto', blurb: 'The 8,000-acre farm that seeded Silicon Valley. Hoover Tower and the Main Quad are the postcards; the Dish trail is the hike.', height: 87, tags: ['culture', 'hike'] },
   { id: 'levis', name: 'Levi\'s Stadium', kind: 'stadium', lat: 37.4033, lng: -121.9694, area: 'Santa Clara', blurb: 'Home of the 49ers, next to the NVIDIA and Intel campuses.', tags: ['culture'] },
   { id: 'mavericks', name: 'Mavericks (Half Moon Bay)', kind: 'beach', lat: 37.4956, lng: -122.4979, area: 'Coastside', blurb: 'One of the biggest surf breaks in the world, firing on winter swells. Pillar Point harbour has the fish tacos.', tags: ['nature'] },
   { id: 'mtdiablo', name: 'Mount Diablo', kind: 'peak', lat: 37.8816, lng: -121.9147, area: 'East Bay', blurb: 'At 3,849 feet, the East Bay\'s summit. On a clear winter day the view stretches from Lassen to Half Dome.', tags: ['hike', 'view'] },

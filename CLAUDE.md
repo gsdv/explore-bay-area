@@ -205,6 +205,11 @@ vercel.json             build settings + cache headers for Vercel (see Hosting)
   is `detail` so the clearing stays pier-sized. `blocks` draws any number of same-coloured boxes or gabled roofs as one mesh (a few
   hundred boats are three parts). In `build-data.ts` step 5 a `COMPLEX` kind (only `wharf`) also drops every downtown OSM footprint
   centred under its clearing (the pier's two dozen shops); the other modelled kinds still drop just the footprint they stand in.
+  Two more `Part` flags: `hullOnly` (never drawn, only its hover hull: one clean outline round a huddle of `detail` parts such as the
+  Painted Ladies or the pier's shops, and it sizes the clearing; stop it at the eaves so the grown hull just reaches the ridges) and
+  `scenery` (drawn, but outside the hover box and label height: Stanford's Main Quad beside Hoover Tower). A landmark's `covers`
+  points make the pipeline drop the real footprints containing them (the Quad is one solid 5 ha polygon in Overture).
+  `blocks` also does roofs with the ridge along x and pyramids.
   Models on a hilltop stand on the height at their centre only, so run their base below y = 0 (Coit has a green knoll for this).
 - `src/data/quests.ts`: ordered stops with a to-do and a tour `view` each. No persisted progress.
 - Restaurant heatmap: `osm.fetchFood()` (amenity=restaurant|cafe|fast_food, bars excluded on purpose) is binned,

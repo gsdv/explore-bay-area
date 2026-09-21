@@ -89,6 +89,7 @@ function LandmarkObject({ landmark: l, world }: { landmark: Landmark; world: Wor
   const bounds = useMemo(() => {
     let minX = Infinity, minY = Infinity, minZ = Infinity, maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity
     for (const p of parts) {
+      if (p.scenery) continue
       // rotated parts get a conservative circle; axis-aligned ones use their real half-extents, otherwise a long
       // thin bridge deck would turn the box into a deck-length square that catches clicks kilometres away
       const rotated = p.rot && (p.rot[0] !== 0 || p.rot[1] !== 0 || p.rot[2] !== 0)
@@ -143,7 +144,7 @@ function LandmarkObject({ landmark: l, world }: { landmark: Landmark; world: Wor
   // neighborhood), so a landmark only names itself on hover
   const atlas = useStore((s) => s.heat === 'hoods')
   const showLabel = !inQuest && (atlas ? hovered : tier !== 'far' || l.tags?.includes('icon'))
-  const labelHeight = Math.max(...parts.map((p) => p.pos[1] + p.scale[1] / 2)) + 0.6
+  const labelHeight = Math.max(...parts.filter((p) => !p.scenery && !p.hullOnly).map((p) => p.pos[1] + p.scale[1] / 2)) + 0.6
 
   return (
     <group ref={group} position={pos} rotation-y={rotY} onPointerOver={onOver} onPointerOut={onOut} onClick={onClick}>
@@ -153,9 +154,11 @@ function LandmarkObject({ landmark: l, world }: { landmark: Landmark; world: Wor
       </mesh>
       {parts.map((p, i) => (
         <group key={i} position={p.pos} rotation={p.rot ?? [0, 0, 0]}>
-          <mesh geometry={geoFor(p)} scale={p.scale}>
-            <meshStandardMaterial color={p.color} roughness={0.85} metalness={0} flatShading />
-          </mesh>
+          {!p.hullOnly && (
+            <mesh geometry={geoFor(p)} scale={p.scale}>
+              <meshStandardMaterial color={p.color} roughness={0.85} metalness={0} flatShading />
+            </mesh>
+          )}
           {hovered && !p.detail && (
             <>
               <mesh geometry={hullGeoFor(p, HULL)} material={OUTLINE} scale={grown(p, HULL)} raycast={() => null} />

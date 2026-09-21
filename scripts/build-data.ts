@@ -256,7 +256,7 @@ const hqXZ = companies.filter((c) => !c.landmark).map((c) => project(c.lat, c.ln
 const underModel = (x: number, z: number) =>
   hqXZ.some(([cx, cz]) => Math.abs(x - cx) < 0.42 && Math.abs(z - cz) < 0.42) ||
   clearings.some((c) => inClearing(c, x, z))
-const landmarkXZ = landmarks.map((l) => project(l.lat, l.lng))
+const landmarkXZ = landmarks.flatMap((l) => [[l.lat, l.lng], ...(l.covers ?? [])]).map(([lat, lng]) => project(lat, lng))
 let nBoxes = 0, nOutlines = 0
 // SF's lidar survey, then Overture for the other core cities (their boxes don't overlap SF's)
 for (const fp of [...(await fetchFootprintsSF()), ...(await fetchFootprintsCore())]) {

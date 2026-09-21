@@ -11,6 +11,10 @@ export interface Part {
   args?: (number | boolean)[]
   /** surface detail (stripes, struts): left out of the hover outline, whose hull would swallow anything this thin */
   detail?: boolean
+  /** never drawn itself, only as the hover outline: one clean hull round a huddle of `detail` parts (and it sizes the pipeline's clearing) */
+  hullOnly?: boolean
+  /** context beside the landmark (the Quad next to Hoover Tower): drawn, but outside the hover box and the label height */
+  scenery?: boolean
 }
 
 const ORANGE = '#f04a00'
@@ -63,11 +67,11 @@ const columns = (spots: [number, number][], y0: number, y1: number, r: number, c
   return { geo: 'columns', pos: [b.cx, (y0 + y1) / 2, b.cz], scale: [b.sx, y1 - y0, b.sz], color, detail: true, args }
 }
 /**
- * Many axis-aligned blocks of one colour as a single part: flat-topped boxes, or (`gabled`) roofs with the ridge along z.
+ * Many axis-aligned blocks of one colour as a single part: flat-topped boxes, `gabled` roofs (ridge along z, or 'x'), or pyramids.
  * Each is [x, z, width, length, y0, y1] in model units; like `sector`, the part is normalised to its own bounds.
  */
-const blocks = (list: number[][], color: string, o: { gabled?: boolean; detail?: boolean } = {}): Part => {
-  const args = [o.gabled ? 1 : 0, ...list.flat().map(r4)]
+const blocks = (list: number[][], color: string, o: { gabled?: boolean | 'x'; pyramid?: boolean; detail?: boolean } = {}): Part => {
+  const args = [o.pyramid ? 3 : o.gabled === 'x' ? 2 : o.gabled ? 1 : 0, ...list.flat().map(r4)]
   const b = blocksBox(args)
   return { geo: 'blocks', pos: [b.cx, b.cy, b.cz], scale: [b.sx, b.sy, b.sz], color, detail: o.detail, args }
 }
@@ -396,11 +400,46 @@ export function landmarkParts(l: Landmark, ground?: BridgeGround): Part[] {
         { geo: 'box', pos: [-0.4, 0.25, -0.1], scale: [0.06, 0.5, 0.06], color: '#e35c3b' },
       ]
     case 'houses': {
-      const p: Part[] = []
-      for (const i of [-2, -1, 0, 1, 2]) {
-        p.push({ geo: 'box', pos: [i * 0.36, 0.3, 0], scale: [0.3, 0.6, 0.4], color: ['#d7a3bd', '#a8c7d8', '#e9d7a0', '#b9d3b1', '#e3b09c'][i + 2] })
-        p.push({ geo: 'cone', pos: [i * 0.36, 0.7, 0], scale: [1, 0.22, 1], color: '#5c4a44', args: [0.24, 4] })
+      // The Painted Ladies, 710-722 Steiner: six near-identical gabled Victorians stepping up the hill to the south (+x) and the
+      // bigger hip-roofed house on the Grove St corner, all facing Alamo Square (+z). About 2x true size so a 6 m house reads;
+      // each has its painted pediment under a dark roof, a white two-storey bay, a porch with steps, and a clipped street tree.
+      const W = 0.12, D = 0.26, BIG = 0.17, F = D / 2, SUNK = -0.15
+      const TRIM = '#fbf8f0', SLATE = '#4d4846', GLASS = '#5b5f66', STEPS = '#d8d2c4'
+      const PAINT = ['#e9b9d4', '#a9d6a3', '#f0dc8c', '#f3e3cf', '#9cc3e6', '#efe6d8']
+      const x0 = -(BIG + 6 * W) / 2
+      // the hull stops at the eaves: grown, it reaches the ridges, so the outline shows in the notches between the gables
+      const p: Part[] = [{ ...box(0, SUNK, 0.34, 0, BIG + 6 * W, D, TRIM), hullOnly: true }]
+      const roofs: number[][] = [], white: number[][] = [], glass: number[][] = [], steps: number[][] = []
+      for (let i = 0; i < 6; i++) {
+        const x = x0 + BIG + (i + 0.5) * W, s = 0.014 * (i + 1), eave = 0.27 + s
+        p.push(blocks([[x, 0, W, D, SUNK, eave]], PAINT[i], { detail: true }))
+        p.push(blocks([[x, 0, W - 0.004, D, eave, eave + 0.075]], i === 3 ? '#c0473c' : PAINT[i], { gabled: true, detail: true }))
+        // the roof is a hair bigger than the pediment and stops short of the front, so the painted gable shows under a dark edge
+        roofs.push([x, -0.009, W + 0.006, D - 0.018, eave + 0.008, eave + 0.088])
+        const bx = x - W * 0.2, px = x + W * 0.27
+        white.push([bx, F + 0.015, W * 0.5, 0.03, 0.03 + s, eave - 0.02], [x, F + 0.002, W - 0.008, 0.004, 0.15 + s, 0.162 + s], [px, F + 0.02, W * 0.36, 0.04, s, 0.125 + s])
+        for (const y of [0.06, 0.18]) for (const dx of [-0.014, 0.014]) glass.push([bx + dx, F + 0.0305, 0.017, 0.002, y + s, y + 0.055 + s])
+        glass.push([px, F + 0.0405, 0.022, 0.002, 0.03 + s, 0.095 + s], [px, F + 0.0025, 0.02, 0.002, 0.18 + s, 0.235 + s], [x, F + 0.0005, 0.024, 0.002, eave + 0.012, eave + 0.04])
+        steps.push([px, F + 0.06, W * 0.3, 0.04, SUNK, 0.035 + s * 0.5])
       }
+      // 722 on the corner: wider, teal, hipped
+      const xb = x0 + BIG / 2
+      p.push(blocks([[xb, 0, BIG, D, SUNK, 0.29]], '#9fcfc3', { detail: true }))
+      p.push(blocks([[xb, 0, BIG + 0.012, D + 0.012, 0.29, 0.39]], '#6b5a4e', { pyramid: true, detail: true }))
+      white.push([xb - 0.035, F + 0.015, 0.07, 0.03, 0.03, 0.27], [xb, F + 0.002, BIG - 0.008, 0.004, 0.15, 0.162], [xb + 0.045, F + 0.02, 0.05, 0.04, 0, 0.12])
+      for (const y of [0.06, 0.18]) for (const dx of [-0.017, 0.017]) glass.push([xb - 0.035 + dx, F + 0.0305, 0.02, 0.002, y, y + 0.06])
+      glass.push([xb + 0.045, F + 0.0405, 0.024, 0.002, 0.03, 0.095], [xb + 0.045, F + 0.0025, 0.022, 0.002, 0.18, 0.24])
+      steps.push([xb + 0.045, F + 0.06, 0.045, 0.04, SUNK, 0.03])
+      p.push(
+        blocks(roofs, SLATE, { gabled: true, detail: true }),
+        blocks(white, TRIM, { detail: true }),
+        blocks(glass, GLASS, { detail: true }),
+        blocks(steps, STEPS, { detail: true }),
+      )
+      // the clipped trees along Steiner
+      const trees: [number, number][] = [-0.36, -0.2, -0.04, 0.12, 0.28, 0.42].map((x) => [x, F + 0.13])
+      p.push(columns(trees, -0.1, 0.07, 0.006, '#8a5a3c'))
+      for (const [x, z] of trees) p.push({ geo: 'sphere', pos: [x, 0.085 + (x + 0.45) * 0.09, z], scale: [0.032, 0.03, 0.032], color: x > 0 ? '#5c9350' : GREEN, detail: true })
       return p
     }
     case 'island':
@@ -414,13 +453,71 @@ export function landmarkParts(l: Landmark, ground?: BridgeGround): Part[] {
         { geo: 'box', pos: [0, H(l.height ?? 90) / 2, 0], scale: [0.36, H(l.height ?? 90), 0.36], color: STONE },
         { geo: 'cone', pos: [0, H(l.height ?? 90) + 0.22, 0], scale: [1, 0.45, 1], color: '#b0a894', args: [0.3, 4] },
       ]
-    case 'campus':
-      return [
-        { geo: 'box', pos: [0, H(l.height ?? 87) / 2, 0], scale: [0.4, H(l.height ?? 87), 0.4], color: '#e4d2b0' },
-        { geo: 'sphere', pos: [0, H(l.height ?? 87) + 0.1, 0], scale: [0.32, 0.3, 0.32], color: '#c0392b' },
-        { geo: 'box', pos: [1.2, 0.25, 0.6], scale: [1.8, 0.5, 1.2], color: '#e4d2b0' },
-        { geo: 'box', pos: [1.2, 0.6, 0.6], scale: [1.9, 0.14, 1.3], color: '#b5502f' },
+    case 'campus': {
+      // Stanford. Hoover Tower is the landmark: a broad base block, a plain cream shaft with slit windows, the belfry with
+      // three tall arches a side and a pinnacle on each corner, an octagonal arcaded drum, the red-tile dome and its lantern
+      // (plan ~1.8x true, to keep the silhouette). The Main Quad beside it is `scenery`, at its true place and size in the
+      // campus grid (bearing 15, local -z towards Palm Drive): an outer and an inner ring of arcaded sandstone wings under
+      // red roofs, and Memorial Church with its mosaic gable. The real Quad is one solid 5 ha footprint: `covers` drops it.
+      const h = H(l.height ?? 87)
+      const STONE_ = '#ece2c8', TILE = '#b5482f', SAND = '#dcc8a0', MOSAIC = '#c9a24e'
+      const TW = 0.29, yBase = 0.22, yBelfry = 0.64 * h, yDrum = 0.79 * h, yDome = 0.875 * h, yLantern = 0.955 * h
+      const p: Part[] = [
+        box(0, -0.1, yBase, 0, 0.56, 0.56, STONE_),
+        box(0, yBase, yBase + 0.02, 0, 0.6, 0.6, STONE_, true),
+        box(0, yBase, yBelfry, 0, TW, TW, STONE_),
+        box(0, yBelfry, yBelfry + 0.02, 0, TW + 0.03, TW + 0.03, STONE_, true),
+        box(0, yBelfry + 0.02, yDrum, 0, TW - 0.02, TW - 0.02, STONE_),
+        box(0, yDrum - 0.005, yDrum + 0.015, 0, TW + 0.02, TW + 0.02, STONE_, true),
+        prism(0, yDrum + 0.015, yDome, 0.115, 8, STONE_),
+        drumOpenings(yDrum + 0.035, yDome - 0.02, 0.115 * Math.cos(Math.PI / 8), 0.04),
+        shift(drum(yDome - 0.004, yDome + 0.01, 0.125, 0.125, STONE_, true), 0),
+        { geo: 'sphere', pos: [0, yDome + 0.01, 0], scale: [0.112, yLantern - yDome - 0.01, 0.112], color: TILE, args: [1, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2] },
+        drum(yLantern - 0.01, yLantern + 0.035, 0.024, 0.024, STONE_, true),
+        { geo: 'cone', pos: [0, (yLantern + 0.035 + h) / 2, 0], scale: [0.07, h - yLantern - 0.035, 0.07], color: TILE, args: [0.5, 8], detail: true },
       ]
+      for (const axis of [0, 1] as const) {
+        p.push(wallOpenings(0, 0, 0, 0.17, 0.2, 0.56, 1, 0.1, { axis }))
+        p.push(wallOpenings(0, 0, yBase + 0.12, yBelfry - 0.1, TW - 0.1, TW, 2, 0.016, { axis, rows: 5, flat: true }))
+        p.push(wallOpenings(0, 0, yBelfry + 0.05, yDrum - 0.03, TW - 0.07, TW - 0.02, 3, 0.042, { axis }))
+      }
+      // corner pinnacles on the belfry
+      const c = (TW - 0.02) / 2 - 0.02
+      const corners = [[-c, -c], [c, -c], [c, c], [-c, c]]
+      p.push(blocks(corners.map(([x, z]) => [x, z, 0.045, 0.045, yDrum, yDrum + 0.06]), STONE_, { detail: true }))
+      p.push(blocks(corners.map(([x, z]) => [x, z, 0.055, 0.055, yDrum + 0.06, yDrum + 0.11]), TILE, { pyramid: true, detail: true }))
+
+      // the Main Quad
+      const QX = -2.75, QZ = 0.86, wall = 0.2
+      const ring = (w: number, d: number, t: number, zc: number) => ({
+        x: [[QX, zc - d / 2 + t / 2, w, t], [QX, zc + d / 2 - t / 2, w, t]],
+        z: [[QX - w / 2 + t / 2, zc, t, d - 2 * t], [QX + w / 2 - t / 2, zc, t, d - 2 * t]],
+      })
+      const outer = ring(2.8, 2.4, 0.3, QZ), inner = ring(1.75, 1.15, 0.24, QZ + 0.1)
+      const scenery = (q: Part): Part => ({ ...q, detail: true, scenery: true })
+      const wingsX = [...outer.x, ...inner.x], wingsZ = [...outer.z, ...inner.z]
+      p.push(
+        scenery(blocks([...wingsX, ...wingsZ].map(([x, z, w, d]) => [x, z, w, d, -0.1, wall]), SAND)),
+        scenery(blocks(wingsX.map(([x, z, w, d]) => [x, z, w + 0.03, d + 0.04, wall, wall + 0.09]), TILE, { gabled: 'x' })),
+        scenery(blocks(wingsZ.map(([x, z, w, d]) => [x, z, w + 0.04, d + 0.03, wall, wall + 0.09]), TILE, { gabled: true })),
+        scenery(wallOpenings(QX, QZ, 0.02, 0.15, 2.6, 2.4, 26, 0.06)),
+        scenery(wallOpenings(QX, QZ, 0.02, 0.15, 2.2, 2.8, 22, 0.06, { axis: 1 })),
+        scenery(wallOpenings(QX, QZ + 0.1, 0.02, 0.15, 1.6, 1.15, 16, 0.06)),
+        scenery(wallOpenings(QX, QZ + 0.1, 0.02, 0.15, 1.0, 1.75, 10, 0.06, { axis: 1 })),
+        // corner pavilions of the outer ring
+        scenery(blocks([-1, 1].flatMap((sx) => [-1, 1].map((sz) => [QX + sx * 1.25, QZ + sz * 1.05, 0.36, 0.36, -0.1, 0.3])), SAND)),
+        scenery(blocks([-1, 1].flatMap((sx) => [-1, 1].map((sz) => [QX + sx * 1.25, QZ + sz * 1.05, 0.4, 0.4, 0.3, 0.42])), TILE, { pyramid: true })),
+        // Memorial Church, on the far side of the inner court, facing up Palm Drive
+        scenery(blocks([[QX, QZ + 0.62, 0.34, 0.55, -0.1, 0.34], [QX, QZ + 0.75, 0.62, 0.22, -0.1, 0.3]], SAND)),
+        scenery(blocks([[QX, QZ + 0.62, 0.37, 0.57, 0.34, 0.47]], TILE, { gabled: true })),
+        scenery(blocks([[QX, QZ + 0.75, 0.64, 0.24, 0.3, 0.4]], TILE, { gabled: 'x' })),
+        scenery(blocks([[QX, QZ + 0.75, 0.2, 0.2, 0.4, 0.5]], TILE, { pyramid: true })),
+        scenery(blocks([[QX, QZ + 0.342, 0.3, 0.006, 0.2, 0.34]], MOSAIC)),
+        scenery(blocks([[QX, QZ + 0.339, 0.26, 0.004, 0.345, 0.44]], MOSAIC, { gabled: true })),
+        scenery(wallOpenings(QX, QZ + 0.62, 0.02, 0.16, 0.28, 0.564, 3, 0.06, { sides: -1 })),
+      )
+      return p
+    }
     case 'museum':
       return [
         { geo: 'box', pos: [0, 0.3, 0], scale: [1.4, 0.6, 0.8], color: '#e0d4bb' },
@@ -448,7 +545,8 @@ export function landmarkParts(l: Landmark, ground?: BridgeGround): Part[] {
           roofs.push([x, (a + b) / 2, w + 0.01, a - b + 0.01, TOP + h, TOP + h + 0.07])
         }
       })
-      // (detail: packed this tightly, each shop's hover hull would smear over its neighbours' roofs; the deck outlines the pier)
+      // (detail: packed this tightly, each shop's hover hull would smear over its neighbours' roofs; one hull-only box outlines them all)
+      p.push({ ...box(0, TOP, TOP + 0.27, -0.06, 0.94, 2.72, DECK), hullOnly: true })
       walls.forEach((list, i) => list.length && p.push(blocks(list, PAINT[i], { detail: true })))
       p.push(blocks(roofs, ROOFS, { gabled: true, detail: true }))
       // carousel
@@ -877,7 +975,7 @@ function blocksBox(a: number[]) {
   return { ...plan, cy: (y0 + y1) / 2, sy: y1 - y0 }
 }
 
-/** Boxes (args[0] = 0) or gabled roofs with the ridge along z (1), each [x, z, width, length, y0, y1], in the unit box of the ungrown part. */
+/** Boxes (args[0] = 0), gabled roofs with the ridge along z (1) or x (2), or pyramids (3), each [x, z, width, length, y0, y1], in the unit box of the ungrown part. */
 function blocksGeometry(a: number[], grow: number): THREE.BufferGeometry {
   const f = blocksBox(a), g = grow
   const pos: number[] = []
@@ -885,10 +983,22 @@ function blocksGeometry(a: number[], grow: number): THREE.BufferGeometry {
   const quad = (p0: number[], p1: number[], p2: number[], p3: number[]) => pos.push(...p0, ...p1, ...p2, ...p1, ...p3, ...p2)
   for (const [x, z, w, l, ya, yb] of blockList(a)) {
     const x0 = x - w / 2 - g, x1 = x + w / 2 + g, z0 = z - l / 2 - g, z1 = z + l / 2 + g, y0 = ya - g, y1 = yb + g
-    if (a[0]) {
+    if (a[0] === 1) {
       quad(v(x1, y0, z0), v(x, y1, z0), v(x1, y0, z1), v(x, y1, z1))
       quad(v(x0, y0, z1), v(x, y1, z1), v(x0, y0, z0), v(x, y1, z0))
       pos.push(...v(x1, y0, z1), ...v(x, y1, z1), ...v(x0, y0, z1), ...v(x0, y0, z0), ...v(x, y1, z0), ...v(x1, y0, z0))
+      continue
+    }
+    if (a[0] === 2) {
+      quad(v(x1, y0, z1), v(x1, y1, z), v(x0, y0, z1), v(x0, y1, z))
+      quad(v(x0, y0, z0), v(x0, y1, z), v(x1, y0, z0), v(x1, y1, z))
+      pos.push(...v(x1, y0, z0), ...v(x1, y1, z), ...v(x1, y0, z1), ...v(x0, y0, z1), ...v(x0, y1, z), ...v(x0, y0, z0))
+      continue
+    }
+    if (a[0] === 3) {
+      const top = v(x, y1, z)
+      pos.push(...v(x1, y0, z0), ...top, ...v(x1, y0, z1), ...v(x0, y0, z1), ...top, ...v(x0, y0, z0))
+      pos.push(...v(x1, y0, z1), ...top, ...v(x0, y0, z1), ...v(x0, y0, z0), ...top, ...v(x1, y0, z0))
       continue
     }
     quad(v(x1, y0, z0), v(x1, y1, z0), v(x1, y0, z1), v(x1, y1, z1))
