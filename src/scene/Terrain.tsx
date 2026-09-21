@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import * as THREE from 'three'
-import { SF_BBOX, WORLD, toUV } from '../lib/geo'
+import { DETAIL_AREAS, WORLD, toUV } from '../lib/geo'
 import type { World } from '../lib/world'
 
 const GRID = 512
@@ -47,25 +47,34 @@ export function useTerrainGeometry(world: World): THREE.BufferGeometry {
   }, [world])
 }
 
-/** The regional map with the sharper SF inset mixed in over its rectangle, feathered so the seam never shows. */
+/** The regional map with each detail area's sharper inset mixed in over its rectangle, feathered so the seams never show. */
 function groundMaterial(world: World): THREE.MeshStandardMaterial {
   const m = new THREE.MeshStandardMaterial({ map: world.mapTexture, roughness: 1, metalness: 0 })
-  const [u0, v0] = toUV(SF_BBOX.north, SF_BBOX.west), [u1, v1] = toUV(SF_BBOX.south, SF_BBOX.east)
-  // the mesh's uv is (u, 1 - v), so the inset's south edge is its origin
-  const rect = new THREE.Vector4(u0, 1 - v1, 1 / (u1 - u0), 1 / (v1 - v0))
+  const rects = DETAIL_AREAS.map(({ bbox: b }) => {
+    const [u0, v0] = toUV(b.north, b.west), [u1, v1] = toUV(b.south, b.east)
+    // the mesh's uv is (u, 1 - v), so an inset's south edge is its origin
+    return new THREE.Vector4(u0, 1 - v1, 1 / (u1 - u0), 1 / (v1 - v0))
+  })
   m.onBeforeCompile = (shader) => {
-    shader.uniforms.insetMap = { value: world.mapTextureSF }
-    shader.uniforms.insetRect = { value: rect }
-    shader.fragmentShader = shader.fragmentShader
-      .replace('#include <map_pars_fragment>', '#include <map_pars_fragment>\nuniform sampler2D insetMap;\nuniform vec4 insetRect;')
-      .replace(
-        '#include <map_fragment>',
-        `#include <map_fragment>
-        vec2 insetUv = (vMapUv - insetRect.xy) * insetRect.zw;
-        vec2 insetEdge = min(insetUv, 1.0 - insetUv);
-        float insetMix = smoothstep(0.0, 0.015, min(insetEdge.x, insetEdge.y));
-        diffuseColor.rgb = mix(diffuseColor.rgb, texture2D(insetMap, insetUv).rgb, insetMix);`,
+    // one sampler per inset, unrolled: GLSL won't index a sampler array with anything but a constant
+    rects.forEach((rect, i) => {
+      shader.uniforms[`insetMap${i}`] = { value: world.mapInsets[i] }
+      shader.uniforms[`insetRect${i}`] = { value: rect }
+    })
+    const pars = rects.map((_, i) => `uniform sampler2D insetMap${i};\nuniform vec4 insetRect${i};`).join('\n')
+    const mix = rects
+      .map(
+        (_, i) => `{
+          vec2 insetUv = (vMapUv - insetRect${i}.xy) * insetRect${i}.zw;
+          vec2 insetEdge = min(insetUv, 1.0 - insetUv);
+          float insetMix = smoothstep(0.0, 0.015, min(insetEdge.x, insetEdge.y));
+          diffuseColor.rgb = mix(diffuseColor.rgb, texture2D(insetMap${i}, insetUv).rgb, insetMix);
+        }`,
       )
+      .join('\n')
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <map_pars_fragment>', `#include <map_pars_fragment>\n${pars}`)
+      .replace('#include <map_fragment>', `#include <map_fragment>\n${mix}`)
   }
   return m
 }

@@ -26,6 +26,18 @@ export const BBOX: LatLngBox = {
  */
 export const SF_BBOX: LatLngBox = { south: 37.7, west: -122.53, north: 37.84, east: -122.35 }
 
+/**
+ * The places people actually descend into. Each gets real building footprints, its residential streets, and a sharper
+ * inset of the map texture (public/data/map-<id>.webp, `texture` pixels square) that the terrain blends over the regional one.
+ * Boxes must not overlap. Everything outside them keeps procedural blocks on the ≈20 m/px regional texture.
+ */
+export const DETAIL_AREAS: { id: string; bbox: LatLngBox; texture: number }[] = [
+  { id: 'sf', bbox: SF_BBOX, texture: 4096 }, // ≈3.9 m per pixel
+  { id: 'eastbay', bbox: { south: 37.75, west: -122.33, north: 37.9, east: -122.18 }, texture: 4096 }, // Oakland, Berkeley, Emeryville, Alameda
+  { id: 'paloalto', bbox: { south: 37.37, west: -122.2, north: 37.47, east: -122.05 }, texture: 2048 }, // Palo Alto, Stanford, Mountain View
+  { id: 'sanjose', bbox: { south: 37.3, west: -121.93, north: 37.37, east: -121.85 }, texture: 2048 }, // downtown San Jose
+]
+
 export const LAT0 = (BBOX.south + BBOX.north) / 2
 export const LNG0 = (BBOX.west + BBOX.east) / 2
 
@@ -74,8 +86,6 @@ export function worldToUV(x: number, z: number): [number, number] {
 export const HEIGHT_OFFSET = 1000
 export const HEIGHTMAP_SIZE = 1024
 export const MAP_TEXTURE_SIZE = 4096
-/** The SF inset: ≈3.9 m per pixel against the regional texture's ≈20 m. */
-export const SF_TEXTURE_SIZE = 4096
 
 /** metres of elevation -> world y */
 export function elevationToY(m: number): number {

@@ -34,10 +34,14 @@ scripts/                data pipeline (run with tsx; Node 24)
   lib/land.ts           census counties → shoreline polygons (mapshaper)
   lib/rent.ts           Zillow ZORI CSV + census ZCTA polygons for the rent choropleth
   lib/hoods.ts          SF neighborhood polygons + Census places for the neighborhood atlas
+  lib/footprints.ts     footprint → minimum-area bounding box (position, size, bearing, fill ratio)
+  lib/sfbuildings.ts    DataSF building footprints (every SF building, lidar heights)
+  lib/overture.ts       Overture Maps footprints for the other detail areas (DuckDB over S3 parquet)
   lib/svg.ts            SVG builder + sharp rasteriser for the 4096² map texture
   lib/palette.ts        map colours and road stroke styles
 src/
   lib/geo.ts            THE shared projection + constants (imported by scripts AND app)
+  lib/blocks.ts         filler.bin codec (one box per house), shared with the pipeline
   lib/tweets.ts         Post/TweetsFile types (shared with the script), lazy loader + useTweets(companyId)
   lib/rent.ts           rent classes/colours shared by the pipeline (paints rent.webp) and the legend
   lib/hoods.ts          atlas tints, wash alpha and the hoods.json label type (shared with the pipeline)
@@ -47,11 +51,11 @@ src/
   scene/Scene.tsx       Canvas, lights, fog; mounts every scene layer
   scene/CameraRig.tsx   custom camera (keys/drag/scroll), bounds, floor, fly-to animation
   scene/viewStore.ts    camera state published for UI (minimap, label tiers)
-  scene/Terrain.tsx     512² displaced grid + map texture, with the sharper SF inset mixed in by the shader
+  scene/Terrain.tsx     512² displaced grid + map texture, with each detail area's sharper inset mixed in by the shader
   scene/Water.tsx       translucent sea-level plane
   scene/HoodLabels.tsx  names for the neighborhood atlas; shown by apparent size (sqrt(area)/camera distance), culled to the view
   scene/Heatmap.tsx     ground washes (heat-food.webp, rent.webp, hoods.webp) draped on the shared terrain grid; one per kind, cross-fade
-  scene/Buildings.tsx   downtown extrusions + instanced procedural blocks (10×10 chunks)
+  scene/Buildings.tsx   true-outline extrusions + one instanced block per house (20×20 chunks), pastel paint + greyed roofs via onBeforeCompile
   scene/Transit.tsx     LineSegments2 per mode + station discs/labels
   scene/Landmarks.tsx   landmark groups: hover outline (inverted hull), pop-up scale, labels
   scene/LandmarkModel.tsx  procedural part lists per landmark kind; bridge cables as line batches
@@ -141,11 +145,30 @@ vercel.json             build settings + cache headers for Vercel (see Hosting)
   would allow official GTFS shapes later.
 - Census county boundaries come back as a `GeometryCollection` after `-dissolve`; `land.ts` normalises it.
 - `map.webp` (4096², q90) replaced a 14 MB PNG. Keep textures as WebP.
-- Ground sharpness: `map.webp` covers the whole region at ≈20 m/px; `map-sf.webp` (4096² over `SF_BBOX` in `geo.ts`, ≈3.9 m/px)
-  is the same layers re-rasterised through an SVG `viewBox` window (`composeMap(size, view, …)` in step 4), so strokes keep their
-  ground width. `Terrain.tsx` patches the standard material (`onBeforeCompile`) to mix it over its rectangle with a feathered edge.
-  Another sharp area = another inset; an 8192² regional texture was avoided on purpose (~360 MB of GPU memory with mipmaps).
-- Procedural filler density is tuned in `build-data.ts` (spacing/prob). ~126k instances today.
+- Detail areas (`DETAIL_AREAS` in `geo.ts`: sf, eastbay, paloalto, sanjose; boxes must not overlap) are where the app goes
+  street-level. Each gets (a) residential streets from OSM (`osm.fetchRoadsMinor`, one paced query per area), (b) a sharper
+  inset of the map texture, `map-<id>.webp` (≈4–6 m/px against the regional ≈20 m/px): the same layers re-rasterised
+  through an SVG `viewBox` window (`composeMap(size, view, …)` in step 4) so strokes keep their ground width, mixed over
+  its rectangle with a feathered edge by `Terrain.tsx` (`onBeforeCompile`, one unrolled sampler per area), and (c) real
+  building footprints (below). Adding a city = one entry there + `pnpm data` (≈3 min of Overture download, +GPU memory for
+  its texture: 89 MB at 4096², 22 MB at 2048²). An 8192² regional texture was avoided on purpose (~360 MB with mipmaps).
+- Houses in the detail areas are real (experiment, uncommitted at the time of writing). SF: `lib/sfbuildings.ts` downloads DataSF's "Building Footprints" (`ynuv-fyni`, the city's
+  lidar survey: ~177k polygons, a measured height each, one keyless 118 MB request cached as `data-cache/sf-footprints.geojson`).
+  It is the dataset OSM's SF buildings were imported from; Overpass was tried first and 429'd, then refused connections.
+  `build-data.ts` step 5b fits a box to each footprint (`lib/footprints.ts`) and writes it into `filler.bin` beside the
+  procedural blocks; footprints over 3,000 m², or over 500 m² and far from rectangular, go to `buildings.json` with their
+  true outline. Boxes stand on their lowest corner so nothing floats on slopes. Downtown stays OSM (newer towers), split
+  from the survey by centroid. Footprints under a landmark model's ground rectangle are dropped (`STANDS_IN_TOWN`, sized
+  from `landmarkParts`), so a new landmark kind that stands among buildings belongs in that list; so are footprints under
+  a company HQ block. The other areas: `lib/overture.ts` reads Overture Maps' buildings GeoParquet straight from S3 with
+  DuckDB (`@duckdb/node-api`, dev-only; release pinned in `RELEASE`), cached as `data-cache/overture-<id>.ndjson`. ~79% of
+  those carry a height; the rest are guessed from floor area. ~417k real boxes + ~6k true outlines in all.
+- `Buildings.tsx` splits every chunk into houses (< 400 m², < ~20 m) and bigger blocks; house chunks are skipped beyond
+  `HOUSE_RANGE` (25 km), where a house is about a pixel, so the far view doesn't draw millions of sub-pixel triangles.
+- `filler.bin` is quantised (`src/lib/blocks.ts`, shared codec: float32 x/z, uint16 for the rest, 18 bytes a block).
+- Procedural filler (step 6) now only fills 150 m cells with no real footprints near them, i.e. everything outside the detail areas.
+  Density is tuned by spacing/prob there. The `-0.03` ground sink is baked into `filler.bin`, not applied by the renderer.
+- Overpass punishes bursts: several 429s in a row end in refused connections for a good while. Pace any tiled query.
 
 ## Verifying in the Claude Code browser pane
 

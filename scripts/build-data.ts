@@ -11,13 +11,19 @@ import { buildLand } from './lib/land.ts'
 import { buildHeightmap, writeHeightmap } from './lib/terrain.ts'
 import { buildZctas, fetchRentByZip } from './lib/rent.ts'
 import { buildHoods } from './lib/hoods.ts'
+import { fitBox } from './lib/footprints.ts'
+import { fetchFootprintsSF } from './lib/sfbuildings.ts'
+import { fetchFootprintsCore } from './lib/overture.ts'
 import polylabel from 'polylabel'
 import { PX, FULL, polygonPath, linePath, svgDoc, rasterize, type View } from './lib/svg.ts'
 import { P, ROAD_STYLE, heatColor, lerp, clamp01, smooth } from './lib/palette.ts'
-import { project, toUV, elevationToY, BUILDING_EXAGGERATION, UNIT, WORLD, BBOX, SF_BBOX, SF_TEXTURE_SIZE } from '../src/lib/geo.ts'
+import { project, unproject, toUV, elevationToY, BUILDING_EXAGGERATION, UNIT, WORLD, BBOX, DETAIL_AREAS } from '../src/lib/geo.ts'
 import { RENT_ALPHA, rentClass, type RentData } from '../src/lib/rent.ts'
+import { BLOCK_STRIDE, encodeBlocks } from '../src/lib/blocks.ts'
 import { HOOD_TINTS, HOODS_ALPHA, type HoodsData } from '../src/lib/hoods.ts'
 import { landmarks } from '../src/data/landmarks.ts'
+import { companies } from '../src/data/companies.ts'
+import { landmarkParts } from '../src/scene/LandmarkModel.tsx'
 
 const t0 = Date.now()
 const land = await buildLand()
@@ -48,7 +54,7 @@ const parksRaw = await rasterize(svgDoc(parksSvg))
 // ---------- 3. roads ----------
 log('roads')
 const roadsMajor = await osm.fetchRoadsMajor()
-const roadsMinor = await osm.fetchRoadsMinorSF()
+const roadsMinor = await osm.fetchRoadsMinor()
 const roadWays: any[] = [...roadsMinor.elements, ...roadsMajor.elements].filter((e) => e.type === 'way' && e.geometry)
 const order = ['living_street', 'unclassified', 'residential', 'tertiary', 'secondary', 'primary', 'trunk_link', 'trunk', 'motorway_link', 'motorway']
 const byClass = new Map<string, string>()
@@ -114,14 +120,14 @@ function composeMap(size: number, view: View, landPx: Buffer, parksPx: Buffer, r
 const map = composeMap(PX, FULL, landRaw, parksRaw, roadsRaw)
 await sharp(map, { raw: { width: PX, height: PX, channels: 3 } }).webp({ quality: 90, effort: 5 }).toFile(path.join(OUT, 'map.webp'))
 log('wrote map.webp', (fs.statSync(path.join(OUT, 'map.webp')).size / 1e6).toFixed(2), 'MB')
-// the same layers again over San Francisco only, ~5x sharper: the terrain blends this inset over the regional texture
-{
-  const [u0, v0] = toUV(SF_BBOX.north, SF_BBOX.west), [u1, v1] = toUV(SF_BBOX.south, SF_BBOX.east)
+// the same layers again over each detail area, ~3–5x sharper: the terrain blends these insets over the regional texture
+for (const { id, bbox: b, texture: S } of DETAIL_AREAS) {
+  const [u0, v0] = toUV(b.north, b.west), [u1, v1] = toUV(b.south, b.east)
   const view: View = { x: u0 * PX, y: v0 * PX, w: (u1 - u0) * PX, h: (v1 - v0) * PX }
-  const S = SF_TEXTURE_SIZE
   const [l, p, r] = [await rasterize(svgDoc(landSvg, S, view)), await rasterize(svgDoc(parksSvg, S, view)), await rasterize(svgDoc(roadSvg, S, view))]
-  await sharp(composeMap(S, view, l, p, r), { raw: { width: S, height: S, channels: 3 } }).webp({ quality: 90, effort: 5 }).toFile(path.join(OUT, 'map-sf.webp'))
-  log('wrote map-sf.webp', (fs.statSync(path.join(OUT, 'map-sf.webp')).size / 1e6).toFixed(2), 'MB')
+  const file = path.join(OUT, `map-${id}.webp`)
+  await sharp(composeMap(S, view, l, p, r), { raw: { width: S, height: S, channels: 3 } }).webp({ quality: 90, effort: 5 }).toFile(file)
+  log('wrote', path.basename(file), (fs.statSync(file).size / 1e6).toFixed(2), 'MB')
 }
 // a preview for eyeballing, and the same at web size for the minimap
 await sharp(map, { raw: { width: PX, height: PX, channels: 3 } }).resize(1024).png().toFile(path.join('data-cache', 'map-preview.png'))
@@ -175,23 +181,109 @@ const buildings: { p: number[]; h: number; y: number }[] = []
 for (const w of bld.elements) {
   if (w.type !== 'way' || !w.geometry || w.geometry.length < 4) continue
   if (MODELLED.some((l) => contains(w.geometry, l.lat, l.lng))) continue
+  if (w.tags?.['bridge:support']) continue // Bay Bridge pylon W2 is mapped as a 160 m building; the bridge model has its own towers
   const pts = w.geometry.slice(0, -1).map((g: any) => project(g.lat, g.lon))
   const cLat = w.geometry.reduce((s: number, g: any) => s + g.lat, 0) / w.geometry.length
   const cLng = w.geometry.reduce((s: number, g: any) => s + g.lon, 0) / w.geometry.length
+  // Overpass returns whole ways that straddle the box; the city survey (5b) owns whatever is centred outside it
+  if (!(cLat > osm.DOWNTOWN.south && cLat < osm.DOWNTOWN.north && cLng > osm.DOWNTOWN.west && cLng < osm.DOWNTOWN.east)) continue
   buildings.push({
     p: pts.flatMap(([x, z]: number[]) => [Math.round(x * 100) / 100, Math.round(z * 100) / 100]),
     h: Math.round(parseHeight(w.tags) * 10) / 10,
     y: Math.round(elevationToY(elevAt(cLat, cLng)) * 100) / 100,
   })
 }
-writeJSON(path.join(OUT, 'buildings.json'), buildings)
 
-// ---------- 6. procedural filler blocks along streets ----------
-log('filler blocks')
+// ---------- 5b. the rest of SF and the core cities: every real footprint, as the box that fits it best ----------
+// Most of the city is rectangular houses, so an instanced box per footprint (true position, size, bearing and height) reads
+// as the real street wall at the cost of the old procedural blocks. Big or oddly shaped buildings keep their true outline.
+log('SF footprints')
 const rnd = seeded(7)
 const inBox = (lat: number, lng: number, b: { south: number; west: number; north: number; east: number }) =>
   lat > b.south && lat < b.north && lng > b.west && lng < b.east
 const fill: number[] = [] // x, y, z, w, d, h, rot
+/** 150 m cells that hold real footprints (plus their neighbours): the procedural filler stays out of these. */
+const CELL = 1.5
+const cellKey = (x: number, z: number) => (Math.floor(x / CELL) + 5000) * 10000 + Math.floor(z / CELL) + 5000
+const surveyed = new Set<number>()
+const M2 = 1 / (UNIT * UNIT) // world units² -> m²
+const SHORE_Y = elevationToY(1.5)
+const yOn = (x: number, z: number) => {
+  const [lat, lng] = unproject(x, z)
+  return Math.max(elevationToY(elevAt(lat, lng)), SHORE_Y) // piers and ferry sheds stand over water
+}
+const inRing = (ring: [number, number][], x: number, z: number) => {
+  let inside = false
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const a = ring[i], b = ring[j]
+    if (a[1] > z !== b[1] > z && x < ((b[0] - a[0]) * (z - a[1])) / (b[1] - a[1]) + a[0]) inside = !inside
+  }
+  return inside
+}
+// Landmark models that stand among buildings are toy-scale, far bigger than the real thing, so the survey's houses would
+// poke through them: clear each model's ground rectangle (in its own bearing), measured from the same parts list the app draws.
+const STANDS_IN_TOWN = /^(coit|sutro|rotunda|houses|wharf|gate|museum|street|ferry|tower|pyramid|stadium|arena|campanile|campus)$/
+const clearings = landmarks
+  .filter((l) => STANDS_IN_TOWN.test(l.kind))
+  .map((l) => {
+    let hx = 0, hz = 0
+    for (const p of landmarkParts(l)) {
+      if (p.detail) continue
+      // cones and cylinders carry their radius in args (unit-scaled), everything else fills its scale box
+      const r = p.geo === 'cone' ? Number(p.args?.[0] ?? 0.5) : p.geo === 'cyl' ? Math.max(Number(p.args?.[0] ?? 0.5), Number(p.args?.[1] ?? 0.5)) : 0.5
+      const rx = r * p.scale[0], rz = r * p.scale[2]
+      hx = Math.max(hx, Math.abs(p.pos[0]) + rx)
+      hz = Math.max(hz, Math.abs(p.pos[2]) + rz)
+    }
+    const [x, z] = project(l.lat, l.lng)
+    const a = (-(l.bearing ?? 0) * Math.PI) / 180 // the app's rotY
+    return { x, z, hx: hx + 0.06, hz: hz + 0.06, cos: Math.cos(a), sin: Math.sin(a) }
+  })
+// company HQ blocks are 70 m squares (Companies.tsx), drawn wherever no landmark stands in for the HQ
+const hqXZ = companies.filter((c) => !c.landmark).map((c) => project(c.lat, c.lng))
+const underModel = (x: number, z: number) =>
+  hqXZ.some(([cx, cz]) => Math.abs(x - cx) < 0.42 && Math.abs(z - cz) < 0.42) ||
+  clearings.some((c) => {
+    const dx = x - c.x, dz = z - c.z
+    // world -> model frame: undo a Y turn by a, which sends local (lx, lz) to (lx cos + lz sin, −lx sin + lz cos)
+    return Math.abs(dx * c.cos - dz * c.sin) < c.hx && Math.abs(dx * c.sin + dz * c.cos) < c.hz
+  })
+const landmarkXZ = landmarks.map((l) => project(l.lat, l.lng))
+let nBoxes = 0, nOutlines = 0
+// SF's lidar survey, then Overture for the other core cities (their boxes don't overlap SF's)
+for (const fp of [...(await fetchFootprintsSF()), ...(await fetchFootprintsCore())]) {
+  const ring = fp.ring.map(([lng, lat]) => project(lat, lng)) as [number, number][]
+  const box = fitBox(ring)
+  if (!box || box.area * M2 < 30) continue // sheds
+  const [cLat, cLng] = unproject(box.x, box.z)
+  if (inBox(cLat, cLng, osm.DOWNTOWN)) continue // step 5 has these, with newer towers than the survey
+  // landmarks bring their own model
+  if (underModel(box.x, box.z) || landmarkXZ.some(([x, z]) => Math.abs(x - box.x) < box.w && Math.abs(z - box.z) < box.w && inRing(ring, x, z))) continue
+  for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) surveyed.add(cellKey(box.x + dx * CELL, box.z + dz * CELL))
+  // no measured height: a house is a storey or two, anything with a big floor plate is commercial
+  const guess = box.area * M2 > 900 ? 8 + rnd() * 5 : 4.5 + rnd() * 3.5
+  const h = Math.max(4, fp.height ?? guess) + rnd() * 0.5 // the jitter keeps touching roofs from z-fighting
+  // stand on the lowest corner so nothing floats on SF's slopes; the roof stays where the centre puts it
+  const yc = yOn(box.x, box.z)
+  const y = Math.min(yc, ...box.corners.map(([x, z]) => yOn(x, z))) - 0.004
+  if (box.area * M2 > 3000 || (box.fill < 0.72 && box.area * M2 > 500)) {
+    nOutlines++
+    buildings.push({
+      p: ring.flatMap(([x, z]) => [Math.round(x * 100) / 100, Math.round(z * 100) / 100]),
+      h: Math.round((h + (yc - y) / (UNIT * BUILDING_EXAGGERATION)) * 10) / 10,
+      y: Math.round(y * 100) / 100,
+    })
+    continue
+  }
+  nBoxes++
+  const k = Math.sqrt(Math.max(box.fill, 0.6)) // an L-shaped house keeps its floor area rather than its bounding box
+  fill.push(box.x, y, box.z, box.w * k, box.d * k, h * UNIT * BUILDING_EXAGGERATION + (yc - y), box.rot)
+}
+log('real footprints: boxes', nBoxes, '· true outlines', nOutlines)
+writeJSON(path.join(OUT, 'buildings.json'), buildings)
+
+// ---------- 6. procedural filler blocks along streets (wherever there are no real footprints) ----------
+log('filler blocks')
 const M_LAT = 1 / 110_574, M_LNG = 1 / (111_320 * Math.cos((37.6 * Math.PI) / 180))
 for (const w of roadWays) {
   const cls = w.tags.highway
@@ -218,21 +310,22 @@ for (const w of roadWays) {
         const off = halfRoad + depth / 2 + 2
         const lng = cx + -uy * off * side * M_LNG, lat = cy + ux * off * side * M_LAT
         if (inBox(lat, lng, osm.DOWNTOWN)) continue
+        const [x, z] = project(lat, lng)
+        if (surveyed.has(cellKey(x, z))) continue
         const m = maskAt(lat, lng)
         if (!m.land || m.park) continue
         const wlen = spacing * (0.62 + rnd() * 0.2)
         let h = minor ? 7 + rnd() * 6 : 9 + rnd() * 14
         if (!minor && rnd() < 0.08) h = 25 + rnd() * 30
-        const [x, z] = project(lat, lng)
-        fill.push(x, elevationToY(elevAt(lat, lng)), z, wlen * UNIT, depth * UNIT, h * UNIT * BUILDING_EXAGGERATION, Math.atan2(-uy, ux))
+        fill.push(x, elevationToY(elevAt(lat, lng)) - 0.03, z, wlen * UNIT, depth * UNIT, h * UNIT * BUILDING_EXAGGERATION, Math.atan2(uy, ux)) // (ux, uy) is east/north, z is south, and a Y turn by θ sends local +x to (cos θ, 0, −sin θ)
       }
       d += spacing
     }
     carry = d - len
   }
 }
-fs.writeFileSync(path.join(OUT, 'filler.bin'), Buffer.from(new Float32Array(fill).buffer))
-log('filler instances:', fill.length / 7)
+fs.writeFileSync(path.join(OUT, 'filler.bin'), encodeBlocks(fill))
+log('filler instances:', fill.length / BLOCK_STRIDE)
 
 // ---------- 7. transit ----------
 log('transit')

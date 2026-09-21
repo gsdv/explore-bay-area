@@ -2,7 +2,8 @@
  * Loads all generated data (public/data) once and exposes a height sampler.
  */
 import * as THREE from 'three'
-import { HEIGHTMAP_SIZE, HEIGHT_OFFSET, WORLD, elevationToY, worldToUV } from './geo'
+import { DETAIL_AREAS, HEIGHTMAP_SIZE, HEIGHT_OFFSET, WORLD, elevationToY, worldToUV } from './geo'
+import { decodeBlocks } from './blocks'
 import type { HoodLabel, HoodsData } from './hoods'
 
 export interface Heightmap {
@@ -40,11 +41,12 @@ export type HeatKind = 'food' | 'rent' | 'hoods'
 export interface World {
   heights: Heightmap
   mapTexture: THREE.Texture
-  /** the sharper inset over SF_BBOX, blended over mapTexture by the terrain */
-  mapTextureSF: THREE.Texture
+  /** the sharper insets, one per DETAIL_AREAS entry and in that order, blended over mapTexture by the terrain */
+  mapInsets: THREE.Texture[]
   /** pre-coloured washes draped over the terrain by scene/Heatmap.tsx */
   heat: Record<HeatKind, THREE.Texture>
   buildings: Building[]
+  /** one box per house, 7 floats each (see blocks.ts) */
   filler: Float32Array
   transit: TransitRoute[]
   stations: Station[]
@@ -95,10 +97,10 @@ export async function loadWorld(onProgress: (s: string) => void): Promise<World>
       t.generateMipmaps = true
       return t
     })
-  const [heights, mapTexture, mapTextureSF, heatFood, heatRent, heatHoods, buildings, fillerBuf, transit, stations, hoods] = await Promise.all([
+  const [heights, mapTexture, mapInsets, heatFood, heatRent, heatHoods, buildings, fillerBuf, transit, stations, hoods] = await Promise.all([
     loadHeightmap(onProgress),
     ground('/data/map.webp'),
-    ground('/data/map-sf.webp'),
+    Promise.all(DETAIL_AREAS.map((a) => ground(`/data/map-${a.id}.webp`))),
     wash('/data/heat-food.webp'),
     wash('/data/rent.webp'),
     wash('/data/hoods.webp'),
@@ -109,6 +111,6 @@ export async function loadWorld(onProgress: (s: string) => void): Promise<World>
     fetch('/data/hoods.json').then((r) => r.json() as Promise<HoodsData>),
   ])
   onProgress('city')
-  return { heights, mapTexture, mapTextureSF, heat: { food: heatFood, rent: heatRent, hoods: heatHoods }, buildings, filler: new Float32Array(fillerBuf), transit, stations, hoods: hoods.labels }
+  return { heights, mapTexture, mapInsets, heat: { food: heatFood, rent: heatRent, hoods: heatHoods }, buildings, filler: decodeBlocks(fillerBuf), transit, stations, hoods: hoods.labels }
 }
 

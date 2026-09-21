@@ -23,6 +23,7 @@
     "zustand": "^5.0.8"
   },
   "devDependencies": {
+    "@duckdb/node-api": "1.5.5-r.5",
     "@types/adm-zip": "^0.5.7",
     "@types/earcut": "^3.0.0",
     "@types/node": "^24.5.2",

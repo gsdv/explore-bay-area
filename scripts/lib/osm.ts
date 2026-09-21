@@ -1,5 +1,5 @@
 import { overpass, bbox } from './overpass.ts'
-import { SF_BBOX } from '../../src/lib/geo.ts'
+import { DETAIL_AREAS, SF_BBOX } from '../../src/lib/geo.ts'
 
 /** San Francisco proper (plus a little margin) */
 export const SF = SF_BBOX
@@ -9,8 +9,17 @@ export const DOWNTOWN = { south: 37.765, west: -122.425, north: 37.812, east: -1
 export const fetchRoadsMajor = () =>
   overpass('roads-major', `way["highway"~"^(motorway|trunk|primary|secondary|tertiary|motorway_link|trunk_link)$"](${bbox()});out geom;`, 300, 1024)
 
-export const fetchRoadsMinorSF = () =>
-  overpass('roads-minor-sf', `way["highway"~"^(residential|unclassified|living_street)$"](${bbox(SF)});out geom;`)
+/** Residential streets, only where we go street-level (one paced query per detail area: bursts get the IP refused). */
+export async function fetchRoadsMinor(): Promise<{ elements: any[] }> {
+  const elements: any[] = []
+  for (const { id, bbox: b } of DETAIL_AREAS) {
+    const t = Date.now()
+    const r = await overpass(`roads-minor-${id}`, `way["highway"~"^(residential|unclassified|living_street)$"](${bbox(b)});out geom;`)
+    elements.push(...r.elements)
+    if (Date.now() - t > 1000) await new Promise((res) => setTimeout(res, 8000)) // it came over the network, not from the cache
+  }
+  return { elements }
+}
 
 export const fetchParks = () =>
   overpass(
