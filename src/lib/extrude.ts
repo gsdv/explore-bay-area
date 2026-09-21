@@ -47,15 +47,24 @@ export function extrudeBuildings(buildings: Building[]): THREE.BufferGeometry {
       if (ccw) { nx = -nx; nz = -nz }
       const l = Math.hypot(nx, nz) || 1
       nx /= l; nz /= l
-      push(ax, y0, az, nx, 0, nz); push(bx, y0, bz, nx, 0, nz); push(bx, y1, bz, nx, 0, nz)
-      push(ax, y0, az, nx, 0, nz); push(bx, y1, bz, nx, 0, nz); push(ax, y1, az, nx, 0, nz)
+      // the winding has to follow the ring's direction too, not just the stored normal: back faces are culled, so a wall
+      // wound inwards vanishes from outside (you saw the far wall's inside instead, which passes for solid under a roof)
+      if (ccw) {
+        push(ax, y0, az, nx, 0, nz); push(bx, y1, bz, nx, 0, nz); push(bx, y0, bz, nx, 0, nz)
+        push(ax, y0, az, nx, 0, nz); push(ax, y1, az, nx, 0, nz); push(bx, y1, bz, nx, 0, nz)
+      } else {
+        push(ax, y0, az, nx, 0, nz); push(bx, y0, bz, nx, 0, nz); push(bx, y1, bz, nx, 0, nz)
+        push(ax, y0, az, nx, 0, nz); push(bx, y1, bz, nx, 0, nz); push(ax, y1, az, nx, 0, nz)
+      }
     }
+    // earcut winds its triangles the same way whichever way the ring runs, so wind each one to face up by its own sign
+    // (flipping by the ring's direction left every clockwise footprint, the piers among them, with a culled roof)
     const tri = earcut(b.p)
-    // earcut gives triangles in the footprint's orientation; ensure upward normal by winding check on the first one
     for (let i = 0; i < tri.length; i += 3) {
       const a = tri[i], bb = tri[i + 1], cc = tri[i + 2]
-      const order = ccw ? [a, cc, bb] : [a, bb, cc]
-      for (const idx of order) push(b.p[idx * 2], y1, b.p[idx * 2 + 1], 0, 1, 0)
+      const ax = b.p[a * 2], az = b.p[a * 2 + 1]
+      const up = (b.p[bb * 2 + 1] - az) * (b.p[cc * 2] - ax) - (b.p[bb * 2] - ax) * (b.p[cc * 2 + 1] - az) > 0
+      for (const idx of up ? [a, bb, cc] : [a, cc, bb]) push(b.p[idx * 2], y1, b.p[idx * 2 + 1], 0, 1, 0)
     }
   }
   const g = new THREE.BufferGeometry()
