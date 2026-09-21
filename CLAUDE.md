@@ -233,10 +233,11 @@ vercel.json             build settings + cache headers for Vercel (see Hosting)
   Area landmarks: a park too big to be an object gets its real outline instead. `build-data.ts` step 2 writes `areas.json`
   (`AREA_PARKS`: landmark id -> OSM names, outer rings of ways and relations alike; Golden Gate Park + the Panhandle, the Presidio, and
   Ocean Beach, whose polygon comes from `osm.fetchBeaches`, named natural=beach in SF, cached as `overpass-beaches.json`) and `scene/LandmarkArea.tsx` drapes it on the
-  terrain (`lib/drape.ts`: the polygon cut into 50 m cells so it follows the ground) as a thin resting border plus an invisible fill that
-  is the hover/click target. Under the pointer the border becomes the landmarks' shimmering hover outline laid flat (two ribbons using
+  terrain (`lib/drape.ts`: the polygon cut into 50 m cells so it follows the ground) as an invisible fill that is the hover/click
+  target. Nothing shows at rest (the owner removed the resting border); under the pointer the outline appears as the landmarks' shimmering hover outline laid flat (two ribbons using
   `scene/hoverGlow.ts`, the hull material shared with `Landmarks.tsx`) over a faint orange wash. It shares the landmark id with the little tree model, so both light
-  up together. `park` and `beach` kinds are eligible; adding another (Dolores, Baker Beach) = one entry in `AREA_PARKS` + `pnpm data`.
+  up together. A landmark with `areaOnly: true` (Ocean Beach) has no model at all: `Landmarks.tsx` skips it and `LandmarkArea` draws its
+  label. `park` and `beach` kinds are eligible; adding another (Dolores, Baker Beach) = one entry in `AREA_PARKS` + `pnpm data`.
   Models on a hilltop stand on the height at their centre only, so run their base below y = 0 (Coit has a green knoll for this).
 - `src/data/quests.ts`: ordered stops with a to-do and a tour `view` each. No persisted progress.
 - Restaurant heatmap: `osm.fetchFood()` (amenity=restaurant|cafe|fast_food, bars excluded on purpose) is binned,

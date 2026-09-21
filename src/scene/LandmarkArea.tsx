@@ -1,19 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame, type ThreeEvent } from '@react-three/fiber'
-import { Line } from '@react-three/drei'
+import { Html } from '@react-three/drei'
 import * as THREE from 'three'
 import type { Landmark } from '../data/landmarks'
 import { drapeLine, drapePolygon, ribbon } from '../lib/drape'
+import { project } from '../lib/geo'
 import type { World } from '../lib/world'
 import { useStore } from '../store'
 import { hullMaterial } from './hoverGlow'
+import { useZoomTier } from './viewStore'
 
 /** Outlines of the landmarks that are a whole area (public/data/areas.json, baked from the OSM parks): id -> rings of flat x, z. */
 type Areas = Record<string, number[][]>
 let pending: Promise<Areas> | null = null
 const loadAreas = () => (pending ??= fetch('/data/areas.json').then((r) => r.json() as Promise<Areas>).catch((): Areas => ({})))
 
-const BORDER = { park: '#2f6b3a', beach: '#8f7346' } // resting border: leaf green round a park, wet sand round a beach
 const ACCENT = '#f04a00' // --orange
 // the landmarks' hover outline, laid flat: the same shimmering accent band and its wider translucent glow, as ribbons on the ground
 // (double-sided, because a ribbon has no inside to show a back face from). On sand the shimmer's pale highlights read as gaps
@@ -23,10 +24,11 @@ const GLOW = hullMaterial({ color: '#ff7a33', transparent: true, opacity: 0.34, 
 const BAND = 0.2, HALO = 0.7
 
 /**
- * A landmark you can't model as an object: Golden Gate Park is five kilometres of ground. Its real outline is draped on the
- * terrain as a border, and the ground inside it is the hover and click target: under the pointer the border becomes the landmarks'
- * shimmering hover outline and a faint wash of the accent fades in.
- * It shares the landmark's id with the little model at its centre, so either one lights up both.
+ * A landmark you can't model as an object: Golden Gate Park is five kilometres of ground. The ground inside its real outline is
+ * the hover and click target, and nothing shows until the pointer is on it: then the outline appears as the landmarks' shimmering
+ * hover border, draped on the terrain, over a faint wash of the accent.
+ * It shares the landmark's id with the little model at its centre, so either one lights up both; an `areaOnly` landmark has no
+ * model, so its name label is drawn here instead.
  */
 export function LandmarkArea({ landmark: l, world }: { landmark: Landmark; world: World }) {
   const [rings, setRings] = useState<[number, number][][]>([])
@@ -45,7 +47,7 @@ export function LandmarkArea({ landmark: l, world }: { landmark: Landmark; world
   const setHovered = useStore((s) => s.setHoveredLandmark)
   const select = useStore((s) => s.select)
 
-  const { ground, borders, outline, glow } = useMemo(() => {
+  const { ground, outline, glow } = useMemo(() => {
     const yAt = (x: number, z: number) => Math.max(0, world.heights.yAt(x, z))
     const geo = new THREE.BufferGeometry()
     geo.setAttribute('position', new THREE.Float32BufferAttribute(rings.flatMap((r) => drapePolygon(r, yAt)), 3))
@@ -55,8 +57,14 @@ export function LandmarkArea({ landmark: l, world }: { landmark: Landmark; world
       g.setAttribute('position', new THREE.Float32BufferAttribute(borders.flatMap((b) => ribbon(b, width, lift)), 3))
       return g
     }
-    return { ground: geo, borders, outline: band(BAND, 0.02), glow: band(HALO, 0.01) }
+    return { ground: geo, outline: band(BAND, 0.02), glow: band(HALO, 0.01) }
   }, [rings, world])
+  const tier = useZoomTier()
+  const atlas = useStore((s) => s.heat === 'hoods')
+  const labelAt = useMemo(() => {
+    const [x, z] = project(l.lat, l.lng)
+    return [x, Math.max(0, world.heights.yAt(x, z)) + 0.6, z] as [number, number, number]
+  }, [l, world])
   useEffect(() => () => [ground, outline, glow].forEach((g) => g.dispose()), [ground, outline, glow])
 
   const wash = useRef<THREE.MeshBasicMaterial>(null)
@@ -86,13 +94,17 @@ export function LandmarkArea({ landmark: l, world }: { landmark: Landmark; world
       <mesh geometry={ground} onPointerOver={onOver} onPointerOut={onOut} onClick={onClick} renderOrder={2}>
         <meshBasicMaterial ref={wash} color={ACCENT} transparent opacity={0} depthWrite={false} polygonOffset polygonOffsetFactor={-2} polygonOffsetUnits={-2} />
       </mesh>
-      {hovered ? (
+      {hovered && (
         <>
           <mesh geometry={glow} material={GLOW} renderOrder={3} raycast={() => null} />
           <mesh geometry={outline} material={OUTLINE} renderOrder={4} raycast={() => null} />
         </>
-      ) : (
-        borders.map((pts, i) => <Line key={i} points={pts} color={l.kind === 'beach' ? BORDER.beach : BORDER.park} lineWidth={1.8} raycast={() => null} />)
+      )}
+      {/* same rule as the models' labels: hover-only while the neighborhood atlas owns the ground, icons only from far away */}
+      {l.areaOnly && !inQuest && (atlas ? hovered : tier !== 'far' || l.tags?.includes('icon')) && (
+        <Html position={labelAt} center zIndexRange={[19, 10]} style={{ pointerEvents: 'none' }}>
+          <div className={'landmark-label' + (hovered ? ' is-hovered' : '')}>{l.name}</div>
+        </Html>
       )}
     </group>
   )

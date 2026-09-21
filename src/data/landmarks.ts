@@ -20,6 +20,8 @@ export interface Landmark {
   bearing?: number
   /** other points whose real footprints the model replaces (the pipeline drops any footprint containing one) */
   covers?: [number, number][]
+  /** no model at all: the landmark is just its hoverable ground (its outline must be in areas.json, see AREA_PARKS in build-data.ts) */
+  areaOnly?: boolean
   tags?: ('nature' | 'icon' | 'culture' | 'view' | 'food' | 'hike')[]
 }
 
@@ -41,7 +43,7 @@ export const landmarks: Landmark[] = [
   { id: 'ggpark', name: 'Golden Gate Park', kind: 'park', lat: 37.7694, lng: -122.4862, area: 'Richmond / Sunset', blurb: '1,017 acres, bigger than Central Park: the de Young, the Academy of Sciences, a Japanese tea garden, bison, and windmills at the ocean end.', tip: 'JFK Drive is car-free. Rent a bike at Stanyan and ride to the beach.', tags: ['nature', 'culture'] },
   { id: 'presidio', name: 'The Presidio', kind: 'park', lat: 37.7989, lng: -122.4662, area: 'Presidio', blurb: 'A former army post turned national park: eucalyptus forest, coastal bluffs, the Tunnel Tops, and the Walt Disney museum.', tags: ['nature', 'hike'] },
   { id: 'landsend', name: 'Lands End', kind: 'beach', lat: 37.7876, lng: -122.5055, area: 'Outer Richmond', blurb: 'Wild cliffs at the mouth of the Golden Gate. The Coastal Trail passes the Sutro Baths ruins and a hidden labyrinth.', tags: ['nature', 'hike', 'view'] },
-  { id: 'oceanbeach', name: 'Ocean Beach', kind: 'beach', lat: 37.7594, lng: -122.5107, area: 'Outer Sunset', blurb: 'Three and a half miles of cold Pacific sand. Bonfires in the fire pits, surfers at Sloat, and fog most of the summer.', tags: ['nature'] },
+  { id: 'oceanbeach', name: 'Ocean Beach', kind: 'beach', areaOnly: true, lat: 37.7594, lng: -122.5107, area: 'Outer Sunset', blurb: 'Three and a half miles of cold Pacific sand. Bonfires in the fire pits, surfers at Sloat, and fog most of the summer.', tags: ['nature'] },
   { id: 'dolores', name: 'Dolores Park', kind: 'park', lat: 37.7596, lng: -122.4269, area: 'Mission', blurb: 'The city\'s living room on a sunny day, with a downtown view from the top corner. Get a burrito on Mission Street first.', tags: ['nature', 'food'] },
   { id: 'bernal', name: 'Bernal Heights', kind: 'peak', lat: 37.7432, lng: -122.4142, area: 'Bernal Heights', blurb: 'A grassy hilltop loop with dogs, hawks and a full sweep of the city.', tags: ['view', 'nature'] },
   { id: 'pier39', name: 'Fisherman\'s Wharf & Pier 39', kind: 'wharf', lat: 37.81001, lng: -122.41039, bearing: -16, area: 'North Beach', blurb: 'Sea lions, sourdough bowls and the Musée Mécanique. Touristy, but the sea lions are worth it.', tags: ['culture', 'food'] },
