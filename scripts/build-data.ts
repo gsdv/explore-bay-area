@@ -48,12 +48,13 @@ for (const f of parksGeo.features) {
   if (wild) wildD += polygonPath(f.geometry)
   else cityD += polygonPath(f.geometry)
 }
-// Landmarks that are a whole park rather than a model: their real outline, for the app to drape as a hover area and border.
-const AREA_PARKS: Record<string, string[]> = { ggpark: ['Golden Gate Park', 'Panhandle'], presidio: ['Presidio of San Francisco'] }
+// Landmarks that are a whole park or beach rather than a model: their real outline, for the app to drape as a hover area and border.
+const AREA_PARKS: Record<string, string[]> = { ggpark: ['Golden Gate Park', 'Panhandle'], presidio: ['Presidio of San Francisco'], oceanbeach: ['Ocean Beach'] }
+const beachesGeo = osmtogeojson(await osm.fetchBeaches()) as GeoJSON.FeatureCollection
 const areas: Record<string, number[][]> = {}
 for (const [id, names] of Object.entries(AREA_PARKS)) {
   areas[id] = []
-  for (const f of parksGeo.features) {
+  for (const f of [...parksGeo.features, ...beachesGeo.features]) {
     if (!names.includes(f.properties?.name)) continue
     // outer rings only: a relation (the Presidio) arrives as a Polygon or MultiPolygon, and holes don't matter to a hover area
     const polys = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.type === 'MultiPolygon' ? f.geometry.coordinates : []
@@ -61,7 +62,7 @@ for (const [id, names] of Object.entries(AREA_PARKS)) {
       const ring = poly[0].slice(0, -1).map(([lng, lat]) => project(lat, lng))
       let a = 0
       for (let i = 0; i < ring.length; i++) a += ring[i][0] * ring[(i + 1) % ring.length][1] - ring[(i + 1) % ring.length][0] * ring[i][1]
-      if (Math.abs(a / 2) < 5) continue // under 5 ha: a namesake (the Golden Gate Park rec centre), not the park
+      if (Math.abs(a / 2) < (f.properties?.natural === 'beach' ? 0.5 : 5)) continue // under 5 ha: a namesake (the Golden Gate Park rec centre), not the park
       areas[id].push(ring.flatMap(([x, z]) => [Math.round(x * 100) / 100, Math.round(z * 100) / 100]))
     }
   }

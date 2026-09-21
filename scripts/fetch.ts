@@ -15,7 +15,7 @@ log('rent ZIPs:', (await fetchRentByZip()).byZip.size)
 log('neighborhood polygons:', (await buildHoods()).length)
 await fetchFootprintsSF()
 await fetchFootprintsCore()
-for (const f of [osm.fetchStations, osm.fetchFood, osm.fetchTransitRoutes, osm.fetchBuildingsDowntown, osm.fetchParks, osm.fetchRoadsMinor, osm.fetchRoadsMajor]) {
+for (const f of [osm.fetchStations, osm.fetchFood, osm.fetchTransitRoutes, osm.fetchBuildingsDowntown, osm.fetchParks, osm.fetchBeaches, osm.fetchRoadsMinor, osm.fetchRoadsMajor]) {
   const r = await f()
   log(f.name, 'elements:', r.elements.length)
 }

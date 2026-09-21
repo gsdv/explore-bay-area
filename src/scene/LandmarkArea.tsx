@@ -13,10 +13,11 @@ type Areas = Record<string, number[][]>
 let pending: Promise<Areas> | null = null
 const loadAreas = () => (pending ??= fetch('/data/areas.json').then((r) => r.json() as Promise<Areas>).catch((): Areas => ({})))
 
-const BORDER = '#2f6b3a'
+const BORDER = { park: '#2f6b3a', beach: '#8f7346' } // resting border: leaf green round a park, wet sand round a beach
 const ACCENT = '#f04a00' // --orange
 // the landmarks' hover outline, laid flat: the same shimmering accent band and its wider translucent glow, as ribbons on the ground
-// (double-sided, because a ribbon has no inside to show a back face from)
+// (double-sided, because a ribbon has no inside to show a back face from). On sand the shimmer's pale highlights read as gaps
+// in a still frame; they travel, so in motion it is the same glimmer.
 const OUTLINE = hullMaterial({ side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 })
 const GLOW = hullMaterial({ color: '#ff7a33', transparent: true, opacity: 0.34, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 })
 const BAND = 0.2, HALO = 0.7
@@ -91,7 +92,7 @@ export function LandmarkArea({ landmark: l, world }: { landmark: Landmark; world
           <mesh geometry={outline} material={OUTLINE} renderOrder={4} raycast={() => null} />
         </>
       ) : (
-        borders.map((pts, i) => <Line key={i} points={pts} color={BORDER} lineWidth={1.8} raycast={() => null} />)
+        borders.map((pts, i) => <Line key={i} points={pts} color={l.kind === 'beach' ? BORDER.beach : BORDER.park} lineWidth={1.8} raycast={() => null} />)
       )}
     </group>
   )

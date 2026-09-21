@@ -34,6 +34,9 @@ export const fetchParks = () =>
     );out geom;`,
   )
 
+/** Named beaches in SF, for landmarks that are a stretch of sand (Ocean Beach): a handful of polygons. */
+export const fetchBeaches = () => overpass('beaches', `(way["natural"="beach"]["name"](${bbox(SF)});relation["natural"="beach"]["name"](${bbox(SF)}););out geom;`)
+
 export const fetchBuildingsDowntown = () => overpass('buildings-downtown', `way["building"](${bbox(DOWNTOWN)});out geom;`)
 
 const NETWORKS: Record<string, string> = {

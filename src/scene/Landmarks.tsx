@@ -44,8 +44,8 @@ export function Landmarks({ world }: { world: World }) {
       {landmarks.map((l) => (
         <LandmarkObject key={l.id} landmark={l} world={world} />
       ))}
-      {/* landmarks that are a whole park: their outline on the ground is the target (nothing renders for the others) */}
-      {landmarks.filter((l) => l.kind === 'park').map((l) => (
+      {/* landmarks that are a whole park or beach: their outline on the ground is the target (areas.json decides which; the rest render nothing) */}
+      {landmarks.filter((l) => l.kind === 'park' || l.kind === 'beach').map((l) => (
         <LandmarkArea key={l.id} landmark={l} world={world} />
       ))}
     </group>
