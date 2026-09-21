@@ -42,7 +42,17 @@ const geoFor = (p: Part) => {
 }
 
 // the fluted shaft is an open, grooved tube: as a hull its rim shows as a row of teeth, so it borrows a plain capped taper
-const hullGeoFor = (p: Part) => (p.geo === 'fluted' ? geoFor({ ...p, geo: 'cyl', args: [0.5 * Number(p.args?.[0] ?? 1), 0.5, 24] }) : geoFor(p))
+// (likewise the pierced ring of arches borrows a plain prism), and a curved wall can't be grown by scaling it about its
+// centre, so a sector builds its hull already offset
+const hullCache = new Map<string, THREE.BufferGeometry>()
+const hullGeoFor = (p: Part, by: number) => {
+  if (p.geo === 'fluted') return geoFor({ ...p, geo: 'cyl', args: [0.5 * Number(p.args?.[0] ?? 1), 0.5, 24] })
+  if (p.geo === 'ringwall') return geoFor({ ...p, geo: 'cyl', args: [0.5, 0.5, Number(p.args?.[0] ?? 8), 1, false, Math.PI / Number(p.args?.[0] ?? 8)] })
+  if (p.geo !== 'sector') return geoFor(p)
+  const key = by + JSON.stringify(p.args)
+  if (!hullCache.has(key)) hullCache.set(key, partGeometry(p, by))
+  return hullCache.get(key)!
+}
 
 export function Landmarks({ world }: { world: World }) {
   const show = useStore((s) => s.showLandmarks)
@@ -147,8 +157,8 @@ function LandmarkObject({ landmark: l, world }: { landmark: Landmark; world: Wor
           </mesh>
           {hovered && !p.detail && (
             <>
-              <mesh geometry={hullGeoFor(p)} material={OUTLINE} scale={grown(p, HULL)} raycast={() => null} />
-              <mesh geometry={hullGeoFor(p)} material={GLOW} scale={grown(p, HALO)} raycast={() => null} />
+              <mesh geometry={hullGeoFor(p, HULL)} material={OUTLINE} scale={grown(p, HULL)} raycast={() => null} />
+              <mesh geometry={hullGeoFor(p, HALO)} material={GLOW} scale={grown(p, HALO)} raycast={() => null} />
             </>
           )}
         </group>

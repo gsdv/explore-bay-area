@@ -195,6 +195,11 @@ vercel.json             build settings + cache headers for Vercel (see Hosting)
   `fluted` is a ribbed tapering cylinder and `arcade` paints arched/square openings round a drum in one mesh (both used by Coit Tower).
   `arches` does the same on flat walls (rows of storeys, one or both opposite walls per mesh; the Ferry Building's arcades). Module-level
   helpers `box`, `drum`, `drumOpenings`, `wallOpenings` build these parts; avoid `rot` on long parts, it squares up the hover box.
+  The Palace of Fine Arts adds `ringwall` (a ring of walls with real see-through arches, via ExtrudeGeometry), `columns` (free-standing
+  columns at plan spots, one mesh, always `detail`) and `sector` (curved walls about a centre on the z axis). The last two normalise to
+  their own bounding box so pos/scale stay true for the hover box and the pipeline's clearing; a sector's hover hull is built already
+  offset (`partGeometry(p, grow)`, see `hullGeoFor`) because scaling a curve about its centre doesn't outline it. The clearing is
+  symmetric about the landmark point, so a lopsided complex puts its origin mid-complex (the Palace's is 25 m behind the rotunda).
   Models on a hilltop stand on the height at their centre only, so run their base below y = 0 (Coit has a green knoll for this).
 - `src/data/quests.ts`: ordered stops with a to-do and a tour `view` each. No persisted progress.
 - Restaurant heatmap: `osm.fetchFood()` (amenity=restaurant|cafe|fast_food, bars excluded on purpose) is binned,

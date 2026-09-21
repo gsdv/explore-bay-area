@@ -3,7 +3,7 @@ import type { Landmark } from '../data/landmarks'
 import { project, UNIT, BUILDING_EXAGGERATION } from '../lib/geo'
 
 export interface Part {
-  geo: 'box' | 'cyl' | 'cone' | 'sphere' | 'ring' | 'stack' | 'fluted' | 'arcade' | 'arches'
+  geo: 'box' | 'cyl' | 'cone' | 'sphere' | 'ring' | 'stack' | 'fluted' | 'arcade' | 'arches' | 'ringwall' | 'columns' | 'sector'
   pos: [number, number, number]
   rot?: [number, number, number]
   scale: [number, number, number]
@@ -42,6 +42,25 @@ const wallOpenings = (x: number, z: number, y0: number, y1: number, len: number,
   const d = depth + 0.006, axis = o.axis ?? 0
   return { geo: 'arches', pos: [x, (y0 + y1) / 2, z], scale: axis ? [d, y1 - y0, len] : [len, y1 - y0, d], color: SHADE, detail: true,
     args: [n, +(w / len).toFixed(4), o.flat ? 0 : +(w / 2 / (y1 - y0)).toFixed(4), o.rows ?? 1, 0.12, axis, o.sides ?? 0] }
+}
+const r4 = (v: number) => +v.toFixed(4)
+/** a regular prism standing on a face-to-the-front footing: `n` sides, circumradius r (unit-normalised like `drum`) */
+const prism = (z: number, y0: number, y1: number, r: number, n: number, color: string, detail = false): Part =>
+  ({ geo: 'cyl', pos: [0, (y0 + y1) / 2, z], scale: [2 * r, y1 - y0, 2 * r], color, detail, args: [0.5, 0.5, n, 1, false, Math.PI / n] })
+/**
+ * Curved walls: annular sectors about a centre on the model's z axis at `zc`, between radii ri..ro, one per [from, to] range.
+ * Angles are radians from the -z direction, positive towards +x. Normalised to their own bounding box, so pos/scale stay true.
+ */
+const sector = (zc: number, y0: number, y1: number, ri: number, ro: number, ranges: [number, number][], color: string, detail = false): Part => {
+  const args = [r4(ri), r4(ro), ...ranges.flat().map(r4)]
+  const b = planBox(sectorRings(args).flatMap((s) => [...s.inner, ...s.outer]))
+  return { geo: 'sector', pos: [b.cx, (y0 + y1) / 2, zc + b.cz], scale: [b.sx, y1 - y0, b.sz], color, detail, args }
+}
+/** free-standing round columns of radius r at the given plan spots, as one part (always `detail`: a hull can't follow them) */
+const columns = (spots: [number, number][], y0: number, y1: number, r: number, color: string): Part => {
+  const args = [r4(r), ...spots.flat().map(r4)]
+  const b = planBox(columnSpots(args), r)
+  return { geo: 'columns', pos: [b.cx, (y0 + y1) / 2, b.cz], scale: [b.sx, y1 - y0, b.sz], color, detail: true, args }
 }
 const shift = (p: Part, z: number): Part => ({ ...p, pos: [p.pos[0], p.pos[1], p.pos[2] + z] })
 
@@ -282,12 +301,55 @@ export function landmarkParts(l: Landmark, ground?: BridgeGround): Part[] {
       }
       return p
     }
-    case 'rotunda':
-      return [
-        { geo: 'cyl', pos: [0, 0.5, 0], scale: [1, 1, 1], color: '#e5cfa8', args: [0.75, 0.8, 8, 1, true] },
-        { geo: 'sphere', pos: [0, 1.0, 0], scale: [0.85, 0.5, 0.85], color: '#c9906a', args: [1, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2] },
-        { geo: 'box', pos: [1.6, 0.4, 0], scale: [1.8, 0.8, 0.35], color: '#e5cfa8' },
+    case 'rotunda': {
+      // Palace of Fine Arts: the open octagonal rotunda (eight real arches you can see through, paired terracotta columns
+      // at the piers, entablature, an attic of relief panels, a shallow dome) standing in front of a curved double
+      // colonnade, with the crescent exhibition hall behind it; all three are concentric, as measured from the city's
+      // footprints. Local +z faces the lagoon. The arcs are 1.15x true plan; the rotunda is ~1.5x so it keeps its
+      // squat silhouette under the height exaggeration. The origin is the middle of the complex, not the rotunda, so
+      // the pipeline's clearing (symmetric about the origin) doesn't reach across the lagoon into the Marina's houses.
+      const BUFF = '#e2c896', OCHRE = '#d9b47c', TERRACOTTA = '#c27e55', RELIEF = '#c9955c', DOME = '#dcd7c4', HALL = '#d6c4a0', ROOF = '#b4ae9e', STEP = '#d3c6a8', LAGOON = '#74add0'
+      const ZR = 0.25, ZC = 1.07 // rotunda centre, and the centre the arcs are struck from
+      const deg = Math.PI / 180
+      const onArc = (r: number, a: number): [number, number] => [r * Math.sin(a), ZC - r * Math.cos(a)]
+      const yWall = 0.42, yAttic = 0.49, yCornice = 0.64, yDome = 0.72, top = H(49)
+      const wallD = 0.8, wallH = yWall - 0.03, archW = 0.19
+      const p: Part[] = [
+        prism(ZR, -0.1, 0.03, 0.5, 8, STEP),
+        { geo: 'ringwall', pos: [0, (0.03 + yWall) / 2, ZR], scale: [wallD, wallH, wallD], color: OCHRE,
+          args: [8, r4(0.07 / wallD), r4(archW / wallD), r4((yWall - 0.065) / wallH), r4(archW / 2 / wallH)] },
+        prism(ZR, yWall, yAttic, 0.485, 8, BUFF),
+        prism(ZR, yAttic, yCornice, 0.41, 8, OCHRE),
+        { ...shift(drumOpenings(yAttic + 0.025, yCornice - 0.02, 0.41 * Math.cos(Math.PI / 8), 0.21, 1, true), ZR), color: RELIEF },
+        prism(ZR, yCornice, yCornice + 0.03, 0.435, 8, BUFF, true),
+        shift(drum(yCornice + 0.03, yDome, 0.365, 0.355, BUFF), ZR),
+        { geo: 'sphere', pos: [0, yDome, ZR], scale: [0.345, top - yDome, 0.345], color: DOME, args: [1, 20, 8, 0, Math.PI * 2, 0, Math.PI / 2] },
       ]
+      // paired columns either side of each pier
+      const pier: [number, number][] = []
+      for (let k = 0; k < 8; k++) for (const d of [-6.5, 6.5]) {
+        const a = (22.5 + 45 * k + d) * deg
+        pier.push([0.437 * Math.cos(a), ZR + 0.437 * Math.sin(a)])
+      }
+      p.push(columns(pier, 0.03, yWall, 0.022, TERRACOTTA))
+      // colonnade: two rows of columns from the rotunda's flanks round to 72 degrees, an entablature, and the boxes on top
+      const RC = 1.13, from = 19 * deg, to = 72 * deg, bays = 12
+      const row: [number, number][] = []
+      for (const side of [-1, 1]) for (let i = 0; i <= bays; i++) for (const r of [RC - 0.036, RC + 0.036]) row.push(onArc(r, side * (from + ((to - from) * i) / bays)))
+      const both = (rs: [number, number][]): [number, number][] => [...rs.map(([a, b]) => [-b * deg, -a * deg] as [number, number]).reverse(), ...rs.map(([a, b]) => [a * deg, b * deg] as [number, number])]
+      p.push(
+        columns(row, -0.12, 0.27, 0.017, TERRACOTTA), // sunk: the park dips towards the ends of the wings
+        sector(ZC, 0.27, 0.335, RC - 0.06, RC + 0.06, both([[18.5, 72.5]]), BUFF),
+        sector(ZC, 0.335, 0.4, RC - 0.07, RC + 0.07, both([[18.5, 22.5], [36, 40], [53, 57], [68.5, 72.5]]), OCHRE, true),
+        // exhibition hall
+        sector(ZC, -0.1, 0.25, 1.385, 1.87, [[-55 * deg, 55 * deg]], HALL),
+        sector(ZC, 0.25, 0.285, 1.43, 1.825, [[-54 * deg, 54 * deg]], ROOF, true),
+        // the lagoon the rotunda is mirrored in; the ground texture doesn't have it. A thin plate a hair above the lawn,
+        // because the whole model lifts on hover and a thick slab would rise out of the ground with it
+        { geo: 'cyl', pos: [0, 0.005, 1.03], scale: [2.2, 0.02, 0.56], color: LAGOON, detail: true, args: [0.5, 0.5, 32] },
+      )
+      return p
+    }
     case 'stadium':
       return [
         { geo: 'cyl', pos: [0, 0.35, 0], scale: [1.4, 0.7, 1.1], color: '#d5cbb8', args: [1, 1.1, 20, 1, true] },
@@ -520,7 +582,8 @@ export function landmarkLines(l: Landmark, ground?: BridgeGround): number[] {
   return out
 }
 
-export function partGeometry(p: Part): THREE.BufferGeometry {
+/** `grow` (sectors only) returns the part's hover hull: the same shape offset outwards by that much in plan, in the part's own unit frame. */
+export function partGeometry(p: Part, grow = 0): THREE.BufferGeometry {
   const a = (p.args ?? []) as number[]
   switch (p.geo) {
     case 'box': return new THREE.BoxGeometry(1, 1, 1)
@@ -532,6 +595,9 @@ export function partGeometry(p: Part): THREE.BufferGeometry {
     case 'fluted': return flutedGeometry(a)
     case 'arcade': return arcadeGeometry(a)
     case 'arches': return archesGeometry(a)
+    case 'ringwall': return ringwallGeometry(a)
+    case 'columns': return columnsGeometry(a)
+    case 'sector': return sectorGeometry(a, grow)
   }
 }
 
@@ -619,6 +685,83 @@ function archesGeometry(a: number[]): THREE.BufferGeometry {
         for (let i = 0; i < outline.length; i++) pos.push(...mid, ...at(outline[i]), ...at(outline[(i + 1) % outline.length]))
       }
     }
+  }
+  return fromPositions(pos)
+}
+
+/**
+ * A ring of `n` flat walls (unit space: corners at radius 0.5, height 1), each pierced by a real arched opening standing on
+ * the floor: args [n, wall thickness, opening width, opening height, arch rise], the first two as fractions of the diameter,
+ * the last two of the height. One face looks down +z.
+ */
+function ringwallGeometry(a: number[]): THREE.BufferGeometry {
+  const [n, t, w, top, rise] = a
+  const half = 0.5 * Math.sin(Math.PI / n), inradius = 0.5 * Math.cos(Math.PI / n)
+  // the wall face as one outline with the opening notched out of its bottom edge (a hole touching the edge won't triangulate)
+  const face = new THREE.Shape()
+  face.moveTo(-half, -0.5)
+  const [sill, ...arch] = archOutline(w, -0.5, -0.5 + top, rise)
+  for (const [u, v] of [sill, ...arch.reverse()]) face.lineTo(u, v)
+  face.lineTo(half, -0.5)
+  face.lineTo(half, 0.5)
+  face.lineTo(-half, 0.5)
+  const wall = new THREE.ExtrudeGeometry(face, { depth: t, bevelEnabled: false }).translate(0, 0, inradius - t)
+  const pos: number[] = []
+  for (let k = 0; k < n; k++) {
+    const g = wall.clone().rotateY((k / n) * Math.PI * 2)
+    pos.push(...((g.index ? g.toNonIndexed() : g).getAttribute('position').array as Float32Array))
+  }
+  return fromPositions(pos)
+}
+
+interface PlanBox { cx: number; cz: number; sx: number; sz: number }
+function planBox(pts: [number, number][], pad = 0): PlanBox {
+  const xs = pts.map((q) => q[0]), zs = pts.map((q) => q[1])
+  const x0 = Math.min(...xs) - pad, x1 = Math.max(...xs) + pad, z0 = Math.min(...zs) - pad, z1 = Math.max(...zs) + pad
+  return { cx: (x0 + x1) / 2, cz: (z0 + z1) / 2, sx: x1 - x0, sz: z1 - z0 }
+}
+
+const columnSpots = (a: number[]): [number, number][] => Array.from({ length: (a.length - 1) / 2 }, (_, i) => [a[1 + i * 2], a[2 + i * 2]])
+
+/** Eight-sided columns (no caps: something always sits on them) at model-space spots, squeezed into the unit box of their own bounds: args [radius, x, z, x, z, ...]. */
+function columnsGeometry(a: number[]): THREE.BufferGeometry {
+  const r = a[0], spots = columnSpots(a), b = planBox(spots, r)
+  const pos: number[] = []
+  for (const [x, z] of spots) {
+    const ring = (y: number) => Array.from({ length: 8 }, (_, i) => [(x + r * Math.cos((i * Math.PI) / 4) - b.cx) / b.sx, y, (z + r * Math.sin((i * Math.PI) / 4) - b.cz) / b.sz]).flat()
+    skin(pos, ring(-0.5), ring(0.5), false)
+  }
+  return fromPositions(pos)
+}
+
+/** Inner and outer plan outlines of each sector in args [ri, ro, from, to, from, to, ...] (model units, radians from -z towards +x), optionally grown. */
+function sectorRings(a: number[], grow = 0) {
+  const [ri, ro] = a, out: { inner: [number, number][]; outer: [number, number][] }[] = []
+  for (let i = 2; i + 1 < a.length; i += 2) {
+    const pad = grow / ((ri + ro) / 2), a0 = a[i] - pad, a1 = a[i + 1] + pad
+    const n = Math.max(1, Math.ceil((a1 - a0) / (Math.PI / 36)))
+    const at = (r: number) => Array.from({ length: n + 1 }, (_, j): [number, number] => [r * Math.sin(a0 + ((a1 - a0) * j) / n), -r * Math.cos(a0 + ((a1 - a0) * j) / n)])
+    out.push({ inner: at(ri - grow), outer: at(ro + grow) })
+  }
+  return out
+}
+
+/** Walls, ends and roof of those sectors, in the unit box of the ungrown part (a grown hull is scaled up by the same amount when drawn). */
+function sectorGeometry(a: number[], grow: number): THREE.BufferGeometry {
+  const b = planBox(sectorRings(a).flatMap((s) => [...s.inner, ...s.outer]))
+  const sx = b.sx + 2 * grow, sz = b.sz + 2 * grow
+  const pos: number[] = []
+  const v = ([x, z]: [number, number], y: number) => [(x - b.cx) / sx, y, (z - b.cz) / sz]
+  const quad = (p0: number[], p1: number[], p2: number[], p3: number[]) => pos.push(...p0, ...p1, ...p2, ...p1, ...p3, ...p2)
+  for (const { inner, outer } of sectorRings(a, grow)) {
+    const n = outer.length - 1
+    for (let j = 0; j < n; j++) {
+      quad(v(outer[j], -0.5), v(outer[j], 0.5), v(outer[j + 1], -0.5), v(outer[j + 1], 0.5))
+      quad(v(inner[j + 1], -0.5), v(inner[j + 1], 0.5), v(inner[j], -0.5), v(inner[j], 0.5))
+      quad(v(outer[j], 0.5), v(inner[j], 0.5), v(outer[j + 1], 0.5), v(inner[j + 1], 0.5))
+    }
+    quad(v(outer[0], -0.5), v(inner[0], -0.5), v(outer[0], 0.5), v(inner[0], 0.5))
+    quad(v(inner[n], -0.5), v(outer[n], -0.5), v(inner[n], 0.5), v(outer[n], 0.5))
   }
   return fromPositions(pos)
 }
