@@ -7,6 +7,7 @@ import { project } from '../lib/geo'
 import type { World } from '../lib/world'
 import { useStore } from '../store'
 import { landmarkParts, landmarkLines, bridgeGround, partGeometry, type Part } from './LandmarkModel'
+import { LandmarkArea } from './LandmarkArea'
 import { useZoomTier } from './viewStore'
 
 // Hover outline: still an inverted hull, but in the accent (International Orange, --orange in styles.css) with a
@@ -64,6 +65,10 @@ export function Landmarks({ world }: { world: World }) {
     <group>
       {landmarks.map((l) => (
         <LandmarkObject key={l.id} landmark={l} world={world} />
+      ))}
+      {/* landmarks that are a whole park: their outline on the ground is the target (nothing renders for the others) */}
+      {landmarks.filter((l) => l.kind === 'park').map((l) => (
+        <LandmarkArea key={l.id} landmark={l} world={world} />
       ))}
     </group>
   )

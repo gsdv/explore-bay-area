@@ -60,6 +60,7 @@ src/
   scene/Transit.tsx     LineSegments2 per mode + station discs/labels
   scene/Landmarks.tsx   landmark groups: hover outline (inverted hull), pop-up scale, labels
   scene/LandmarkModel.tsx  procedural part lists per landmark kind; bridge cables as line batches
+  scene/LandmarkArea.tsx   park-sized landmarks: draped outline border + hoverable ground (areas.json)
   scene/Companies.tsx   HQ blocks + Html chips
   scene/QuestRoute.tsx  active quest path + numbered pins
   scene/DevStats.tsx    dev-only: writes fps/draw stats and camera state to <html data-perf/data-view>
@@ -229,6 +230,11 @@ vercel.json             build settings + cache headers for Vercel (see Hosting)
   footprint). `island`, `peak` and `stadium` remain the generic models (Angel Island, the other peaks, Levi's). Landmarks never stand
   below sea level (`Math.max(0, yAt)`): a pier's origin is over seabed in the heightmap. Helpers: `slab` (tapering rounded rectangle),
   `tier` (low-poly frustum), `at` (move a part in plan), `asDetail`.
+  Area landmarks: a park too big to be an object gets its real outline instead. `build-data.ts` step 2 writes `areas.json`
+  (`AREA_PARKS`: landmark id -> OSM park names; Golden Gate Park + the Panhandle so far) and `scene/LandmarkArea.tsx` drapes it on the
+  terrain (`lib/drape.ts`: the polygon cut into 50 m cells so it follows the ground) as an always-on border plus an invisible fill that
+  is the hover/click target and washes orange under the pointer. It shares the landmark id with the little tree model, so both light
+  up together. Adding the Presidio or Dolores = one entry in `AREA_PARKS` + `pnpm data`.
   Models on a hilltop stand on the height at their centre only, so run their base below y = 0 (Coit has a green knoll for this).
 - `src/data/quests.ts`: ordered stops with a to-do and a tour `view` each. No persisted progress.
 - Restaurant heatmap: `osm.fetchFood()` (amenity=restaurant|cafe|fast_food, bars excluded on purpose) is binned,

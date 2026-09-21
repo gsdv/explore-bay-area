@@ -48,6 +48,22 @@ for (const f of parksGeo.features) {
   if (wild) wildD += polygonPath(f.geometry)
   else cityD += polygonPath(f.geometry)
 }
+// Landmarks that are a whole park rather than a model: their real outline, for the app to drape as a hover area and border.
+const AREA_PARKS: Record<string, string[]> = { ggpark: ['Golden Gate Park', 'Panhandle'] }
+const areas: Record<string, number[][]> = {}
+for (const [id, names] of Object.entries(AREA_PARKS)) {
+  areas[id] = []
+  for (const f of parksGeo.features) {
+    if (f.geometry.type !== 'Polygon' || !names.includes(f.properties?.name)) continue
+    const ring = f.geometry.coordinates[0].slice(0, -1).map(([lng, lat]) => project(lat, lng))
+    let a = 0
+    for (let i = 0; i < ring.length; i++) a += ring[i][0] * ring[(i + 1) % ring.length][1] - ring[(i + 1) % ring.length][0] * ring[i][1]
+    if (Math.abs(a / 2) < 5) continue // under 5 ha: a namesake (the Golden Gate Park rec centre), not the park
+    areas[id].push(ring.flatMap(([x, z]) => [Math.round(x * 100) / 100, Math.round(z * 100) / 100]))
+  }
+  log('area', id, 'rings', areas[id].length, 'points', areas[id].reduce((n, r) => n + r.length / 2, 0))
+}
+writeJSON(path.join(OUT, 'areas.json'), areas)
 const parksSvg = `<path fill="#00ff00" fill-opacity="0.8" fill-rule="evenodd" d="${wildD}"/><path fill="#ff0000" fill-opacity="0.9" fill-rule="evenodd" d="${cityD}"/>`
 const parksRaw = await rasterize(svgDoc(parksSvg))
 
