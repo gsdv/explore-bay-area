@@ -210,6 +210,9 @@ vercel.json             build settings + cache headers for Vercel (see Hosting)
   `scenery` (drawn, but outside the hover box and label height: Stanford's Main Quad beside Hoover Tower). A landmark's `covers`
   points make the pipeline drop the real footprints containing them (the Quad is one solid 5 ha polygon in Overture).
   `blocks` also does roofs with the ridge along x and pyramids.
+  The Legion of Honor has its own kind (`legion`; `museum` is the Exploratorium's box) and `archwall`, one wall with a real arched
+  opening (its triumphal arch). SF's footprint survey has nothing at the Legion, so its size and axis (bearing -40, parallel to
+  Legion of Honor Drive) are read off the roads and the aerials rather than measured.
   Models on a hilltop stand on the height at their centre only, so run their base below y = 0 (Coit has a green knoll for this).
 - `src/data/quests.ts`: ordered stops with a to-do and a tour `view` each. No persisted progress.
 - Restaurant heatmap: `osm.fetchFood()` (amenity=restaurant|cafe|fast_food, bars excluded on purpose) is binned,

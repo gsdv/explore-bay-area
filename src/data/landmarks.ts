@@ -1,6 +1,6 @@
 export type LandmarkKind =
   | 'bridge' | 'tower' | 'pyramid' | 'ferry' | 'coit' | 'sutro' | 'rotunda' | 'stadium' | 'arena'
-  | 'peak' | 'park' | 'beach' | 'houses' | 'island' | 'campanile' | 'museum' | 'wharf' | 'street' | 'gate' | 'forest' | 'town' | 'campus'
+  | 'peak' | 'park' | 'beach' | 'houses' | 'island' | 'campanile' | 'museum' | 'wharf' | 'street' | 'gate' | 'forest' | 'town' | 'campus' | 'legion'
 
 export interface Landmark {
   id: string
@@ -47,7 +47,7 @@ export const landmarks: Landmark[] = [
   { id: 'pier39', name: 'Fisherman\'s Wharf & Pier 39', kind: 'wharf', lat: 37.81001, lng: -122.41039, bearing: -16, area: 'North Beach', blurb: 'Sea lions, sourdough bowls and the Musée Mécanique. Touristy, but the sea lions are worth it.', tags: ['culture', 'food'] },
   { id: 'chinatown', name: 'Chinatown Dragon Gate', kind: 'gate', lat: 37.7906, lng: -122.4056, area: 'Chinatown', blurb: 'The gate on Grant Avenue marks the oldest Chinatown in North America. Go for dim sum and the fortune cookie factory on Ross Alley.', tags: ['culture', 'food'] },
   { id: 'exploratorium', name: 'Exploratorium', kind: 'museum', lat: 37.8010, lng: -122.3982, area: 'Embarcadero', blurb: 'A hands-on science museum on Pier 15. Thursday nights are adults-only.', tags: ['culture'] },
-  { id: 'legion', name: 'Legion of Honor', kind: 'museum', lat: 37.7845, lng: -122.5008, area: 'Lincoln Park', blurb: 'A fine-arts museum in a Beaux-Arts palace above the Golden Gate, with a Rodin collection and the Vertigo staircase.', tags: ['culture', 'view'] },
+  { id: 'legion', name: 'Legion of Honor', kind: 'legion', lat: 37.78457, lng: -122.50069, bearing: -40, area: 'Lincoln Park', blurb: 'A fine-arts museum in a Beaux-Arts palace above the Golden Gate, with a Rodin collection and the Vertigo staircase.', tags: ['culture', 'view'] },
   { id: 'crissy', name: 'Crissy Field', kind: 'beach', lat: 37.8039, lng: -122.4640, area: 'Presidio', blurb: 'A restored shoreline with the best straight-on view of the Golden Gate Bridge. Warming Hut for coffee at the far end.', tags: ['nature', 'view'] },
   { id: 'mttam', name: 'Mount Tamalpais', kind: 'peak', lat: 37.9235, lng: -122.5965, area: 'Marin', blurb: 'The 2,571-foot "Sleeping Lady" of Marin. From East Peak you can see the Farallones, the Sierra, and the whole bay.', tags: ['hike', 'nature', 'view'] },
   { id: 'muirwoods', name: 'Muir Woods', kind: 'forest', lat: 37.8912, lng: -122.5719, area: 'Marin', blurb: 'Old-growth coast redwoods in a quiet canyon on the flank of Mt Tam. Parking requires a reservation.', tags: ['nature', 'hike'] },

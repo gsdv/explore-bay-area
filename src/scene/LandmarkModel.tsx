@@ -3,7 +3,7 @@ import type { Landmark } from '../data/landmarks'
 import { project, UNIT, BUILDING_EXAGGERATION } from '../lib/geo'
 
 export interface Part {
-  geo: 'box' | 'cyl' | 'cone' | 'sphere' | 'ring' | 'stack' | 'fluted' | 'arcade' | 'arches' | 'ringwall' | 'columns' | 'sector' | 'blocks'
+  geo: 'box' | 'cyl' | 'cone' | 'sphere' | 'ring' | 'stack' | 'fluted' | 'arcade' | 'arches' | 'ringwall' | 'archwall' | 'columns' | 'sector' | 'blocks'
   pos: [number, number, number]
   rot?: [number, number, number]
   scale: [number, number, number]
@@ -518,6 +518,59 @@ export function landmarkParts(l: Landmark, ground?: BridgeGround): Part[] {
       )
       return p
     }
+    case 'legion': {
+      // Legion of Honor: a closed square round the Court of Honor, after the Paris original. The front (+z) is an open screen
+      // of paired columns between two blank end pavilions, broken by the triumphal arch (a real opening: the portico shows
+      // through it); colonnades line the court; the main block at the back has a six-column pedimented portico and a raised,
+      // skylit centre with a small dome; the glass pyramid and The Thinker stand in the court. The city's survey has no
+      // footprint here, so the size (1.1x of ~105 m by 118 m) and the axis (parallel to Legion of Honor Drive) are read off the roads.
+      const LIME = '#ebe4d2', PANEL = '#d8cfba', COLUMN = '#f4efe2', ROOF = '#b7c3bd', PAVING = '#d9d3c4', BRONZE = '#4f4a40'
+      const W = 1.15, ZB = -0.65, ZF = 0.65, SUNK = -0.2, EAVE = 0.25
+      const wing = 0.28, xw = W / 2 - wing / 2, zs = 0.575 // wing width and centre line; the front screen's line
+      const p: Part[] = [{ ...box(0, SUNK, EAVE + 0.02, 0, W, ZF - ZB, LIME), hullOnly: true }]
+      const d = (q: Part): Part => ({ ...q, detail: true })
+      p.push(
+        // court floor, side wings, main block, its raised centre, end pavilions
+        d(box(0, SUNK, 0.03, 0.1, W - 2 * wing, 1.1, PAVING)),
+        d(blocks([[-xw, -0.075, wing, 1.15, SUNK, EAVE], [xw, -0.075, wing, 1.15, SUNK, EAVE], [0, -0.475, W, 0.35, SUNK, EAVE + 0.02]], LIME)),
+        d(blocks([[-xw, 0.575, wing + 0.03, 0.15, SUNK, EAVE + 0.025], [xw, 0.575, wing + 0.03, 0.15, SUNK, EAVE + 0.025], [0, -0.43, 0.4, 0.46, SUNK, 0.33]], LIME)),
+        // skylit roofs, a hair inside the parapets
+        d(blocks([[-xw, -0.1, wing - 0.07, 1.05, EAVE, EAVE + 0.03], [xw, -0.1, wing - 0.07, 1.05, EAVE, EAVE + 0.03], [-0.39, -0.475, 0.3, 0.27, EAVE + 0.02, EAVE + 0.05], [0.39, -0.475, 0.3, 0.27, EAVE + 0.02, EAVE + 0.05]], ROOF)),
+        d(blocks([[0, -0.43, 0.36, 0.42, 0.33, 0.39]], ROOF, { gabled: true })),
+        d(shift(drum(0.36, 0.41, 0.05, 0.05, LIME), -0.47)),
+        { geo: 'sphere', pos: [0, 0.41, -0.47], scale: [0.05, 0.045, 0.05], color: ROOF, args: [1, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2], detail: true },
+        // blank outer walls articulated with shallow panels; a niche on each end pavilion
+        { ...wallOpenings(0, -0.075, 0.05, 0.2, 1.0, W, 8, 0.07, { axis: 1, flat: true }), color: PANEL },
+        { ...wallOpenings(0, 0, 0.05, 0.2, 0.95, ZF - ZB, 9, 0.065, { sides: -1, flat: true }), color: PANEL },
+        wallOpenings(-xw, 0, 0.04, 0.2, 0.12, 2 * ZF, 1, 0.08, { sides: 1 }),
+        wallOpenings(xw, 0, 0.04, 0.2, 0.12, 2 * ZF, 1, 0.08, { sides: 1 }),
+      )
+      // the triumphal arch in the middle of the front screen
+      p.push(
+        { geo: 'archwall', pos: [0, (SUNK + 0.34) / 2, zs], scale: [0.24, 0.34 - SUNK, 0.13], color: LIME, detail: true, args: [r4(0.12 / 0.24), r4((0.26 - SUNK) / (0.34 - SUNK)), r4(0.06 / (0.34 - SUNK))] },
+        d(box(0, 0.34, 0.365, zs, 0.27, 0.16, LIME)),
+      )
+      // columns: the front screen (two rows each side of the arch), the court colonnades, the portico
+      const cols: [number, number][] = []
+      for (const side of [-1, 1]) {
+        for (let i = 0; i < 5; i++) for (const dz of [-0.03, 0.03]) cols.push([side * (0.155 + i * 0.032), zs + dz])
+        for (let i = 0; i < 15; i++) cols.push([side * (xw - wing / 2 - 0.04), -0.26 + i * 0.052])
+        for (let i = 0; i < 2; i++) cols.push([side * (0.2 + i * 0.05), -0.26])
+      }
+      p.push(columns(cols, 0.03, 0.21, 0.011, COLUMN))
+      p.push(columns([-0.14, -0.084, -0.028, 0.028, 0.084, 0.14].map((x) => [x, -0.165]), 0.03, 0.25, 0.013, COLUMN))
+      p.push(
+        // entablatures over them, and the portico's pediment
+        d(blocks([[-0.225, zs, 0.2, 0.1, 0.21, 0.255], [0.225, zs, 0.2, 0.1, 0.21, 0.255], [-(xw - wing / 2 - 0.035), 0.1, 0.07, 0.8, 0.21, 0.245], [xw - wing / 2 - 0.035, 0.1, 0.07, 0.8, 0.21, 0.245], [0, -0.265, 0.62, 0.05, 0.21, 0.245], [0, -0.185, 0.34, 0.09, 0.25, 0.285]], LIME)),
+        d(blocks([[0, -0.185, 0.34, 0.09, 0.285, 0.335]], LIME, { gabled: true })),
+        wallOpenings(0, -0.43, 0.04, 0.19, 0.2, 0.46, 3, 0.04, { sides: 1 }),
+        // glass pyramid and The Thinker
+        d(blocks([[0, 0.02, 0.1, 0.1, 0.03, 0.09]], '#9fc3d2', { pyramid: true })),
+        d(box(0, 0.03, 0.06, 0.3, 0.03, 0.03, LIME)),
+        { geo: 'sphere', pos: [0, 0.075, 0.3], scale: [0.013, 0.017, 0.013], color: BRONZE, detail: true },
+      )
+      return p
+    }
     case 'museum':
       return [
         { geo: 'box', pos: [0, 0.3, 0], scale: [1.4, 0.6, 0.8], color: '#e0d4bb' },
@@ -796,6 +849,7 @@ export function partGeometry(p: Part, grow = 0): THREE.BufferGeometry {
     case 'arcade': return arcadeGeometry(a)
     case 'arches': return archesGeometry(a)
     case 'ringwall': return ringwallGeometry(a)
+    case 'archwall': return archwallGeometry(a)
     case 'columns': return columnsGeometry(a)
     case 'sector': return sectorGeometry(a, grow)
     case 'blocks': return blocksGeometry(a, grow)
@@ -898,7 +952,23 @@ function archesGeometry(a: number[]): THREE.BufferGeometry {
 function ringwallGeometry(a: number[]): THREE.BufferGeometry {
   const [n, t, w, top, rise] = a
   const half = 0.5 * Math.sin(Math.PI / n), inradius = 0.5 * Math.cos(Math.PI / n)
-  // the wall face as one outline with the opening notched out of its bottom edge (a hole touching the edge won't triangulate)
+  const wall = new THREE.ExtrudeGeometry(archFace(half, w, top, rise), { depth: t, bevelEnabled: false }).translate(0, 0, inradius - t)
+  const pos: number[] = []
+  for (let k = 0; k < n; k++) {
+    const g = wall.clone().rotateY((k / n) * Math.PI * 2)
+    pos.push(...((g.index ? g.toNonIndexed() : g).getAttribute('position').array as Float32Array))
+  }
+  return fromPositions(pos)
+}
+
+/** One such wall filling the unit box, the opening running through it along z (a gateway): args [opening width, opening height, arch rise]. */
+function archwallGeometry(a: number[]): THREE.BufferGeometry {
+  const g = new THREE.ExtrudeGeometry(archFace(0.5, a[0], a[1], a[2]), { depth: 1, bevelEnabled: false }).translate(0, 0, -0.5)
+  return fromPositions([...((g.index ? g.toNonIndexed() : g).getAttribute('position').array as Float32Array)])
+}
+
+/** A wall face `2 * half` wide and 1 tall as one outline, the arched opening notched out of its bottom edge (a hole touching the edge won't triangulate). */
+function archFace(half: number, w: number, top: number, rise: number): THREE.Shape {
   const face = new THREE.Shape()
   face.moveTo(-half, -0.5)
   const [sill, ...arch] = archOutline(w, -0.5, -0.5 + top, rise)
@@ -906,13 +976,7 @@ function ringwallGeometry(a: number[]): THREE.BufferGeometry {
   face.lineTo(half, -0.5)
   face.lineTo(half, 0.5)
   face.lineTo(-half, 0.5)
-  const wall = new THREE.ExtrudeGeometry(face, { depth: t, bevelEnabled: false }).translate(0, 0, inradius - t)
-  const pos: number[] = []
-  for (let k = 0; k < n; k++) {
-    const g = wall.clone().rotateY((k / n) * Math.PI * 2)
-    pos.push(...((g.index ? g.toNonIndexed() : g).getAttribute('position').array as Float32Array))
-  }
-  return fromPositions(pos)
+  return face
 }
 
 interface PlanBox { cx: number; cz: number; sx: number; sz: number }
