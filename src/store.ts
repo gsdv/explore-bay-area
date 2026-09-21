@@ -18,6 +18,8 @@ export interface FlyTarget {
   yaw?: number
   /** seconds */
   duration?: number
+  /** world units: something this tall stands there, so aim at its middle and back off until all of it is in frame */
+  height?: number
   nonce: number
 }
 
@@ -47,7 +49,7 @@ interface State {
   toggle: (k: 'showCompanies' | 'showLandmarks') => void
   /** turn a wash on, or off if it is already showing */
   toggleHeat: (k: HeatKind) => void
-  flyTo: (x: number, z: number, distance?: number, instant?: boolean, extra?: { yaw?: number; duration?: number }) => void
+  flyTo: (x: number, z: number, distance?: number, instant?: boolean, extra?: { yaw?: number; duration?: number; height?: number }) => void
   setLoaded: () => void
 }
 

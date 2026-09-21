@@ -23,6 +23,7 @@ const CEILING = 420
 const PITCH = { min: 0.2, max: 1.5, autoLow: 0.42, autoHigh: 1.3, altLow: 4, altHigh: 250 }
 const TILT = { min: -0.5, max: 0.6 }
 const MARGIN = 0.965
+const FIT = 2.4 // fly-to distance per unit of target height (42° lens)
 const [SF_X, SF_Z] = project(37.787, -122.41)
 export const HOME = { x: SF_X, z: SF_Z, yaw: 0.46, alt: 30 }
 
@@ -225,9 +226,9 @@ export function CameraRig({ world }: { world: World }) {
     }
   }, [gl, s, camera, world, tmp])
 
-  /** camera placement so that ground point (x,z) sits at screen centre `dist` away along the current yaw */
-  const placeFor = (x: number, z: number, dist: number, yaw: number) => {
-    const gy = world.heights.yAt(x, z)
+  /** camera placement so that ground point (x,z), or the point `lift` above it, sits at screen centre `dist` away along the current yaw */
+  const placeFor = (x: number, z: number, dist: number, yaw: number, lift = 0) => {
+    const gy = world.heights.yAt(x, z) + lift
     let pitch = s.pitch
     for (let i = 0; i < 4; i++) pitch = clamp(autoPitch(Math.max(FLOOR, gy + dist * Math.sin(pitch))) + s.tilt, PITCH.min, PITCH.max)
     const p = dirOf(yaw, pitch, new THREE.Vector3()).multiplyScalar(-dist).add(new THREE.Vector3(x, gy, z))
@@ -247,14 +248,16 @@ export function CameraRig({ world }: { world: World }) {
     // ---- fly-to ----
     if (fly && fly.nonce !== s.handled) {
       s.handled = fly.nonce
-      const dist = clamp(fly.distance ?? Math.min(s.centerDist, 40), 3, CEILING)
+      // a tall target fills about half the frame's height, which leaves its top clear of the header
+      const tall = fly.height ?? 0
+      const dist = clamp(Math.max(fly.distance ?? Math.min(s.centerDist, 40), tall * FIT), 3, CEILING)
       let yaw = s.yaw
       if (fly.yaw !== undefined) {
         // shortest turn toward the requested heading
         const d = ((fly.yaw - s.yaw + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI
         yaw = s.yaw + d
       }
-      const { p, pitch } = placeFor(fly.x, fly.z, dist, yaw)
+      const { p, pitch } = placeFor(fly.x, fly.z, dist, yaw, tall / 2)
       s.anim = { t: fly.instant ? 1 - 1e-6 : 0, dur: fly.duration ?? 1.4, from: { p: s.p.clone(), yaw: s.yaw, pitch: s.pitch }, to: { p, yaw, pitch } }
       s.inertia.set(0, 0, 0)
     }

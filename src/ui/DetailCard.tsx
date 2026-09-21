@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useStore } from '../store'
 import { logoUrl } from '../data/companies'
-import { project } from '../lib/geo'
+import { project, UNIT, BUILDING_EXAGGERATION } from '../lib/geo'
 import { fmtCount, fmtDate, fmtWhen, useTweets } from '../lib/tweets'
 
 function Feed({ companyId, handle }: { companyId: string; handle: string }) {
@@ -97,7 +97,7 @@ export function DetailCard() {
           ))}
         </div>
       )}
-      <button className="card__fly" onClick={() => { const [x, z] = project(l.lat, l.lng); flyTo(x, z, 10) }}>Fly there →</button>
+      <button className="card__fly" onClick={() => { const [x, z] = project(l.lat, l.lng); flyTo(x, z, 10, false, { height: (l.height ?? 0) * UNIT * BUILDING_EXAGGERATION }) }}>Fly there →</button>
     </article>
   )
 }
