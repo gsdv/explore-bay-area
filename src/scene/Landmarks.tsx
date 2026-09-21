@@ -112,7 +112,8 @@ function LandmarkObject({ landmark: l, world }: { landmark: Landmark; world: Wor
       rotY = (-l.bearing * Math.PI) / 180
     }
     // bridges, islands and the wharf's pier stand in the water: sea level, not the seabed under their origin
-    const y = l.kind === 'bridge' || l.kind === 'island' || l.kind === 'wharf' ? 0 : world.heights.yAt(x, z)
+    // (and a pier's origin is over water too, where the heightmap is seabed: nothing stands below sea level)
+    const y = /^(bridge|island|wharf|alcatraz)$/.test(l.kind) ? 0 : Math.max(0, world.heights.yAt(x, z))
     return { pos: new THREE.Vector3(x, y, z), rotY, scaleT: { v: 1 } }
   }, [l, world])
 

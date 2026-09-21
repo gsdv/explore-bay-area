@@ -213,6 +213,13 @@ vercel.json             build settings + cache headers for Vercel (see Hosting)
   The Legion of Honor has its own kind (`legion`; `museum` is the Exploratorium's box) and `archwall`, one wall with a real arched
   opening (its triumphal arch). SF's footprint survey has nothing at the Legion, so its size and axis (bearing -40, parallel to
   Legion of Honor Drive) are read off the roads and the aerials rather than measured.
+  Kinds with one landmark and a model of their own: `alcatraz` (brings its own rock in three terraces, a bit bigger than the heightmap's
+  80 m-pixel bump, at sea level), `twinpeaks` (two low-poly cones with the figure-eight road as a ledge, placed on the heightmap's own
+  high points; give hills a long gentle skirt or they read as bunkers), `ballpark` (Oracle Park; local axes are the foul lines = the SoMa
+  grid, home plate by 3rd & King), `arena` (Chase Center, on its OSM footprint) and `museum` (the Exploratorium's Pier 15, on its OSM
+  footprint). `island`, `peak` and `stadium` remain the generic models (Angel Island, the other peaks, Levi's). Landmarks never stand
+  below sea level (`Math.max(0, yAt)`): a pier's origin is over seabed in the heightmap. Helpers: `slab` (tapering rounded rectangle),
+  `tier` (low-poly frustum), `at` (move a part in plan), `asDetail`.
   Models on a hilltop stand on the height at their centre only, so run their base below y = 0 (Coit has a green knoll for this).
 - `src/data/quests.ts`: ordered stops with a to-do and a tour `view` each. No persisted progress.
 - Restaurant heatmap: `osm.fetchFood()` (amenity=restaurant|cafe|fast_food, bars excluded on purpose) is binned,

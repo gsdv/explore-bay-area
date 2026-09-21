@@ -167,7 +167,7 @@ function parseHeight(tags: any): number {
   return 9
 }
 // Landmarks whose model is the building itself: their OSM footprint would extrude as a prism around the model, so drop it.
-const MODELLED = landmarks.filter((l) => ['pyramid', 'tower', 'coit', 'ferry'].includes(l.kind))
+const MODELLED = landmarks.filter((l) => ['pyramid', 'tower', 'coit', 'ferry', 'museum', 'arena'].includes(l.kind))
 const contains = (ring: { lat: number; lon: number }[], lat: number, lng: number) => {
   let inside = false
   for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
@@ -178,7 +178,7 @@ const contains = (ring: { lat: number; lon: number }[], lat: number, lng: number
 }
 // Landmark models that stand among buildings are toy-scale, far bigger than the real thing, so the survey's houses would
 // poke through them: clear each model's ground rectangle (in its own bearing), measured from the same parts list the app draws.
-const STANDS_IN_TOWN = /^(coit|sutro|rotunda|houses|wharf|gate|museum|street|ferry|tower|pyramid|stadium|arena|campanile|campus|legion)$/
+const STANDS_IN_TOWN = /^(coit|sutro|rotunda|houses|wharf|gate|museum|street|ferry|tower|pyramid|stadium|arena|campanile|campus|legion|ballpark|twinpeaks)$/
 const clearings = landmarks
   .filter((l) => STANDS_IN_TOWN.test(l.kind))
   .map((l) => {

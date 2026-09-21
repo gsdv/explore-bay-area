@@ -75,6 +75,15 @@ const blocks = (list: number[][], color: string, o: { gabled?: boolean | 'x'; py
   const b = blocksBox(args)
   return { geo: 'blocks', pos: [b.cx, b.cy, b.cz], scale: [b.sx, b.sy, b.sz], color, detail: o.detail, args }
 }
+/** a part moved in plan (helpers build round things on the model's axis) */
+const at = (p: Part, x: number, z: number): Part => ({ ...p, pos: [p.pos[0] + x, p.pos[1], p.pos[2] + z] })
+const asDetail = (p: Part): Part => ({ ...p, detail: true })
+/** a rounded-rectangle slab that tapers from (w0 x d0) at y0 to (w1 x d1) at y1: rock terraces, podiums */
+const slab = (x: number, z: number, y0: number, y1: number, w0: number, d0: number, taper: number, color: string, corner = 0.7): Part =>
+  ({ geo: 'stack', pos: [x, (y0 + y1) / 2, z], scale: [w0, y1 - y0, d0], color, args: [corner, 5, -0.5, 0.5, 0.5, r4(0.5 * taper)] })
+/** a low-poly hill tier: a frustum of `n` sides */
+const tier = (z: number, y0: number, y1: number, rb: number, rt: number, color: string, n = 11): Part =>
+  ({ geo: 'cyl', pos: [0, (y0 + y1) / 2, z], scale: [2 * rb, y1 - y0, 2 * rb], color, args: [r4(0.5 * rt / rb), 0.5, n] })
 const shift = (p: Part, z: number): Part => ({ ...p, pos: [p.pos[0], p.pos[1], p.pos[2] + z] })
 
 /** Returns primitive parts in landmark-local space (y up, origin at ground). Bridges take the ground profile from `bridgeGround`. */
@@ -368,8 +377,175 @@ export function landmarkParts(l: Landmark, ground?: BridgeGround): Part[] {
         { geo: 'cyl', pos: [0, 0.35, 0], scale: [1.4, 0.7, 1.1], color: '#d5cbb8', args: [1, 1.1, 20, 1, true] },
         { geo: 'cyl', pos: [0, 0.02, 0], scale: [1.4, 0.04, 1.1], color: GREEN, args: [0.85, 0.85, 20] },
       ]
-    case 'arena':
-      return [{ geo: 'cyl', pos: [0, 0.4, 0], scale: [1, 0.8, 1], color: '#e8e2d6', args: [1.1, 1.2, 24] }]
+    case 'alcatraz': {
+      // Alcatraz, at true size (510 m long; local -z is the north-west tip, +x the dock side). The heightmap only knows the
+      // island as an 80 m-pixel bump, so the model brings its own rock in three terraces, a little bigger than that bump:
+      // the cellhouse along the top with the lighthouse at its south-east end, the water tower and the power house's stack
+      // to the north-west, the long industries building on the west shore, Building 64 above the dock, and the ferry in.
+      const CLIFF = '#b9ab8c', ROCK = '#c6b999', TOP = '#cfc4a5', CREAM = '#ebe4d0', ROOFING = '#c4c0b3', RUST = '#a9694a', SCRUB = '#7f9a5e'
+      const y1 = 0.14, y2 = 0.42, y3 = 0.7
+      const p: Part[] = [
+        slab(-0.2, -0.1, -0.3, y1, 2.5, 5.4, 0.93, CLIFF),
+        slab(0, 0.05, y1, y2, 1.55, 4.3, 0.88, ROCK),
+        slab(0.05, 0.1, y2, y3, 1.05, 3.1, 0.9, TOP),
+        // cellhouse, its roof and skylights, the administration wing towards the lighthouse
+        box(0.05, y3, y3 + 0.26, 0, 0.5, 1.5, CREAM),
+        box(0.05, y3 + 0.26, y3 + 0.285, 0, 0.44, 1.44, ROOFING, true),
+        asDetail(blocks([-0.12, 0, 0.12].map((dx) => [0.05 + dx, -0.05, 0.05, 1.2, y3 + 0.285, y3 + 0.31]), '#a9b8ba')),
+        box(0.05, y3, y3 + 0.18, 0.92, 0.42, 0.34, CREAM),
+        wallOpenings(0.05, 0, y3 + 0.04, y3 + 0.22, 1.4, 0.5, 14, 0.035, { axis: 1, flat: true }),
+        wallOpenings(0.05, 0.92, y3 + 0.03, y3 + 0.14, 0.34, 0.34, 4, 0.03, { sides: 1, flat: true }),
+        // lighthouse
+        at(drum(y3, y3 + 0.5, 0.04, 0.028, '#f4f2ec'), -0.22, 1.0),
+        at(drum(y3 + 0.5, y3 + 0.56, 0.036, 0.036, SHADE, true), -0.22, 1.0),
+        { geo: 'cone', pos: [-0.22, y3 + 0.59, 1.0], scale: [0.09, 0.06, 0.09], color: '#3b3b3b', args: [0.5, 8], detail: true },
+        box(-0.22, y3, y3 + 0.1, 1.0, 0.16, 0.16, CREAM, true),
+        // water tower
+        columns([[-0.31, -1.06], [-0.19, -1.06], [-0.19, -0.94], [-0.31, -0.94]], y2, y2 + 0.5, 0.008, '#8d8d86'),
+        at(drum(y2 + 0.5, y2 + 0.64, 0.085, 0.085, '#d9d5c8', true), -0.25, -1.0),
+        { geo: 'cone', pos: [-0.25, y2 + 0.67, -1.0], scale: [0.19, 0.06, 0.19], color: RUST, args: [0.5, 12], detail: true },
+        // power house and stack at the north-west tip; industries building along the west shore
+        box(0.2, y1, y1 + 0.16, -2.0, 0.4, 0.3, CREAM, true),
+        at(drum(y1, y1 + 0.62, 0.03, 0.022, CREAM, true), 0.32, -1.9),
+        box(-0.72, y1, y1 + 0.15, -1.35, 0.22, 1.1, CREAM, true),
+        { ...wallOpenings(-0.72, -1.35, y1 + 0.03, y1 + 0.12, 1.0, 0.22, 16, 0.03, { axis: 1, flat: true }) },
+        // Building 64 above the dock, the dock, and the ferry
+        box(0.62, y1, y1 + 0.3, 1.15, 0.2, 0.95, '#ddd3bb', true),
+        wallOpenings(0.62, 1.15, y1 + 0.03, y1 + 0.27, 0.88, 0.2, 12, 0.03, { axis: 1, rows: 3, flat: true, sides: 1 }),
+        box(0.98, -0.2, 0.06, 1.3, 0.34, 0.6, '#cfcabd', true),
+        asDetail(blocks([[1.26, 1.3, 0.11, 0.36, 0, 0.06]], '#f4f2ec')),
+        asDetail(blocks([[1.26, 1.27, 0.08, 0.2, 0.06, 0.1]], '#2f6ea5')),
+      ]
+      // scrub and the old gardens on the slopes
+      for (const [x, y, z, r] of [[-0.6, y2, 0.5, 0.2], [0.75, y2, -0.3, 0.22], [-0.75, y1 + 0.05, -0.3, 0.18], [0.55, y2, -1.2, 0.2], [-0.3, y2, 1.6, 0.22], [0.5, y1 + 0.05, 2.0, 0.2], [-0.5, y3 - 0.02, -0.55, 0.13]])
+        p.push({ geo: 'sphere', pos: [x, y, z], scale: [r, r * 0.35, r * 1.3], color: SCRUB, detail: true, args: [1, 8, 6] })
+      return p
+    }
+    case 'twinpeaks': {
+      // Twin Peaks: the heightmap (80 m pixels) melts the two summits into one ridge, so the model rebuilds them on the
+      // ridge's own high points: two low-poly grassy cones with the figure-eight of Twin Peaks Boulevard as a ledge round
+      // each, joined at the saddle, the Christmas Tree Point overlook on the downtown (+x) side and a summit marker.
+      const GRASS_ = '#a6bb7f', CROWN = '#b3c28a', ROAD = '#efe9dc', DZ = 1.05
+      const p: Part[] = []
+      for (const z of [-DZ, DZ]) {
+        p.push(
+          // a long gentle skirt, so the cone melts into the real slope instead of standing on it like a wall
+          tier(z, -0.9, -0.06, 1.5, 0.97, GRASS_, 14),
+          asDetail(sector(z, -0.06, -0.04, 0.8, 0.95, [[-Math.PI, Math.PI]], ROAD)),
+          tier(z, -0.06, 0.3, 0.82, 0.36, CROWN),
+          tier(z, 0.3, 0.42, 0.36, 0.12, CROWN),
+        )
+      }
+      p.push(
+        box(0, -0.06, -0.04, 0, 0.22, 0.4, ROAD, true),
+        // overlook: a paved shelf with a parapet and three viewers
+        box(1.0, -0.4, -0.035, -DZ, 0.3, 0.5, '#d9d3c4', true),
+        box(1.14, -0.035, 0.0, -DZ, 0.02, 0.5, '#bdb6a5', true),
+        columns([[1.1, -DZ - 0.15], [1.1, -DZ], [1.1, -DZ + 0.15]], -0.035, 0.03, 0.01, '#4a4a4a'),
+        // summit marker, as on the other peaks
+        box(0, 0.42, 0.85, -DZ, 0.035, 0.035, '#4a4a4a', true),
+        box(0.1, 0.72, 0.84, -DZ, 0.2, 0.015, ORANGE, true),
+      )
+      return p
+    }
+    case 'ballpark': {
+      // Oracle Park. Local axes are the foul lines, which follow the SoMa grid: third base runs up King St (-z), first base
+      // along 3rd St towards the cove (+x), home plate in the corner by Willie Mays Plaza. A quarter-circle of grass and
+      // infield dirt; the brick grandstand in three rising decks round the infield, longer on the third-base side, with a
+      // roof, light towers and clock towers; bleachers from left to centre, the scoreboard, the low brick arcade along the
+      // cove in right, and the glove and bottle behind left field. OSM has no footprint for it, so sizes are 1.1x the real
+      // field (LF 103 m, CF 122 m, RF 94 m) and stands judged from aerials.
+      const GRASS_ = '#6fa35a', DIRT = '#b98a5e', SEATS = '#2f5d46', BRICK = '#a5553f', CANOPY = '#d9d5cc', BOARD = '#2a2f2e'
+      const hx = -0.5, hz = 0.5, R = 1.25, q = Math.PI / 2
+      const field = (p: Part): Part => asDetail(at(p, hx, 0))
+      const p: Part[] = [{ ...box(-0.08, -0.1, 0.34, 0.08, 2.15, 2.15, BRICK), hullOnly: true }]
+      p.push(
+        field(sector(hz, -0.1, 0.03, 0, R, [[0, q]], GRASS_)),
+        field(sector(hz, 0.03, 0.036, 0, 0.42, [[0, q]], DIRT)),
+        field(sector(hz, 0.036, 0.04, 0, 0.27, [[0.12, q - 0.12]], GRASS_)),
+        field(sector(hz, 0.03, 0.036, R - 0.06, R, [[0, q]], DIRT)),
+        asDetail(at(drum(0.03, 0.05, 0.035, 0.03, DIRT), hx + 0.135, hz - 0.135)),
+        // outfield: bleachers left to centre, the brick arcade in right
+        field(sector(hz, -0.1, 0.13, R, R + 0.12, [[0, 0.95]], SEATS)),
+        field(sector(hz, -0.1, 0.22, R + 0.12, R + 0.24, [[0, 0.95]], SEATS)),
+        field(sector(hz, -0.1, 0.16, R, R + 0.07, [[0.95, q]], BRICK)),
+      )
+      // grandstand decks: each is a strip along third base, a strip along first base, and the corner behind home
+      const decks: number[][][] = [[], [], []], walls: number[][] = [], roofs: number[][] = []
+      const len3 = 1.3, len1 = 0.85
+      // [distance behind the foul line, depth, top]
+      ;[[0.04, 0.15, 0.15], [0.15, 0.17, 0.27], [0.32, 0.15, 0.43]].forEach(([off, depth, top], i) => {
+        decks[i].push([hx - off - depth / 2, hz - len3 / 2 + off + depth, depth, len3 + off + depth, -0.1, top], [hx + len1 / 2 - off - depth, hz + off + depth / 2, len1 + off + depth, depth, -0.1, top])
+      })
+      walls.push([hx - 0.5, hz - len3 / 2 + 0.5, 0.06, len3 + 0.5, -0.1, 0.46], [hx + len1 / 2 - 0.5, hz + 0.5, len1 + 0.5, 0.06, -0.1, 0.46])
+      roofs.push([hx - 0.42, hz - len3 / 2 + 0.47, 0.2, len3 + 0.47, 0.5, 0.52], [hx + len1 / 2 - 0.47, hz + 0.42, len1 + 0.47, 0.2, 0.5, 0.52])
+      decks.forEach((list, i) => p.push(asDetail(blocks(list, i === 1 ? '#37694f' : SEATS))))
+      p.push(
+        asDetail(blocks(walls, BRICK)),
+        asDetail(blocks(roofs, CANOPY)),
+        wallOpenings(hx - 0.5, hz - len3 / 2 + 0.5, 0.02, 0.3, len3 + 0.3, 0.06, 12, 0.06, { axis: 1, rows: 2, sides: -1 }),
+        wallOpenings(hx + len1 / 2 - 0.5, hz + 0.5, 0.02, 0.3, len1 + 0.3, 0.06, 9, 0.06, { rows: 2, sides: 1 }),
+        // clock towers at the plaza corner and the left-field gate
+        asDetail(blocks([[hx - 0.5, hz + 0.5, 0.14, 0.14, -0.1, 0.62], [hx - 0.5, hz - len3, 0.12, 0.12, -0.1, 0.55]], BRICK)),
+        asDetail(blocks([[hx - 0.5, hz + 0.5, 0.17, 0.17, 0.62, 0.74], [hx - 0.5, hz - len3, 0.15, 0.15, 0.55, 0.66]], '#4f7a63', { pyramid: true })),
+        // light towers on the roof
+        columns([[hx - 0.44, hz - 0.9], [hx - 0.44, hz - 0.3], [hx - 0.2, hz + 0.44], [hx + 0.2, hz + 0.44]], 0.52, 0.8, 0.008, '#8d8d86'),
+        asDetail(blocks([[hx - 0.44, hz - 0.9, 0.03, 0.16, 0.78, 0.86], [hx - 0.44, hz - 0.3, 0.03, 0.16, 0.78, 0.86], [hx - 0.2, hz + 0.44, 0.16, 0.03, 0.78, 0.86], [hx + 0.2, hz + 0.44, 0.16, 0.03, 0.78, 0.86]], '#e9e7e0')),
+      )
+      // scoreboard in centre field, facing home; the glove and the bottle behind left
+      const cf = R + 0.2, a = Math.PI / 4
+      p.push(
+        { geo: 'box', pos: [hx + cf * Math.sin(a), 0.37, hz - cf * Math.cos(a)], rot: [0, -a, 0], scale: [0.62, 0.3, 0.05], color: BOARD, detail: true },
+        { geo: 'box', pos: [hx + (cf - 0.03) * Math.sin(a), 0.37, hz - (cf - 0.03) * Math.cos(a)], rot: [0, -a, 0], scale: [0.5, 0.2, 0.01], color: '#51697a', detail: true },
+        { geo: 'sphere', pos: [hx + 0.42, 0.3, hz - R - 0.2], scale: [0.07, 0.06, 0.05], color: '#8a5a3c', detail: true },
+        { geo: 'cyl', pos: [hx + 0.24, 0.31, hz - R - 0.2], rot: [0, 0, 0.9], scale: [0.045, 0.2, 0.045], color: '#3d7a4a', detail: true, args: [0.3, 0.5, 10] },
+      )
+      return p
+    }
+    case 'arena': {
+      // Chase Center, on its OSM footprint (150 m across, 38 m tall): a glazed podium, the white drum flaring slightly as it
+      // rises, wrapped in tilted bands (the facade's swirl), a flat white roof with the blue mark in the middle, and the
+      // glass gatehouse wedge on the plaza side. The Uber towers beside it are real footprints.
+      const WHITE = '#f3f1ea', BAND = '#c6cbce', GLAZING = '#8fa3ad', h = H(l.height ?? 38)
+      const p: Part[] = [
+        slab(0, 0, -0.1, 0.17, 1.5, 1.5, 0.96, GLAZING, 0.5),
+        { geo: 'cyl', pos: [0, (0.17 + h) / 2, 0], scale: [1.36, h - 0.17, 1.36], color: WHITE, args: [0.5, 0.46, 40] },
+        asDetail(drum(h, h + 0.03, 0.64, 0.6, '#fbfaf6')),
+        asDetail(drum(h + 0.034, h + 0.04, 0.13, 0.13, '#2f6ea5')),
+        asDetail(drum(h + 0.03, h + 0.034, 0.4, 0.4, '#e6e4dc')),
+        box(0.62, -0.1, 0.3, 0.45, 0.3, 0.4, '#a9c0cb', true),
+      ]
+      ;[[0.3, 0.07, 0.03], [0.4, -0.06, 0.05], [0.5, 0.05, -0.05], [0.6, -0.04, -0.03]].forEach(([y, rx, rz]) => {
+        const r = 0.626 + ((y - 0.17) / (h - 0.17)) * 0.054 + 0.004
+        p.push({ geo: 'cyl', pos: [0, y, 0], rot: [rx, 0, rz], scale: [2 * r, 0.035, 2 * r], color: BAND, detail: true, args: [0.5, 0.496, 40, 1, true] })
+      })
+      return p
+    }
+    case 'museum': {
+      // Exploratorium at Pier 15, on its OSM footprint (230 m pier shed, local -z out into the bay): the classical bulkhead
+      // building on the Embarcadero with its arched entrance, the long shed under a roof of solar panels split by a white
+      // clerestory, doors down both sides, the apron round it, and the glass Bay Observatory at the far end.
+      const WALL = '#d8d5cb', BULKHEAD = '#efece3', SOLAR = '#3d5a80', WHITE = '#f1efe9', GLASS_ = '#9fc3d2', APRON = '#cfcabd'
+      const L = 2.3, zb = L / 2
+      return [
+        box(0, -0.12, 0.05, 0, 0.72, L + 0.1, APRON),
+        box(0, 0.05, 0.22, -0.05, 0.52, L - 0.4, WALL),
+        asDetail(blocks([[0, -0.05, 0.54, L - 0.42, 0.22, 0.29]], SOLAR, { gabled: true })),
+        box(0, 0.27, 0.315, -0.05, 0.07, L - 0.5, WHITE, true),
+        { ...wallOpenings(0, -0.05, 0.06, 0.16, L - 0.5, 0.52, 20, 0.05, { axis: 1, flat: true }), color: '#7f8f96' },
+        // bulkhead building
+        box(0, 0.05, 0.3, zb - 0.1, 0.62, 0.2, BULKHEAD),
+        box(0, 0.3, 0.33, zb - 0.1, 0.4, 0.22, BULKHEAD, true),
+        wallOpenings(0, 0, 0.06, 0.25, 0.16, 2 * zb, 1, 0.13, { sides: 1 }),
+        wallOpenings(-0.2, 0, 0.08, 0.2, 0.16, 2 * zb, 2, 0.04, { sides: 1 }),
+        wallOpenings(0.2, 0, 0.08, 0.2, 0.16, 2 * zb, 2, 0.04, { sides: 1 }),
+        // Bay Observatory
+        box(0, 0.05, 0.27, -zb + 0.17, 0.36, 0.3, GLASS_),
+        box(0, 0.27, 0.29, -zb + 0.17, 0.4, 0.34, WHITE, true),
+        { ...wallOpenings(0, -zb + 0.17, 0.06, 0.26, 0.34, 0.3, 5, 0.006, { sides: -1, flat: true }), color: WHITE },
+        { ...wallOpenings(0, -zb + 0.17, 0.06, 0.26, 0.28, 0.36, 4, 0.006, { axis: 1, flat: true }), color: WHITE },
+      ]
+    }
     case 'peak':
       return [
         { geo: 'cone', pos: [0, 0.35, 0], scale: [1, 0.7, 1], color: '#c9b98f', args: [0.55, 6] },
@@ -571,11 +747,6 @@ export function landmarkParts(l: Landmark, ground?: BridgeGround): Part[] {
       )
       return p
     }
-    case 'museum':
-      return [
-        { geo: 'box', pos: [0, 0.3, 0], scale: [1.4, 0.6, 0.8], color: '#e0d4bb' },
-        { geo: 'box', pos: [0, 0.68, 0], scale: [1.5, 0.12, 0.9], color: '#a89f8c' },
-      ]
     case 'wharf': {
       // Fisherman's Wharf & Pier 39 as a diorama. The pier is true to the city's footprints (local -z runs out into the bay,
       // origin mid-pier, deck 100 m by 280 m): two rows of gabled, weathered-paint shops either side of a boardwalk, the
