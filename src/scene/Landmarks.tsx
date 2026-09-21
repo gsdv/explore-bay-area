@@ -48,7 +48,7 @@ const hullCache = new Map<string, THREE.BufferGeometry>()
 const hullGeoFor = (p: Part, by: number) => {
   if (p.geo === 'fluted') return geoFor({ ...p, geo: 'cyl', args: [0.5 * Number(p.args?.[0] ?? 1), 0.5, 24] })
   if (p.geo === 'ringwall') return geoFor({ ...p, geo: 'cyl', args: [0.5, 0.5, Number(p.args?.[0] ?? 8), 1, false, Math.PI / Number(p.args?.[0] ?? 8)] })
-  if (p.geo !== 'sector') return geoFor(p)
+  if (p.geo !== 'sector' && p.geo !== 'blocks') return geoFor(p)
   const key = by + JSON.stringify(p.args)
   if (!hullCache.has(key)) hullCache.set(key, partGeometry(p, by))
   return hullCache.get(key)!
@@ -110,7 +110,8 @@ function LandmarkObject({ landmark: l, world }: { landmark: Landmark; world: Wor
     } else if (l.bearing) {
       rotY = (-l.bearing * Math.PI) / 180
     }
-    const y = l.kind === 'bridge' || l.kind === 'island' ? 0 : world.heights.yAt(x, z)
+    // bridges, islands and the wharf's pier stand in the water: sea level, not the seabed under their origin
+    const y = l.kind === 'bridge' || l.kind === 'island' || l.kind === 'wharf' ? 0 : world.heights.yAt(x, z)
     return { pos: new THREE.Vector3(x, y, z), rotY, scaleT: { v: 1 } }
   }, [l, world])
 

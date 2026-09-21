@@ -200,6 +200,11 @@ vercel.json             build settings + cache headers for Vercel (see Hosting)
   their own bounding box so pos/scale stay true for the hover box and the pipeline's clearing; a sector's hover hull is built already
   offset (`partGeometry(p, grow)`, see `hullGeoFor`) because scaling a curve about its centre doesn't outline it. The clearing is
   symmetric about the landmark point, so a lopsided complex puts its origin mid-complex (the Palace's is 25 m behind the rotunda).
+  Fisherman's Wharf & Pier 39 (`wharf`) is a diorama: the pier is true to the footprints (origin mid-pier, stands at sea level like
+  bridges/islands), everything round it (marinas, boats, sea lions, the wharf sign and the SkyStar wheel, both pulled in from Taylor St)
+  is `detail` so the clearing stays pier-sized. `blocks` draws any number of same-coloured boxes or gabled roofs as one mesh (a few
+  hundred boats are three parts). In `build-data.ts` step 5 a `COMPLEX` kind (only `wharf`) also drops every downtown OSM footprint
+  centred under its clearing (the pier's two dozen shops); the other modelled kinds still drop just the footprint they stand in.
   Models on a hilltop stand on the height at their centre only, so run their base below y = 0 (Coit has a green knoll for this).
 - `src/data/quests.ts`: ordered stops with a to-do and a tour `view` each. No persisted progress.
 - Restaurant heatmap: `osm.fetchFood()` (amenity=restaurant|cafe|fast_food, bars excluded on purpose) is binned,

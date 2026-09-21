@@ -176,6 +176,32 @@ const contains = (ring: { lat: number; lon: number }[], lat: number, lng: number
   }
   return inside
 }
+// Landmark models that stand among buildings are toy-scale, far bigger than the real thing, so the survey's houses would
+// poke through them: clear each model's ground rectangle (in its own bearing), measured from the same parts list the app draws.
+const STANDS_IN_TOWN = /^(coit|sutro|rotunda|houses|wharf|gate|museum|street|ferry|tower|pyramid|stadium|arena|campanile|campus)$/
+const clearings = landmarks
+  .filter((l) => STANDS_IN_TOWN.test(l.kind))
+  .map((l) => {
+    let hx = 0, hz = 0
+    for (const p of landmarkParts(l)) {
+      if (p.detail) continue
+      // cones and cylinders carry their radius in args (unit-scaled), everything else fills its scale box
+      const r = p.geo === 'cone' ? Number(p.args?.[0] ?? 0.5) : p.geo === 'cyl' ? Math.max(Number(p.args?.[0] ?? 0.5), Number(p.args?.[1] ?? 0.5)) : 0.5
+      const rx = r * p.scale[0], rz = r * p.scale[2]
+      hx = Math.max(hx, Math.abs(p.pos[0]) + rx)
+      hz = Math.max(hz, Math.abs(p.pos[2]) + rz)
+    }
+    const [x, z] = project(l.lat, l.lng)
+    const a = (-(l.bearing ?? 0) * Math.PI) / 180 // the app's rotY
+    return { kind: l.kind, x, z, hx: hx + 0.06, hz: hz + 0.06, cos: Math.cos(a), sin: Math.sin(a) }
+  })
+// world -> model frame: undo a Y turn by a, which sends local (lx, lz) to (lx cos + lz sin, −lx sin + lz cos)
+const inClearing = (c: (typeof clearings)[number], x: number, z: number) => {
+  const dx = x - c.x, dz = z - c.z
+  return Math.abs(dx * c.cos - dz * c.sin) < c.hx && Math.abs(dx * c.sin + dz * c.cos) < c.hz
+}
+// a model that stands in for a whole complex (Pier 39's two dozen shops) replaces every downtown footprint centred under it
+const COMPLEX = /^(wharf)$/
 const bld = await osm.fetchBuildingsDowntown()
 const buildings: { p: number[]; h: number; y: number }[] = []
 for (const w of bld.elements) {
@@ -187,6 +213,11 @@ for (const w of bld.elements) {
   const cLng = w.geometry.reduce((s: number, g: any) => s + g.lon, 0) / w.geometry.length
   // Overpass returns whole ways that straddle the box; the city survey (5b) owns whatever is centred outside it
   if (!(cLat > osm.DOWNTOWN.south && cLat < osm.DOWNTOWN.north && cLng > osm.DOWNTOWN.west && cLng < osm.DOWNTOWN.east)) continue
+  const [bx, bz] = project(cLat, cLng)
+  if (clearings.some((c) => COMPLEX.test(c.kind) && inClearing(c, bx, bz))) {
+    log('under the', clearings.find((c) => COMPLEX.test(c.kind) && inClearing(c, bx, bz))!.kind, 'model:', w.tags?.name ?? w.id)
+    continue
+  }
   buildings.push({
     p: pts.flatMap(([x, z]: number[]) => [Math.round(x * 100) / 100, Math.round(z * 100) / 100]),
     h: Math.round(parseHeight(w.tags) * 10) / 10,
@@ -220,34 +251,11 @@ const inRing = (ring: [number, number][], x: number, z: number) => {
   }
   return inside
 }
-// Landmark models that stand among buildings are toy-scale, far bigger than the real thing, so the survey's houses would
-// poke through them: clear each model's ground rectangle (in its own bearing), measured from the same parts list the app draws.
-const STANDS_IN_TOWN = /^(coit|sutro|rotunda|houses|wharf|gate|museum|street|ferry|tower|pyramid|stadium|arena|campanile|campus)$/
-const clearings = landmarks
-  .filter((l) => STANDS_IN_TOWN.test(l.kind))
-  .map((l) => {
-    let hx = 0, hz = 0
-    for (const p of landmarkParts(l)) {
-      if (p.detail) continue
-      // cones and cylinders carry their radius in args (unit-scaled), everything else fills its scale box
-      const r = p.geo === 'cone' ? Number(p.args?.[0] ?? 0.5) : p.geo === 'cyl' ? Math.max(Number(p.args?.[0] ?? 0.5), Number(p.args?.[1] ?? 0.5)) : 0.5
-      const rx = r * p.scale[0], rz = r * p.scale[2]
-      hx = Math.max(hx, Math.abs(p.pos[0]) + rx)
-      hz = Math.max(hz, Math.abs(p.pos[2]) + rz)
-    }
-    const [x, z] = project(l.lat, l.lng)
-    const a = (-(l.bearing ?? 0) * Math.PI) / 180 // the app's rotY
-    return { x, z, hx: hx + 0.06, hz: hz + 0.06, cos: Math.cos(a), sin: Math.sin(a) }
-  })
 // company HQ blocks are 70 m squares (Companies.tsx), drawn wherever no landmark stands in for the HQ
 const hqXZ = companies.filter((c) => !c.landmark).map((c) => project(c.lat, c.lng))
 const underModel = (x: number, z: number) =>
   hqXZ.some(([cx, cz]) => Math.abs(x - cx) < 0.42 && Math.abs(z - cz) < 0.42) ||
-  clearings.some((c) => {
-    const dx = x - c.x, dz = z - c.z
-    // world -> model frame: undo a Y turn by a, which sends local (lx, lz) to (lx cos + lz sin, −lx sin + lz cos)
-    return Math.abs(dx * c.cos - dz * c.sin) < c.hx && Math.abs(dx * c.sin + dz * c.cos) < c.hz
-  })
+  clearings.some((c) => inClearing(c, x, z))
 const landmarkXZ = landmarks.map((l) => project(l.lat, l.lng))
 let nBoxes = 0, nOutlines = 0
 // SF's lidar survey, then Overture for the other core cities (their boxes don't overlap SF's)

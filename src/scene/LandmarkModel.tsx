@@ -3,7 +3,7 @@ import type { Landmark } from '../data/landmarks'
 import { project, UNIT, BUILDING_EXAGGERATION } from '../lib/geo'
 
 export interface Part {
-  geo: 'box' | 'cyl' | 'cone' | 'sphere' | 'ring' | 'stack' | 'fluted' | 'arcade' | 'arches' | 'ringwall' | 'columns' | 'sector'
+  geo: 'box' | 'cyl' | 'cone' | 'sphere' | 'ring' | 'stack' | 'fluted' | 'arcade' | 'arches' | 'ringwall' | 'columns' | 'sector' | 'blocks'
   pos: [number, number, number]
   rot?: [number, number, number]
   scale: [number, number, number]
@@ -61,6 +61,15 @@ const columns = (spots: [number, number][], y0: number, y1: number, r: number, c
   const args = [r4(r), ...spots.flat().map(r4)]
   const b = planBox(columnSpots(args), r)
   return { geo: 'columns', pos: [b.cx, (y0 + y1) / 2, b.cz], scale: [b.sx, y1 - y0, b.sz], color, detail: true, args }
+}
+/**
+ * Many axis-aligned blocks of one colour as a single part: flat-topped boxes, or (`gabled`) roofs with the ridge along z.
+ * Each is [x, z, width, length, y0, y1] in model units; like `sector`, the part is normalised to its own bounds.
+ */
+const blocks = (list: number[][], color: string, o: { gabled?: boolean; detail?: boolean } = {}): Part => {
+  const args = [o.gabled ? 1 : 0, ...list.flat().map(r4)]
+  const b = blocksBox(args)
+  return { geo: 'blocks', pos: [b.cx, b.cy, b.cz], scale: [b.sx, b.sy, b.sz], color, detail: o.detail, args }
 }
 const shift = (p: Part, z: number): Part => ({ ...p, pos: [p.pos[0], p.pos[1], p.pos[2] + z] })
 
@@ -417,13 +426,106 @@ export function landmarkParts(l: Landmark, ground?: BridgeGround): Part[] {
         { geo: 'box', pos: [0, 0.3, 0], scale: [1.4, 0.6, 0.8], color: '#e0d4bb' },
         { geo: 'box', pos: [0, 0.68, 0], scale: [1.5, 0.12, 0.9], color: '#a89f8c' },
       ]
-    case 'wharf':
-      return [
-        { geo: 'box', pos: [0, 0.12, 0], scale: [1.5, 0.24, 0.7], color: '#c4a87a' },
-        { geo: 'box', pos: [-0.3, 0.45, 0], scale: [0.5, 0.4, 0.5], color: '#d9d0c0' },
-        { geo: 'sphere', pos: [0.5, 0.36, 0.1], scale: [0.18, 0.13, 0.28], color: '#6b5b4b' },
-        { geo: 'sphere', pos: [0.25, 0.34, -0.2], scale: [0.16, 0.11, 0.24], color: '#7d6a58' },
-      ]
+    case 'wharf': {
+      // Fisherman's Wharf & Pier 39 as a diorama. The pier is true to the city's footprints (local -z runs out into the bay,
+      // origin mid-pier, deck 100 m by 280 m): two rows of gabled, weathered-paint shops either side of a boardwalk, the
+      // carousel in its plaza, the PIER 39 gateway with its crab. Around it, all `detail` so the pipeline's clearing stays
+      // the size of the pier: both marinas behind their breakwaters with a few hundred berthed boats, the fishing fleet, the
+      // sea lions on their floats off the west side, and (pulled in from Taylor St, 450 m west, and drawn big) the ship's-wheel
+      // Fisherman's Wharf sign and the SkyStar wheel.
+      const DECK = '#b39a72', ROOFS = '#857f73', CONCRETE_ = '#cfcabd', DOCK = '#c9bea6', WHITE = '#f4f2ec', STEEL = '#eceae4'
+      const PAINT = ['#8fa9b8', '#d7c9a8', '#b5735a', '#a9bfae', '#c9b28a']
+      const Z0 = -1.47, Z1 = 1.35, TOP = 0.07
+      const p: Part[] = [box(0, -0.12, TOP, (Z0 + Z1) / 2, 1.0, Z1 - Z0, DECK)]
+      // shops: [from, to] along the pier, skipping the carousel's plaza
+      const runs = [[1.3, 0.95], [0.9, 0.5], [0.45, 0.15], [0.1, -0.25], [-0.3, -0.62], [-0.98, -1.2], [-1.23, -1.42]]
+      const walls: number[][][] = PAINT.map(() => []), roofs: number[][] = []
+      runs.forEach(([a, b], i) => {
+        for (const side of [-1, 1]) {
+          const k = i * 2 + (side + 1) / 2, h = 0.22 + ((k * 7) % 4) * 0.025, w = 0.38 - ((k * 3) % 3) * 0.03
+          const x = side * (0.08 + w / 2)
+          walls[(k * 2 + (side + 1)) % PAINT.length].push([x, (a + b) / 2, w, a - b, TOP, TOP + h])
+          roofs.push([x, (a + b) / 2, w + 0.01, a - b + 0.01, TOP + h, TOP + h + 0.07])
+        }
+      })
+      // (detail: packed this tightly, each shop's hover hull would smear over its neighbours' roofs; the deck outlines the pier)
+      walls.forEach((list, i) => list.length && p.push(blocks(list, PAINT[i], { detail: true })))
+      p.push(blocks(roofs, ROOFS, { gabled: true, detail: true }))
+      // carousel
+      p.push(shift(drum(TOP, TOP + 0.09, 0.085, 0.085, '#f1e6c8'), -0.8))
+      p.push({ geo: 'cone', pos: [0, TOP + 0.13, -0.8], scale: [0.24, 0.08, 0.24], color: RED, args: [0.5, 12] })
+      // the gateway: two posts, the blue board, and the crab on top
+      const zGate = 1.38
+      p.push(
+        box(-0.21, 0, 0.36, zGate, 0.028, 0.028, '#4a4a4a', true),
+        box(0.21, 0, 0.36, zGate, 0.028, 0.028, '#4a4a4a', true),
+        box(0, 0.28, 0.39, zGate, 0.5, 0.035, '#2f6ea5', true),
+        { geo: 'sphere', pos: [0, 0.42, zGate], scale: [0.055, 0.032, 0.035], color: RED, detail: true },
+        { geo: 'sphere', pos: [-0.06, 0.455, zGate], scale: [0.02, 0.02, 0.02], color: RED, detail: true },
+        { geo: 'sphere', pos: [0.06, 0.455, zGate], scale: [0.02, 0.02, 0.02], color: RED, detail: true },
+      )
+      // marinas: long docks square to the pier, boats nose-in on both sides of each, breakwaters round the outside
+      const docks: number[][] = [], hulls: number[][][] = [[], []], masts: [number, number][] = []
+      const marina = (x0: number, x1: number, zs: number[], seed: number) => zs.forEach((z, d) => {
+        docks.push([(x0 + x1) / 2, z, Math.abs(x1 - x0), 0.028, 0, 0.03])
+        const n = Math.floor((Math.abs(x1 - x0) - 0.1) / 0.085)
+        for (let i = 0; i < n; i++) for (const side of [-1, 1]) {
+          const k = i * 7 + d * 3 + side + seed
+          if (k % 5 === 0) continue // an empty berth
+          const len = 0.085 + (k % 3) * 0.02, x = Math.min(x0, x1) + 0.08 + i * 0.085, zb = z + side * (0.02 + len / 2)
+          hulls[k % 4 === 1 ? 1 : 0].push([x, zb, 0.032, len, 0, 0.035])
+          if (k % 3 === 0) masts.push([x, zb])
+        }
+      })
+      marina(0.56, 1.95, [-1.1, -0.6, -0.1, 0.4, 0.85], 0)
+      marina(-0.56, -1.3, [-0.3, 0.15], 2)
+      p.push(
+        blocks(docks, DOCK, { detail: true }),
+        blocks(hulls[0], WHITE, { detail: true }),
+        blocks(hulls[1], '#9fb9cf', { detail: true }),
+        columns(masts, 0.03, 0.17, 0.004, STEEL),
+        blocks([[1.4, -1.5, 1.45, 0.05, -0.05, 0.06], [2.1, -0.45, 0.05, 2.15, -0.05, 0.06], [-1.4, -0.25, 0.05, 1.85, -0.05, 0.06], [-1.07, -1.15, 0.7, 0.05, -0.05, 0.06]], CONCRETE_, { detail: true }),
+      )
+      // the fishing fleet on the inner west dock: painted hulls, white wheelhouses
+      const fleet: number[][][] = [[], []], cabins: number[][] = []
+      for (let i = 0; i < 7; i++) {
+        const x = -0.64 - i * 0.1
+        fleet[i % 2].push([x, 0.68, 0.05, 0.15, 0, 0.05])
+        cabins.push([x, 0.71, 0.036, 0.055, 0.05, 0.09])
+      }
+      p.push(
+        blocks([[-0.95, 0.58, 0.8, 0.028, 0, 0.03]], DOCK, { detail: true }),
+        blocks(fleet[0], '#3f6fb0', { detail: true }),
+        blocks(fleet[1], '#2f8f5b', { detail: true }),
+        blocks(cabins, WHITE, { detail: true }),
+      )
+      // sea lions hauled out on their floats
+      const floats: number[][] = []
+      for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) floats.push([-0.66 - i * 0.13, -0.62 - j * 0.1, 0.11, 0.075, 0, 0.025])
+      p.push(blocks(floats, '#b89b6e', { detail: true }))
+      ;[[0, 0, 0.3], [0, 1, 1.2], [1, 0, 2.0], [1, 2, 0.6], [2, 1, 2.6], [2, 2, 1.7], [0, 2, 0.9]].forEach(([i, j, turn], n) =>
+        p.push({ geo: 'sphere', pos: [-0.66 - i * 0.13, 0.043, -0.62 - j * 0.1], rot: [0, turn, 0], scale: [0.024, 0.02, 0.044], color: n % 2 ? '#7d6a58' : '#6b5b4b', detail: true }))
+      // the Fisherman's Wharf sign: a ship's wheel round a disc with the crab, on a pole
+      const sx = -0.74, sz = 1.43, sy = 0.56
+      p.push(
+        box(sx, 0, sy - 0.12, sz, 0.03, 0.03, '#4a4a4a', true),
+        { geo: 'ring', pos: [sx, sy, sz], scale: [0.125, 0.125, 0.1], color: '#8a5a3c', detail: true },
+        { geo: 'cyl', pos: [sx, sy, sz], rot: [Math.PI / 2, 0, 0], scale: [0.23, 0.02, 0.23], color: '#f3ead2', detail: true, args: [0.5, 0.5, 24] },
+        { geo: 'sphere', pos: [sx, sy, sz], scale: [0.05, 0.034, 0.018], color: RED, detail: true },
+      )
+      // the SkyStar observation wheel on the promenade west of the pier
+      const wx = -1.02, wz = 1.2, R = 0.36, wy = 0.08 + R + 0.04
+      p.push(
+        box(wx, 0, 0.08, wz, 0.62, 0.2, CONCRETE_, true),
+        { geo: 'ring', pos: [wx, wy, wz], scale: [R, R, R * 0.45], color: STEEL, detail: true },
+        { geo: 'cyl', pos: [wx, wy, wz], rot: [Math.PI / 2, 0, 0], scale: [0.07, 0.12, 0.07], color: STEEL, detail: true, args: [0.5, 0.5, 12] },
+      )
+      for (let k = 0; k < 4; k++) p.push({ geo: 'box', pos: [wx, wy, wz], rot: [0, 0, (k * Math.PI) / 4], scale: [0.012, 2 * R, 0.012], color: STEEL, detail: true })
+      const lean = Math.atan2(0.22, wy), leg = Math.hypot(0.22, wy)
+      for (const side of [-1, 1]) for (const zz of [-0.06, 0.06]) p.push({ geo: 'box', pos: [wx + side * 0.11, wy / 2, wz + zz], rot: [0, 0, side * lean], scale: [0.02, leg, 0.02], color: STEEL, detail: true })
+      p.push(blocks(Array.from({ length: 12 }, (_, k) => [wx + R * Math.cos((k * Math.PI) / 6), wz, 0.045, 0.05, wy + R * Math.sin((k * Math.PI) / 6) - 0.05, wy + R * Math.sin((k * Math.PI) / 6) - 0.005]), '#3f6fb0', { detail: true }))
+      return p
+    }
     case 'street':
       return [
         { geo: 'box', pos: [0, 0.05, 0], rot: [0, 0, 0.18], scale: [0.9, 0.1, 0.5], color: '#f7f4ee' },
@@ -582,7 +684,7 @@ export function landmarkLines(l: Landmark, ground?: BridgeGround): number[] {
   return out
 }
 
-/** `grow` (sectors only) returns the part's hover hull: the same shape offset outwards by that much in plan, in the part's own unit frame. */
+/** `grow` (sectors and blocks only) returns the part's hover hull: the same shape offset outwards by that much in plan, in the part's own unit frame. */
 export function partGeometry(p: Part, grow = 0): THREE.BufferGeometry {
   const a = (p.args ?? []) as number[]
   switch (p.geo) {
@@ -598,6 +700,7 @@ export function partGeometry(p: Part, grow = 0): THREE.BufferGeometry {
     case 'ringwall': return ringwallGeometry(a)
     case 'columns': return columnsGeometry(a)
     case 'sector': return sectorGeometry(a, grow)
+    case 'blocks': return blocksGeometry(a, grow)
   }
 }
 
@@ -762,6 +865,37 @@ function sectorGeometry(a: number[], grow: number): THREE.BufferGeometry {
     }
     quad(v(outer[0], -0.5), v(inner[0], -0.5), v(outer[0], 0.5), v(inner[0], 0.5))
     quad(v(inner[n], -0.5), v(outer[n], -0.5), v(inner[n], 0.5), v(outer[n], 0.5))
+  }
+  return fromPositions(pos)
+}
+
+const blockList = (a: number[]) => Array.from({ length: (a.length - 1) / 6 }, (_, i) => a.slice(1 + i * 6, 7 + i * 6))
+function blocksBox(a: number[]) {
+  const list = blockList(a)
+  const plan = planBox(list.flatMap(([x, z, w, l]): [number, number][] => [[x - w / 2, z - l / 2], [x + w / 2, z + l / 2]]))
+  const y0 = Math.min(...list.map((b) => b[4])), y1 = Math.max(...list.map((b) => b[5]))
+  return { ...plan, cy: (y0 + y1) / 2, sy: y1 - y0 }
+}
+
+/** Boxes (args[0] = 0) or gabled roofs with the ridge along z (1), each [x, z, width, length, y0, y1], in the unit box of the ungrown part. */
+function blocksGeometry(a: number[], grow: number): THREE.BufferGeometry {
+  const f = blocksBox(a), g = grow
+  const pos: number[] = []
+  const v = (x: number, y: number, z: number) => [(x - f.cx) / (f.sx + 2 * g), (y - f.cy) / (f.sy + 2 * g), (z - f.cz) / (f.sz + 2 * g)]
+  const quad = (p0: number[], p1: number[], p2: number[], p3: number[]) => pos.push(...p0, ...p1, ...p2, ...p1, ...p3, ...p2)
+  for (const [x, z, w, l, ya, yb] of blockList(a)) {
+    const x0 = x - w / 2 - g, x1 = x + w / 2 + g, z0 = z - l / 2 - g, z1 = z + l / 2 + g, y0 = ya - g, y1 = yb + g
+    if (a[0]) {
+      quad(v(x1, y0, z0), v(x, y1, z0), v(x1, y0, z1), v(x, y1, z1))
+      quad(v(x0, y0, z1), v(x, y1, z1), v(x0, y0, z0), v(x, y1, z0))
+      pos.push(...v(x1, y0, z1), ...v(x, y1, z1), ...v(x0, y0, z1), ...v(x0, y0, z0), ...v(x, y1, z0), ...v(x1, y0, z0))
+      continue
+    }
+    quad(v(x1, y0, z0), v(x1, y1, z0), v(x1, y0, z1), v(x1, y1, z1))
+    quad(v(x0, y0, z1), v(x0, y1, z1), v(x0, y0, z0), v(x0, y1, z0))
+    quad(v(x1, y0, z1), v(x1, y1, z1), v(x0, y0, z1), v(x0, y1, z1))
+    quad(v(x0, y0, z0), v(x0, y1, z0), v(x1, y0, z0), v(x1, y1, z0))
+    quad(v(x0, y1, z0), v(x0, y1, z1), v(x1, y1, z0), v(x1, y1, z1))
   }
   return fromPositions(pos)
 }
