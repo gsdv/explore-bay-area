@@ -55,6 +55,7 @@ const AREA_PARKS: Record<string, string[]> = {
   presidio: ['Presidio of San Francisco'],
   oceanbeach: ['Ocean Beach'],
   crissy: ['Crissy Field', 'Crissy Marsh', 'East Beach'],
+  dolores: ['Mission Dolores Park'],
 }
 const beachesGeo = osmtogeojson(await osm.fetchBeaches()) as GeoJSON.FeatureCollection
 const piecesGeo = osmtogeojson(await osm.fetchAreaPieces()) as GeoJSON.FeatureCollection
@@ -71,14 +72,18 @@ for (const [id, names] of Object.entries(AREA_PARKS)) {
   const pieces = [...parksGeo.features, ...beachesGeo.features, ...piecesGeo.features].filter(
     (f) => names.includes(f.properties?.name) && (f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon') && near(f),
   )
-  // grow 15 m, merge, shrink 10 m: pieces a path or a creek apart (Crissy Field's, the Panhandle and the park) become one outline
-  const res: any = await mapshaper.applyCommands('-i in.json -buffer 15 -dissolve2 -buffer -10 -simplify interval=3 -o out.json format=geojson', {
-    'in.json': { type: 'FeatureCollection', features: pieces },
-  })
-  // a dissolve with no fields comes back as a bare GeometryCollection (like land.ts's counties)
-  const merged = JSON.parse(res['out.json'].toString()) as GeoJSON.GeometryCollection
+  // several pieces: grow 15 m, merge, shrink 10 m, so pieces a path or a creek apart (Crissy Field's, the Panhandle and the park)
+  // become one outline. A single piece is used as it is: mapshaper's buffer collapsed Dolores Park's plain rectangle to nothing.
+  let geoms: GeoJSON.Geometry[] = pieces.map((f) => f.geometry)
+  if (pieces.length > 1) {
+    const res: any = await mapshaper.applyCommands('-i in.json -buffer 15 -dissolve2 -buffer -10 -simplify interval=3 keep-shapes -o out.json format=geojson', {
+      'in.json': { type: 'FeatureCollection', features: pieces },
+    })
+    // a dissolve with no fields comes back as a bare GeometryCollection (like land.ts's counties)
+    geoms = (JSON.parse(res['out.json'].toString()) as GeoJSON.GeometryCollection).geometries
+  }
   areas[id] = []
-  for (const g of merged.geometries) {
+  for (const g of geoms) {
     // outer rings only: holes don't matter to a hover area
     const polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : []
     for (const poly of polys) {

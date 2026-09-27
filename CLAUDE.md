@@ -237,10 +237,11 @@ vercel.json             build settings + cache headers for Vercel (see Hosting)
   target. Nothing shows at rest (the owner removed the resting border); under the pointer the outline appears as the landmarks' shimmering hover outline laid flat (two ribbons using
   `scene/hoverGlow.ts`, the hull material shared with `Landmarks.tsx`) over a faint orange wash. It shares the landmark id with the little tree model, so both light
   up together. A landmark with `areaOnly: true` (Ocean Beach) has no model at all: `Landmarks.tsx` skips it and `LandmarkArea` draws its
-  label. The pieces named for an area are merged in the pipeline (mapshaper: grow 15 m, dissolve, shrink 10 m), so neighbours a path
+  label. When an area has several pieces they are merged in the pipeline (mapshaper: grow 15 m, dissolve, shrink 10 m; a single piece is used
+  as it is, because the buffer collapsed Dolores Park's plain rectangle), so neighbours a path
   apart become one outline (Crissy Field = its grass common + Crissy Marsh + East Beach, from `osm.fetchAreaPieces`; the Panhandle joins
   Golden Gate Park); pieces more than 3 km from the landmark are namesakes and skipped. Nested areas float a smaller area's clear fill a
-  few metres higher so it wins the pointer over the one around it (Crissy inside the Presidio). `park` and `beach` kinds are eligible; adding another (Dolores, Baker Beach) = one entry in `AREA_PARKS` + `pnpm data`.
+  few metres higher so it wins the pointer over the one around it (Crissy inside the Presidio). `park` and `beach` kinds are eligible (Dolores Park is one too); adding another (Baker Beach, Lands End) = one entry in `AREA_PARKS` + `pnpm data`.
   Models on a hilltop stand on the height at their centre only, so run their base below y = 0 (Coit has a green knoll for this).
 - `src/data/quests.ts`: ordered stops with a to-do and a tour `view` each. No persisted progress.
 - Restaurant heatmap: `osm.fetchFood()` (amenity=restaurant|cafe|fast_food, bars excluded on purpose) is binned,
