@@ -37,6 +37,10 @@ export const fetchParks = () =>
 /** Named beaches in SF, for landmarks that are a stretch of sand (Ocean Beach): a handful of polygons. */
 export const fetchBeaches = () => overpass('beaches', `(way["natural"="beach"]["name"](${bbox(SF)});relation["natural"="beach"]["name"](${bbox(SF)}););out geom;`)
 
+/** Pieces of area landmarks that are neither parks nor beaches: Crissy Field is a grass `common`, a tidal marsh and East Beach. */
+export const fetchAreaPieces = () =>
+  overpass('area-pieces', `(way["name"="Crissy Field"]["leisure"](${bbox(SF)});relation["name"="Crissy Marsh"](${bbox(SF)}););out geom;`)
+
 export const fetchBuildingsDowntown = () => overpass('buildings-downtown', `way["building"](${bbox(DOWNTOWN)});out geom;`)
 
 const NETWORKS: Record<string, string> = {

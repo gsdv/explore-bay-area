@@ -50,7 +50,11 @@ export function LandmarkArea({ landmark: l, world }: { landmark: Landmark; world
   const { ground, outline, glow } = useMemo(() => {
     const yAt = (x: number, z: number) => Math.max(0, world.heights.yAt(x, z))
     const geo = new THREE.BufferGeometry()
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(rings.flatMap((r) => drapePolygon(r, yAt)), 3))
+    // areas nest (Crissy Field lies inside the Presidio) and the pointer takes the nearest surface, so a smaller area floats its
+    // invisible fill a little higher: 5 m above the ground for the biggest, up to 10 m for a small one (the fill is clear at rest)
+    const ha = rings.reduce((sum, r) => sum + Math.abs(r.reduce((a, p, i) => { const q = r[(i + 1) % r.length]; return a + p[0] * q[1] - q[0] * p[1] }, 0) / 2), 0)
+    const lift = 0.05 + 0.05 / (1 + ha / 20)
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(rings.flatMap((r) => drapePolygon(r, yAt, 0.5, lift)), 3))
     const borders = rings.map((r) => drapeLine(r, yAt))
     const band = (width: number, lift: number) => {
       const g = new THREE.BufferGeometry()

@@ -49,24 +49,47 @@ for (const f of parksGeo.features) {
   else cityD += polygonPath(f.geometry)
 }
 // Landmarks that are a whole park or beach rather than a model: their real outline, for the app to drape as a hover area and border.
-const AREA_PARKS: Record<string, string[]> = { ggpark: ['Golden Gate Park', 'Panhandle'], presidio: ['Presidio of San Francisco'], oceanbeach: ['Ocean Beach'] }
+// Pieces are merged into one outline first (Crissy Field is its field, marsh and beach), so no seams show on hover.
+const AREA_PARKS: Record<string, string[]> = {
+  ggpark: ['Golden Gate Park', 'Panhandle'],
+  presidio: ['Presidio of San Francisco'],
+  oceanbeach: ['Ocean Beach'],
+  crissy: ['Crissy Field', 'Crissy Marsh', 'East Beach'],
+}
 const beachesGeo = osmtogeojson(await osm.fetchBeaches()) as GeoJSON.FeatureCollection
+const piecesGeo = osmtogeojson(await osm.fetchAreaPieces()) as GeoJSON.FeatureCollection
+const { default: mapshaper } = await import('mapshaper')
 const areas: Record<string, number[][]> = {}
 for (const [id, names] of Object.entries(AREA_PARKS)) {
+  // namesakes elsewhere (a "Golden Gate Park" rec centre 16 km away) are skipped: a piece must come within 3 km of the landmark
+  const lm = landmarks.find((l) => l.id === id)!
+  const [lx, lz] = project(lm.lat, lm.lng)
+  const near = (f: GeoJSON.Feature) => JSON.stringify(f.geometry).match(/-?\d+\.\d+,-?\d+\.\d+/g)!.some((c) => {
+    const [lng, lat] = c.split(',').map(Number), [x, z] = project(lat, lng)
+    return Math.hypot(x - lx, z - lz) < 30
+  })
+  const pieces = [...parksGeo.features, ...beachesGeo.features, ...piecesGeo.features].filter(
+    (f) => names.includes(f.properties?.name) && (f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon') && near(f),
+  )
+  // grow 15 m, merge, shrink 10 m: pieces a path or a creek apart (Crissy Field's, the Panhandle and the park) become one outline
+  const res: any = await mapshaper.applyCommands('-i in.json -buffer 15 -dissolve2 -buffer -10 -simplify interval=3 -o out.json format=geojson', {
+    'in.json': { type: 'FeatureCollection', features: pieces },
+  })
+  // a dissolve with no fields comes back as a bare GeometryCollection (like land.ts's counties)
+  const merged = JSON.parse(res['out.json'].toString()) as GeoJSON.GeometryCollection
   areas[id] = []
-  for (const f of [...parksGeo.features, ...beachesGeo.features]) {
-    if (!names.includes(f.properties?.name)) continue
-    // outer rings only: a relation (the Presidio) arrives as a Polygon or MultiPolygon, and holes don't matter to a hover area
-    const polys = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.type === 'MultiPolygon' ? f.geometry.coordinates : []
+  for (const g of merged.geometries) {
+    // outer rings only: holes don't matter to a hover area
+    const polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : []
     for (const poly of polys) {
       const ring = poly[0].slice(0, -1).map(([lng, lat]) => project(lat, lng))
       let a = 0
       for (let i = 0; i < ring.length; i++) a += ring[i][0] * ring[(i + 1) % ring.length][1] - ring[(i + 1) % ring.length][0] * ring[i][1]
-      if (Math.abs(a / 2) < (f.properties?.natural === 'beach' ? 0.5 : 5)) continue // under 5 ha: a namesake (the Golden Gate Park rec centre), not the park
+      if (Math.abs(a / 2) < 0.5) continue // slivers
       areas[id].push(ring.flatMap(([x, z]) => [Math.round(x * 100) / 100, Math.round(z * 100) / 100]))
     }
   }
-  log('area', id, 'rings', areas[id].length, 'points', areas[id].reduce((n, r) => n + r.length / 2, 0))
+  log('area', id, 'pieces', pieces.length, 'rings', areas[id].length, 'points', areas[id].reduce((n, r) => n + r.length / 2, 0))
 }
 writeJSON(path.join(OUT, 'areas.json'), areas)
 const parksSvg = `<path fill="#00ff00" fill-opacity="0.8" fill-rule="evenodd" d="${wildD}"/><path fill="#ff0000" fill-opacity="0.9" fill-rule="evenodd" d="${cityD}"/>`
