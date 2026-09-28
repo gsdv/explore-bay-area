@@ -15,6 +15,9 @@ export interface Part {
   hullOnly?: boolean
   /** context beside the landmark (the Quad next to Hoover Tower): drawn, but outside the hover box and the label height */
   scenery?: boolean
+  /** never drawn: an invisible box the pointer can hit (rotation honoured). When a model has any, they replace the automatic hover
+   *  box, which can only be axis-aligned: the Bay Bridge bends at Yerba Buena Island */
+  hit?: boolean
 }
 
 const ORANGE = '#f04a00'
@@ -89,38 +92,8 @@ const shift = (p: Part, z: number): Part => ({ ...p, pos: [p.pos[0], p.pos[1], p
 /** Returns primitive parts in landmark-local space (y up, origin at ground). Bridges take the ground profile from `bridgeGround`. */
 export function landmarkParts(l: Landmark, ground?: BridgeGround): Part[] {
   switch (l.kind) {
-    case 'bridge': {
-      const b = bridgeSpec(l, ground)
-      const deckLen = b.x1 - b.x0, deckMid = (b.x0 + b.x1) / 2
-      const parts: Part[] = [
-        // deck with a slightly darker underside girder
-        { geo: 'box', pos: [deckMid, b.deckH, 0], scale: [deckLen, 0.05, b.deckW], color: b.col },
-        { geo: 'box', pos: [deckMid, b.deckH - 0.07, 0], scale: [deckLen, 0.09, b.deckW * 0.6], color: b.colDark },
-      ]
-      if (ground) {
-        // abutments sunk into the hillside at both deck ends, and viaduct piers where the approaches run above land
-        for (const x of [b.x0, b.x1]) {
-          const g = Math.min(ground.groundY(x), b.deckH - 0.2)
-          parts.push({ geo: 'box', pos: [x, (g - 0.3 + b.deckH) / 2, 0], scale: [0.5, b.deckH - g + 0.3, b.deckW + 0.2], color: b.pier })
-        }
-        for (const [from, to] of [[b.x0 + 0.9, 0], [b.len, b.x1 - 0.9]] as [number, number][]) {
-          for (let x = from; x < to; x += 0.9) {
-            const g = ground.groundY(x)
-            if (g < 0 || g > b.deckH - 0.12) continue
-            parts.push({ geo: 'box', pos: [x, (g + b.deckH) / 2, 0], scale: [0.2, b.deckH - g, b.deckW * 0.7], color: b.pier })
-          }
-        }
-      }
-      for (const t of b.towers) {
-        const x = b.len * t
-        // pier in the water, two legs, portal struts
-        parts.push({ geo: 'box', pos: [x, b.deckH / 2, 0], scale: [0.34, b.deckH, b.deckW + 0.14], color: b.pier })
-        for (const side of [-b.legZ, b.legZ]) parts.push({ geo: 'box', pos: [x, b.towerH / 2, side], scale: [0.13, b.towerH, 0.13], color: b.col })
-        for (const f of [0.3, 0.52, 0.72, 0.9, 1.0]) parts.push({ geo: 'box', pos: [x, b.towerH * f - 0.05, 0], scale: [0.13, 0.1, b.legZ * 2 + 0.13], color: b.col })
-      }
-      for (const x of b.anchorsX) parts.push({ geo: 'box', pos: [x, b.deckH * 0.55, 0], scale: [0.36, b.deckH * 1.1, b.deckW + 0.2], color: b.pier })
-      return parts
-    }
+    case 'bridge':
+      return (l.id === 'baybridge' ? bayBridge(l, ground) : goldenGate(l, ground)).parts
     case 'tower': {
       // Salesforce Tower: a rounded square that stays plumb for its lower third and then curves in to a flat, open top;
       // glass wrapped in white sunshade rings at every floor, a paler perforated crown for the top seventh with a
@@ -879,10 +852,28 @@ export interface BridgeGround {
   end: number
   /** terrain height (world y) at landmark-local x along the deck axis */
   groundY: (x: number) => number
+  /** terrain height at any landmark-local point (the Bay Bridge's east span leaves the axis) */
+  yLocal: (x: number, z: number) => number
 }
 
 /** Longest approach viaduct we will add past the first land under an endpoint (world units, 1 = 100 m). */
 const MAX_APPROACH = 4
+
+/** A landmark-local point for a lat/lng: x along the lat/lng -> lat2/lng2 axis, z to its right (the frame `Landmarks.tsx` rotates into). */
+function bridgeFrame(l: Landmark) {
+  const [x1, z1] = project(l.lat, l.lng)
+  const [x2, z2] = project(l.lat2!, l.lng2!)
+  const len = Math.hypot(x2 - x1, z2 - z1)
+  const dx = (x2 - x1) / len, dz = (z2 - z1) / len
+  return {
+    len,
+    toLocal: (lat: number, lng: number): [number, number] => {
+      const [x, z] = project(lat, lng)
+      return [(x - x1) * dx + (z - z1) * dz, -(x - x1) * dz + (z - z1) * dx]
+    },
+    toWorld: (lx: number, lz: number): [number, number] => [x1 + lx * dx - lz * dz, z1 + lx * dz + lz * dx],
+  }
+}
 
 /**
  * Bridge endpoints are hand-placed and the baked shoreline is coarse, so a deck that stops exactly at its endpoints can end
@@ -890,12 +881,10 @@ const MAX_APPROACH = 4
  * rises to the deck so the abutment buries into it.
  */
 export function bridgeGround(l: Landmark, yAt: (x: number, z: number) => number): BridgeGround {
-  const [x1, z1] = project(l.lat, l.lng)
-  const [x2, z2] = project(l.lat2!, l.lng2!)
-  const len = Math.hypot(x2 - x1, z2 - z1)
-  const dx = (x2 - x1) / len, dz = (z2 - z1) / len
-  const groundY = (x: number) => yAt(x1 + dx * x, z1 + dz * x)
-  const { deckH } = bridgeSpec(l)
+  const f = bridgeFrame(l)
+  const yLocal = (lx: number, lz: number) => yAt(...f.toWorld(lx, lz))
+  const groundY = (x: number) => yLocal(x, 0)
+  const deckH = GGB.deckH
   const reach = (from: number, dir: 1 | -1) => {
     const step = 0.25
     let d = 0
@@ -904,106 +893,290 @@ export function bridgeGround(l: Landmark, yAt: (x: number, z: number) => number)
     while (d < shore + MAX_APPROACH && groundY(from + dir * d) < deckH - 0.05) d += step
     return d + 0.3
   }
-  return { start: reach(0, -1), end: reach(len, 1), groundY }
+  return { start: reach(0, -1), end: reach(f.len, 1), groundY, yLocal }
 }
 
-interface BridgeSpec {
-  len: number
-  /** deck extent along the axis (x0 <= 0, x1 >= len once the ground profile is applied) */
-  x0: number
-  x1: number
-  /** cable anchorage positions along the axis, moved onto land when the ground profile is known */
-  anchorsX: number[]
-  deckH: number
-  deckW: number
-  towerH: number
-  legZ: number
-  towers: number[]
-  /** suspension spans as [fromTower, toTower] fractions of len; a span with equal ends is a single-tower (self-anchored) span */
-  spans: [number, number][]
-  /** cable anchorages as fractions of len (pairs with the nearest tower) */
-  anchors: number[]
-  col: string
-  colDark: string
-  pier: string
+/** A model under construction: parts plus thin lines (suspenders, bracing, trusses) and thick ones (main cables), local space. */
+interface BridgeModel {
+  parts: Part[]
+  lines: number[]
+  cables: number[]
+}
+const seg = (out: number[], a: [number, number, number], b: [number, number, number]) => out.push(...a, ...b)
+/** a cable hung between two points, sagging `sag` below the chord at mid-span, as a polyline of `n` segments */
+function hang(out: number[], a: [number, number, number], b: [number, number, number], sag: number, n = 28) {
+  const at = (t: number): [number, number, number] => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t - 4 * sag * t * (1 - t), a[2] + (b[2] - a[2]) * t]
+  for (let i = 0; i < n; i++) seg(out, at(i / n), at((i + 1) / n))
+  return at
 }
 
-function bridgeSpec(l: Landmark, ground?: BridgeGround): BridgeSpec {
-  const [x1, z1] = project(l.lat, l.lng)
-  const [x2, z2] = project(l.lat2!, l.lng2!)
-  const len = Math.hypot(x2 - x1, z2 - z1)
-  const base = { len, x0: 0, x1: len, anchorsX: [] as number[], deckW: 0.34, legZ: 0.15, pier: '#cfc6b4' }
-  const spec: BridgeSpec =
-    l.id === 'ggb'
-      ? { ...base, deckH: 0.95, towerH: 3.7, towers: [0.23, 0.77], spans: [[0.23, 0.77]], anchors: [0.06, 0.94], col: ORANGE, colDark: '#b83a08' }
-      : { ...base, deckH: 0.62, towerH: 2.5, towers: [0.12, 0.28, 0.44, 0.78], spans: [[0.12, 0.28], [0.28, 0.44]], anchors: [0.03, 0.53, 0.64, 0.92], col: '#c9ccd1', colDark: '#8f949b' }
-  if (ground) {
-    spec.x0 = -ground.start
-    spec.x1 = len + ground.end
-  }
-  spec.anchorsX = spec.anchors.map((a) => {
-    let x = len * a
-    if (!ground) return x
-    // an anchorage standing in the water looks wrong: slide it away from its tower until it is on land (or at the deck end)
-    const tower = spec.towers.reduce((best, t) => (Math.abs(t - a) < Math.abs(best - a) ? t : best), spec.towers[0])
-    const dir = a < tower ? -1 : 1
-    while (ground.groundY(x) < 0 && x > spec.x0 + 0.3 && x < spec.x1 - 0.3) x += dir * 0.25
+// ---------------------------------------------------------------- Golden Gate Bridge
+const GGB = { deckH: H(67), towerH: H(227), deckW: 0.3, legZ: 0.14, main: 12.8, side: 3.43, concrete: '#d9d1c0', dark: '#a8390a', road: '#6d6862' }
+
+/**
+ * The Golden Gate: International Orange towers whose legs step in five times on the way up, fluted on their faces, tied by
+ * four portal struts above the deck (each opening shorter than the one below) and X-bracing below it; a deck carried on a deep
+ * Warren truss; the main cables from the Art Deco concrete pylons at each anchorage over both towers; suspenders every 50 m.
+ * The towers are placed from the real 1,280 m main span, centred on the axis.
+ */
+function goldenGate(l: Landmark, ground?: BridgeGround): BridgeModel {
+  const { len } = bridgeFrame(l)
+  const { deckH, towerH: T, deckW, legZ, concrete } = GGB
+  const m: BridgeModel = { parts: [], lines: [], cables: [] }
+  const x0 = ground ? -ground.start : 0, xEnd = ground ? len + ground.end : len
+  const towers = [len / 2 - GGB.main / 2, len / 2 + GGB.main / 2]
+  // anchorages one side span out from each tower, slid inland if that lands in the water
+  const anchors = towers.map((t, i) => {
+    const dir = i === 0 ? -1 : 1
+    let x = t + dir * GGB.side
+    while (ground && ground.groundY(x) < 0 && x > x0 + 0.3 && x < xEnd - 0.3) x += dir * 0.25
     return x
   })
-  return spec
-}
-
-/** Cables and suspenders as line segments [x,y,z,x,y,z,...] in landmark-local space (bridges only). */
-export function landmarkLines(l: Landmark, ground?: BridgeGround): number[] {
-  if (l.kind !== 'bridge') return []
-  const b = bridgeSpec(l, ground)
-  const out: number[] = []
-  const seg = (x1: number, y1: number, z1: number, x2: number, y2: number, z2: number) => out.push(x1, y1, z1, x2, y2, z2)
-  const top = b.towerH, deck = b.deckH + 0.03, mid = b.deckH + 0.32
-  const cableY = (x: number, xa: number, xb: number) => {
-    // parabola between tower tops xa..xb with the low point mid-span
-    const xm = (xa + xb) / 2
-    const t = (x - xm) / (xa - xm)
-    return mid + (top - mid) * t * t
+  const gy = (x: number) => (ground ? ground.groundY(x) : 0)
+  m.parts.push(
+    box((x0 + xEnd) / 2, deckH - 0.03, deckH + 0.03, 0, xEnd - x0, deckW, ORANGE),
+    box((x0 + xEnd) / 2, deckH - 0.16, deckH - 0.03, 0, xEnd - x0, deckW * 0.82, GGB.dark),
+    box((x0 + xEnd) / 2, deckH + 0.03, deckH + 0.034, 0, xEnd - x0, deckW - 0.07, GGB.road, true),
+  )
+  // stiffening truss down both sides: top and bottom chords with a zigzag between
+  for (const z of [-deckW / 2, deckW / 2]) {
+    seg(m.lines, [x0, deckH - 0.16, z], [xEnd, deckH - 0.16, z])
+    for (let x = x0, k = 0; x < xEnd - 0.25; x += 0.25, k++) seg(m.lines, [x, k % 2 ? deckH - 0.16 : deckH - 0.03, z], [x + 0.25, k % 2 ? deckH - 0.03 : deckH - 0.16, z])
   }
-  for (const side of [-b.legZ, b.legZ]) {
-    for (const [fa, fb] of b.spans) {
-      const xa = b.len * fa, xb = b.len * fb
-      const n = 28
-      let px = xa, py = top
-      for (let i = 1; i <= n; i++) {
-        const x = xa + ((xb - xa) * i) / n, y = cableY(x, xa, xb)
-        seg(px, py, side, x, y, side)
-        px = x; py = y
-      }
-      const ns = 18
-      for (let i = 1; i < ns; i++) {
-        const x = xa + ((xb - xa) * i) / ns
-        seg(x, deck, side, x, cableY(x, xa, xb), side)
-      }
+  if (ground) {
+    // abutments sunk into the hillside at both deck ends, and approach piers where the deck runs over land
+    for (const x of [x0, xEnd]) {
+      const g = Math.min(gy(x), deckH - 0.2)
+      m.parts.push(box(x, g - 0.3, deckH, 0, 0.5, deckW + 0.2, concrete))
     }
-    // side spans: nearest tower top straight down to each anchorage, with a few suspenders
-    b.anchorsX.forEach((xa, i) => {
-      const fa = b.anchors[i]
-      const tower = b.towers.reduce((best, t) => (Math.abs(t - fa) < Math.abs(best - fa) ? t : best), b.towers[0])
-      const xt = b.len * tower
-      seg(xt, top, side, xa, deck, side)
-      for (let j = 1; j < 5; j++) {
-        const x = xa + ((xt - xa) * j) / 5
-        const y = deck + (top - deck) * (j / 5)
-        seg(x, deck, side, x, y, side)
+    for (let x = x0 + 0.9; x < xEnd - 0.5; x += 0.9) {
+      const g = gy(x)
+      if (g < 0 || g > deckH - 0.12 || (x > anchors[0] && x < anchors[1])) continue
+      m.parts.push(box(x, g - 0.1, deckH - 0.15, 0, 0.14, deckW * 0.7, concrete))
+    }
+  }
+  // anchorage blocks and their stepped pylons, one either side of the deck; the cables come down over the pylons
+  const pylonTop = deckH + 0.5
+  for (const x of anchors) {
+    const g = Math.min(0, gy(x))
+    m.parts.push(box(x, g - 0.2, deckH - 0.05, 0, 0.7, deckW + 0.3, concrete))
+    m.parts.push(blocks([-1, 1].flatMap((side) => [
+      [x, side * (deckW / 2 + 0.07), 0.3, 0.13, deckH - 0.1, deckH + 0.28],
+      [x, side * (deckW / 2 + 0.07), 0.24, 0.11, deckH + 0.28, deckH + 0.42],
+      [x, side * (deckW / 2 + 0.07), 0.17, 0.09, deckH + 0.42, pylonTop],
+    ]), concrete))
+  }
+  for (const x of towers) {
+    // fender and pier at the water, then the legs in five stages, each a step narrower
+    m.parts.push(box(x, -0.25, 0.3, 0, 0.62, deckW + 0.36, concrete))
+    const stages: [number, number, number, number][] = [[0.3, deckH - 0.2, 0.26, 0.13], [deckH - 0.2, 0.6 * T, 0.23, 0.12], [0.6 * T, 0.76 * T, 0.2, 0.11], [0.76 * T, 0.88 * T, 0.18, 0.1], [0.88 * T, T, 0.16, 0.09]]
+    const legs: number[][] = [], flutes: number[][] = []
+    for (const z of [-legZ, legZ]) {
+      for (const [y0, y1, wx, wz] of stages) {
+        legs.push([x, z, wx, wz, y0, y1])
+        // two recessed flutes on each face that looks along the road
+        if (y0 >= deckH - 0.2) for (const fx of [-1, 1]) for (const fz of [-0.022, 0.022]) flutes.push([x + fx * (wx / 2 + 0.002), z + fz, 0.004, 0.014, y0 + 0.03, y1 - 0.02])
+      }
+      legs.push([x, z, 0.12, 0.07, T, T + 0.05], [x, z, 0.08, 0.05, T + 0.05, T + 0.09])
+    }
+    // portal struts: one under the deck, four above with ever shorter openings between, and the top one
+    for (const [yc, h] of [[deckH - 0.28, 0.12], [0.47 * T, 0.2], [0.64 * T, 0.17], [0.79 * T, 0.14], [0.905 * T, 0.12], [T - 0.05, 0.1]]) legs.push([x, 0, 0.15, 2 * legZ, yc - h / 2, yc + h / 2])
+    m.parts.push(blocks(legs, ORANGE), blocks(flutes, GGB.dark, { detail: true }))
+    // X-bracing between the legs below the deck
+    for (const [ya, yb] of [[0.3, (0.3 + deckH - 0.34) / 2], [(0.3 + deckH - 0.34) / 2, deckH - 0.34]]) {
+      seg(m.lines, [x, ya, -legZ], [x, yb, legZ])
+      seg(m.lines, [x, ya, legZ], [x, yb, -legZ])
+    }
+  }
+  // cables: main span from saddle to saddle dipping to just above the deck, side spans down to the pylons
+  const saddle = T + 0.02
+  for (const z of [-legZ, legZ]) {
+    const main = hang(m.cables, [towers[0], saddle, z], [towers[1], saddle, z], saddle - deckH - 0.07, 40)
+    for (let i = 1; i < 26; i++) {
+      const q = main(i / 26)
+      seg(m.lines, [q[0], deckH + 0.03, z], q)
+    }
+    towers.forEach((t, i) => {
+      const a = anchors[i]
+      const side = hang(m.cables, [t, saddle, z], [a, pylonTop, z], 0.12, 12)
+      for (let k = 1; k < 7; k++) {
+        const q = side(k / 7)
+        if (q[1] > deckH + 0.05) seg(m.lines, [q[0], deckH + 0.03, z], q)
       }
     })
   }
-  // tower cross-bracing above the deck
-  for (const t of b.towers) {
-    const x = b.len * t
-    for (const f of [0.35, 0.58, 0.78]) {
-      seg(x, b.towerH * f, -b.legZ, x, b.towerH * (f + 0.14), b.legZ)
-      seg(x, b.towerH * f, b.legZ, x, b.towerH * (f + 0.14), -b.legZ)
+  return m
+}
+
+// ---------------------------------------------------------------- Bay Bridge
+const BAY = { deckH: H(58), towerH: H(160), sasH: H(160), grey: '#c7ccd1', greyDark: '#8f949b', white: '#e8ebed', concrete: '#d4d0c6' }
+
+/** A road along a polyline of landmark-local points, with a height profile of [s, y] breakpoints (s = distance along it). */
+function road(pts: [number, number][], profile: [number, number][]) {
+  const cum = [0]
+  for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]))
+  const length = cum[cum.length - 1]
+  const segAt = (s: number) => {
+    let i = 0
+    while (i < pts.length - 2 && cum[i + 1] < s) i++
+    return i
+  }
+  /** plan point, heading (a y-rotation, as three.js turns a part) and the unit normal to the right, at distance s (+ `lat` sideways) */
+  const at = (s: number, lat = 0) => {
+    const i = segAt(s), a = pts[i], b = pts[i + 1], L = cum[i + 1] - cum[i]
+    const t = (s - cum[i]) / L, dx = (b[0] - a[0]) / L, dz = (b[1] - a[1]) / L
+    return { x: a[0] + (b[0] - a[0]) * t - dz * lat, z: a[1] + (b[1] - a[1]) * t + dx * lat, ang: Math.atan2(-dz, dx) }
+  }
+  const y = (s: number) => {
+    if (s <= profile[0][0]) return profile[0][1]
+    for (let i = 1; i < profile.length; i++) if (s <= profile[i][0]) {
+      const [s0, y0] = profile[i - 1], [s1, y1] = profile[i]
+      return y0 + ((y1 - y0) * (s - s0)) / (s1 - s0)
+    }
+    return profile[profile.length - 1][1]
+  }
+  /** the stretch [sa, sb] as straight sloped boxes (split at the polyline's corners and the profile's breaks) */
+  const deck = (sa: number, sb: number, lat: number, width: number, thick: number, color: string, dy = 0, detail = false): Part[] => {
+    const cuts = [...new Set([sa, sb, ...cum, ...profile.map((q) => q[0])])].filter((c) => c >= sa && c <= sb).sort((p, q) => p - q)
+    const out: Part[] = []
+    for (let i = 0; i + 1 < cuts.length; i++) {
+      const s0 = cuts[i], s1 = cuts[i + 1]
+      if (s1 - s0 < 0.01) continue
+      const mid = at((s0 + s1) / 2, lat), y0 = y(s0), y1 = y(s1)
+      out.push({ geo: 'box', pos: [mid.x, (y0 + y1) / 2 + dy, mid.z], rot: [0, mid.ang, Math.atan2(y1 - y0, s1 - s0)], scale: [Math.hypot(s1 - s0, y1 - y0) + 0.04, thick, width], color, detail })
+    }
+    return out
+  }
+  return { length, at, y, deck }
+}
+
+/**
+ * The Bay Bridge, on its real alignment. The landmark's axis is the west span, from the SF end to Yerba Buena Island's west
+ * tunnel portal: two suspension bridges end to end (704 m main spans, 353 m side spans) on four silver, X-braced towers, meeting
+ * at the concrete centre anchorage, carrying a double deck. The east span (`path`, from the east portal to the Oakland
+ * touchdown, off the axis) is the 2013 bridge: the white single-tower self-anchored span leaving the island, its cable planes
+ * fanning out from the tower top to the deck edges, then the twin-deck skyway on piers, descending to Oakland.
+ */
+function bayBridge(l: Landmark, ground?: BridgeGround): BridgeModel {
+  const f = bridgeFrame(l)
+  const gy = (x: number, z: number) => (ground ? ground.yLocal(x, z) : 0)
+  const { deckH: dH, towerH: T, grey, greyDark, white, concrete } = BAY
+  const m: BridgeModel = { parts: [], lines: [], cables: [] }
+
+  // ---- west span
+  const W1 = 2.4, W2 = W1 + 3.53, W3 = W2 + 7.04, W4 = W3 + 3.68, W5 = W4 + 3.68, W6 = W5 + 7.04, WA = W6 + 3.53
+  const Lw = f.len, portalY = Math.max(0.3, gy(Lw, 0) + 0.25)
+  const west = road([[0, 0], [Lw, 0]], [[0, Math.max(0.2, gy(0, 0) + 0.1)], [W1, dH], [WA, dH], [Lw, portalY]])
+  const wW = 0.3, legZ = 0.17
+  m.parts.push(
+    ...west.deck(0, Lw, 0, wW, 0.04, grey),
+    ...west.deck(0, Lw, 0, wW * 0.9, 0.035, greyDark, -0.13),
+    ...west.deck(0, Lw, 0, wW - 0.06, 0.004, '#6d6862', 0.022, true),
+  )
+  // double-deck truss down both sides
+  for (const z of [-wW / 2, wW / 2]) for (let s = 0, k = 0; s < Lw - 0.3; s += 0.3, k++) {
+    const a = west.y(s), b = west.y(s + 0.3)
+    seg(m.lines, [s, (k % 2 ? a - 0.13 : a), z], [s + 0.3, (k % 2 ? b : b - 0.13), z])
+  }
+  // SF approach piers over land
+  for (let s = 0.6; s < W1; s += 0.6) m.parts.push(box(s, gy(s, 0) - 0.1, west.y(s) - 0.15, 0, 0.12, wW * 0.8, concrete, true))
+  // piers under each tower and anchorage, the four towers, and the big centre anchorage that the cables dive into
+  for (const x of [W1, W2, W3, W5, W6, WA]) m.parts.push(box(x, -0.25, 0.25, 0, 0.5, wW + 0.3, concrete))
+  const legs: number[][] = []
+  for (const x of [W2, W3, W5, W6]) {
+    for (const z of [-legZ, legZ]) legs.push([x, z, 0.14, 0.1, 0.25, 0.55 * T], [x, z, 0.12, 0.09, 0.55 * T, T])
+    for (const yc of [dH - 0.25, 0.62 * T, T - 0.05]) legs.push([x, 0, 0.1, 2 * legZ, yc - 0.05, yc + 0.05])
+    // lattice: X-bracing panels from the water to the top
+    const levels = [0.25, dH - 0.3, dH + 0.25, 0.62 * T - 0.05, 0.62 * T + 0.05, 0.82 * T, T - 0.1]
+    for (let i = 0; i + 1 < levels.length; i++) {
+      if (i === 1 || i === 3) continue // the deck and a strut sit in these gaps
+      seg(m.lines, [x, levels[i], -legZ], [x, levels[i + 1], legZ])
+      seg(m.lines, [x, levels[i], legZ], [x, levels[i + 1], -legZ])
     }
   }
-  return out
+  m.parts.push(blocks(legs, grey))
+  m.parts.push(blocks([[W4, 0, 0.9, wW + 0.5, -0.25, dH + 0.5], [W4, 0, 0.6, wW + 0.3, dH + 0.5, dH + 0.75]], concrete))
+  m.parts.push(box(W1, 0, dH + 0.25, 0, 0.5, wW + 0.3, concrete), box(WA, 0.2, dH + 0.25, 0, 0.5, wW + 0.3, concrete))
+  const top = T + 0.02
+  for (const z of [-legZ, legZ]) {
+    for (const [a, b] of [[W2, W3], [W5, W6]]) {
+      const c = hang(m.cables, [a, top, z], [b, top, z], top - dH - 0.1, 36)
+      for (let i = 1; i < 20; i++) { const q = c(i / 20); seg(m.lines, [q[0], dH + 0.02, z], q) }
+    }
+    for (const [a, b] of [[W1, W2], [W3, W4], [W4, W5], [W6, WA]]) {
+      const ya = a === W1 || a === W3 || a === W6 ? (a === W1 ? dH + 0.25 : top) : dH + 0.75
+      const yb = b === WA ? dH + 0.25 : b === W4 ? dH + 0.75 : top
+      const c = hang(m.cables, [a, ya, z], [b, yb, z], 0.12, 14)
+      for (let i = 1; i < 8; i++) { const q = c(i / 8); if (q[1] > dH + 0.06) seg(m.lines, [q[0], dH + 0.02, z], q) }
+    }
+  }
+  // tunnel portal on the island
+  m.parts.push(box(Lw - 0.1, portalY - 0.35, portalY + 0.12, 0, 0.2, 0.46, concrete, true))
+
+  // ---- east span, along its own polyline
+  const pts = (l.path ?? []).map(([lat, lng]) => f.toLocal(lat, lng))
+  if (pts.length < 2) return m
+  const probe = road(pts, [[0, 0]])
+  // the self-anchored span starts where the island ends; its tower 385 m out, the east pier 180 m beyond
+  let sW = 0
+  while (sW < 4 && gy(probe.at(sW).x, probe.at(sW).z) > 0) sW += 0.1
+  const sT = sW + 3.85, sE = sT + 1.8, Le = probe.length
+  const endY = Math.max(0.2, gy(pts[pts.length - 1][0], pts[pts.length - 1][1]) + 0.08)
+  const east = road(pts, [[0, Math.max(0.3, gy(pts[0][0], pts[0][1]) + 0.25)], [sW, dH - 0.1], [sE, dH - 0.1], [Le - 1.2, endY + 0.1], [Le, endY]])
+  const lane = 0.26, laneAt = 0.23
+  for (const side of [-1, 1]) {
+    m.parts.push(...east.deck(0, Le, side * laneAt, lane, 0.06, white))
+    m.parts.push(...east.deck(0, Le, side * laneAt, lane - 0.05, 0.004, '#6d6862', 0.032, true))
+  }
+  const eastPiers: number[] = [sW, sE]
+  for (let s = sE + 1.6; s < Le - 0.8; s += 1.6) eastPiers.push(s)
+  for (const s of eastPiers) for (const side of [-1, 1]) {
+    const q = east.at(s, side * laneAt), y = east.y(s)
+    const big = s === sW || s === sE
+    m.parts.push({ geo: 'box', pos: [q.x, (Math.min(0, gy(q.x, q.z)) - 0.2 + y - 0.03) / 2, q.z], rot: [0, q.ang, 0], scale: [big ? 0.3 : 0.12, y - 0.03 - Math.min(0, gy(q.x, q.z)) + 0.2, big ? 0.3 : 0.14], color: concrete, detail: !big })
+  }
+  // the tower: four slender legs close together between the two decks, tied by shear links
+  const tw = east.at(sT), H0 = -0.2
+  for (const dx of [-0.05, 0.05]) for (const dz of [-0.05, 0.05]) {
+    const q = { x: tw.x + dx * Math.cos(tw.ang) + dz * Math.sin(tw.ang), z: tw.z - dx * Math.sin(tw.ang) + dz * Math.cos(tw.ang) }
+    m.parts.push({ geo: 'cyl', pos: [q.x, (H0 + BAY.sasH) / 2, q.z], rot: [0, tw.ang, 0], scale: [1, BAY.sasH - H0, 1], color: white, args: [0.036 * Math.SQRT2, 0.05 * Math.SQRT2, 4, 1, false, Math.PI / 4] })
+  }
+  for (let y = dH + 0.35; y < BAY.sasH - 0.1; y += 0.35) m.parts.push({ geo: 'box', pos: [tw.x, y, tw.z], rot: [0, tw.ang, 0], scale: [0.16, 0.03, 0.16], color: white, detail: true })
+  // cable planes: from each deck's outer edge at the island pier, up to the tower top, down to the east pier
+  const sasTop = BAY.sasH - 0.05
+  for (const side of [-1, 1]) {
+    const edge = side * (laneAt + lane / 2)
+    const pt = (s: number, lat: number, yy: number): [number, number, number] => { const q = east.at(s, lat); return [q.x, yy, q.z] }
+    const n = 24
+    const cable = (s0: number, s1: number, sag: number, yA: number, yB: number, latA: number, latB: number) => {
+      const at = (t: number): [number, number, number] => pt(s0 + (s1 - s0) * t, latA + (latB - latA) * t, yA + (yB - yA) * t - 4 * sag * t * (1 - t))
+      for (let i = 0; i < n; i++) seg(m.cables, at(i / n), at((i + 1) / n))
+      for (let i = 1; i < n; i += 2) { const s = s0 + ((s1 - s0) * i) / n, q = at(i / n); seg(m.lines, pt(s, edge, east.y(s) + 0.03), q) }
+    }
+    cable(sW, sT, 0.55, east.y(sW) + 0.05, sasTop, edge, side * 0.06)
+    cable(sT, sE, 0.25, sasTop, east.y(sE) + 0.05, side * 0.06, edge)
+  }
+
+  // ---- hit boxes: one per straight run (the automatic hover box could only be axis-aligned)
+  const hit = (x: number, z: number, ang: number, length: number, width: number, h: number): Part => ({ geo: 'box', pos: [x, h / 2 - 0.2, z], rot: [0, ang, 0], scale: [length, h + 0.4, width], color: '#000', hit: true })
+  m.parts.push(hit(Lw / 2, 0, 0, Lw, 0.6, T + 0.1))
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const a = pts[i], b = pts[i + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1])
+    m.parts.push(hit((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, Math.atan2(-(b[1] - a[1]) / L, (b[0] - a[0]) / L), L + 0.3, 0.9, i === 0 || i === 1 ? BAY.sasH : dH))
+  }
+  return m
+}
+
+/** Suspenders, bracing and trusses as line segments [x,y,z,x,y,z,...] in landmark-local space (bridges only). */
+export function landmarkLines(l: Landmark, ground?: BridgeGround): number[] {
+  if (l.kind !== 'bridge') return []
+  return (l.id === 'baybridge' ? bayBridge(l, ground) : goldenGate(l, ground)).lines
+}
+
+/** Main cables, drawn heavier than `landmarkLines` (bridges only). */
+export function landmarkCables(l: Landmark, ground?: BridgeGround): number[] {
+  if (l.kind !== 'bridge') return []
+  return (l.id === 'baybridge' ? bayBridge(l, ground) : goldenGate(l, ground)).cables
 }
 
 /** `grow` (sectors and blocks only) returns the part's hover hull: the same shape offset outwards by that much in plan, in the part's own unit frame. */

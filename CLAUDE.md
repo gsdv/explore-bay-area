@@ -242,6 +242,11 @@ vercel.json             build settings + cache headers for Vercel (see Hosting)
   apart become one outline (Crissy Field = its grass common + Crissy Marsh + East Beach, from `osm.fetchAreaPieces`; the Panhandle joins
   Golden Gate Park); pieces more than 3 km from the landmark are namesakes and skipped. Nested areas float a smaller area's clear fill a
   few metres higher so it wins the pointer over the one around it (Crissy inside the Presidio). `park` and `beach` kinds are eligible (Dolores Park is one too); adding another (Baker Beach, Lands End) = one entry in `AREA_PARKS` + `pnpm data`.
+  Bridges (`goldenGate` / `bayBridge` in `LandmarkModel.tsx`) return parts plus thin `landmarkLines` (suspenders, bracing, trusses)
+  and heavier `landmarkCables` (main cables). The Bay Bridge is on its real alignment: the landmark axis is the west span (SF to Yerba
+  Buena's west tunnel portal) and `path` carries the east span's curved polyline (OSM way 237731428, simplified), built by `road()`
+  (sloped deck boxes split at corners and profile breaks) with each part turned onto its heading. The automatic hover box can only be
+  axis-aligned, so such models add `hit: true` parts (invisible, rotated boxes) that replace it. Bridges don't pop-scale on hover.
   Models on a hilltop stand on the height at their centre only, so run their base below y = 0 (Coit has a green knoll for this).
 - `src/data/quests.ts`: ordered stops with a to-do and a tour `view` each. No persisted progress.
 - Restaurant heatmap: `osm.fetchFood()` (amenity=restaurant|cafe|fast_food, bars excluded on purpose) is binned,

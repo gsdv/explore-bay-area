@@ -11,6 +11,8 @@ export interface Landmark {
   /** for bridges: the other end */
   lat2?: number
   lng2?: number
+  /** for bridges: a further deck after a gap (the Bay Bridge's east span beyond the Yerba Buena tunnel), lat/lng points */
+  path?: [number, number][]
   area: string
   blurb: string
   tip?: string
@@ -27,7 +29,7 @@ export interface Landmark {
 
 export const landmarks: Landmark[] = [
   { id: 'ggb', name: 'Golden Gate Bridge', kind: 'bridge', lat: 37.8104, lng: -122.4772, lat2: 37.8322, lng2: -122.4796, area: 'Presidio', blurb: 'Opened in 1937, the 1.7-mile suspension bridge in "International Orange" is the symbol of the city. Walk or bike across for free.', tip: 'Go early on a weekday; fog usually burns off by noon in summer, but bring a jacket regardless.', tags: ['icon', 'view'] },
-  { id: 'baybridge', name: 'Bay Bridge', kind: 'bridge', lat: 37.7866, lng: -122.3890, lat2: 37.8203, lng2: -122.3210, area: 'Embarcadero', blurb: 'Two bridges in one: a double suspension span to Yerba Buena Island, then the newer self-anchored span to Oakland. The west span glows with the Bay Lights at night.', tags: ['icon'] },
+  { id: 'baybridge', name: 'Bay Bridge', kind: 'bridge', lat: 37.7865, lng: -122.3904, lat2: 37.8081, lng2: -122.3673, path: [[37.8090, -122.3663], [37.8113, -122.3638], [37.81393, -122.36044], [37.81802, -122.35295], [37.81871, -122.35047], [37.82132, -122.33263], [37.82183, -122.32773]], area: 'Embarcadero', blurb: 'Two bridges in one: a double suspension span to Yerba Buena Island, then the newer self-anchored span to Oakland. The west span glows with the Bay Lights at night.', tags: ['icon'] },
   { id: 'coit', name: 'Coit Tower', kind: 'coit', lat: 37.8024, lng: -122.4058, area: 'Telegraph Hill', blurb: 'A 210-foot art-deco tower from 1933 with WPA murals inside and a 360° view from the top.', tip: 'Take the Filbert Steps up from the Embarcadero; the gardens are the best part.', height: 64, tags: ['icon', 'view'] },
   { id: 'transamerica', name: 'Transamerica Pyramid', kind: 'pyramid', lat: 37.79516, lng: -122.40279, bearing: -9, area: 'Financial District', blurb: 'The 853-foot pyramid defined the skyline from 1972 until Salesforce Tower topped it. A redwood grove hides at its base.', height: 260, tags: ['icon'] },
   { id: 'salesforcetower', name: 'Salesforce Tower', kind: 'tower', lat: 37.78978, lng: -122.39693, bearing: 45, area: 'SoMa', blurb: 'At 1,070 feet, the tallest building in San Francisco. The crown becomes a video artwork every night after dusk.', height: 326, tags: ['icon'] },

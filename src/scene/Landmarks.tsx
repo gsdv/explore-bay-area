@@ -6,7 +6,7 @@ import { landmarks, type Landmark } from '../data/landmarks'
 import { project } from '../lib/geo'
 import type { World } from '../lib/world'
 import { useStore } from '../store'
-import { landmarkParts, landmarkLines, bridgeGround, partGeometry, type Part } from './LandmarkModel'
+import { landmarkParts, landmarkLines, landmarkCables, bridgeGround, partGeometry, type Part } from './LandmarkModel'
 import { hullMaterial, shimmer } from './hoverGlow'
 import { LandmarkArea } from './LandmarkArea'
 import { useZoomTier } from './viewStore'
@@ -68,11 +68,13 @@ function LandmarkObject({ landmark: l, world }: { landmark: Landmark; world: Wor
   const ground = useMemo(() => (l.kind === 'bridge' ? bridgeGround(l, (x, z) => world.heights.yAt(x, z)) : undefined), [l, world])
   const parts = useMemo(() => landmarkParts(l, ground), [l, ground])
   const lines = useMemo(() => landmarkLines(l, ground), [l, ground])
+  const cables = useMemo(() => landmarkCables(l, ground), [l, ground])
+  const hits = useMemo(() => parts.filter((p) => p.hit), [parts])
   // an invisible box around the whole model so gaps (tower legs, bridge spans) still count as hovering
   const bounds = useMemo(() => {
     let minX = Infinity, minY = Infinity, minZ = Infinity, maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity
     for (const p of parts) {
-      if (p.scenery) continue
+      if (p.scenery || p.hit) continue
       // rotated parts get a conservative circle; axis-aligned ones use their real half-extents, otherwise a long
       // thin bridge deck would turn the box into a deck-length square that catches clicks kilometres away
       const rotated = p.rot && (p.rot[0] !== 0 || p.rot[1] !== 0 || p.rot[2] !== 0)
@@ -102,7 +104,8 @@ function LandmarkObject({ landmark: l, world }: { landmark: Landmark; world: Wor
 
   useFrame((_, dt) => {
     if (!group.current) return
-    const target = hovered ? 1.12 : 1
+    // bridges don't pop: scaled about one end, a kilometres-long deck would swing its far end off the shore
+    const target = hovered && l.kind !== 'bridge' ? 1.12 : 1
     scaleT.v += (target - scaleT.v) * Math.min(1, dt * 10)
     group.current.scale.setScalar(scaleT.v)
     group.current.position.y = pos.y + (scaleT.v - 1) * 1.5
@@ -128,15 +131,24 @@ function LandmarkObject({ landmark: l, world }: { landmark: Landmark; world: Wor
   // neighborhood), so a landmark only names itself on hover
   const atlas = useStore((s) => s.heat === 'hoods')
   const showLabel = !inQuest && (atlas ? hovered : tier !== 'far' || l.tags?.includes('icon'))
-  const labelHeight = Math.max(...parts.filter((p) => !p.scenery && !p.hullOnly).map((p) => p.pos[1] + p.scale[1] / 2)) + 0.6
+  const labelHeight = Math.max(...parts.filter((p) => !p.scenery && !p.hullOnly && !p.hit).map((p) => p.pos[1] + p.scale[1] / 2)) + 0.6
 
   return (
     <group ref={group} position={pos} rotation-y={rotY} onPointerOver={onOver} onPointerOut={onOut} onClick={onClick}>
-      <mesh position={bounds.center} visible={false}>
-        <boxGeometry args={bounds.size} />
-        <meshBasicMaterial />
-      </mesh>
-      {parts.map((p, i) => (
+      {hits.length ? (
+        hits.map((p, i) => (
+          <mesh key={`hit${i}`} position={p.pos} rotation={p.rot ?? [0, 0, 0]} scale={p.scale} visible={false}>
+            <boxGeometry />
+            <meshBasicMaterial />
+          </mesh>
+        ))
+      ) : (
+        <mesh position={bounds.center} visible={false}>
+          <boxGeometry args={bounds.size} />
+          <meshBasicMaterial />
+        </mesh>
+      )}
+      {parts.map((p, i) => !p.hit && (
         <group key={i} position={p.pos} rotation={p.rot ?? [0, 0, 0]}>
           {!p.hullOnly && (
             <mesh geometry={geoFor(p)} scale={p.scale}>
@@ -153,6 +165,9 @@ function LandmarkObject({ landmark: l, world }: { landmark: Landmark; world: Wor
       ))}
       {lines.length > 0 && (
         <Line points={lines} segments color={parts[0].color} lineWidth={hovered ? 2.4 : 1.3} raycast={() => null} />
+      )}
+      {cables.length > 0 && (
+        <Line points={cables} segments color={parts[0].color} lineWidth={hovered ? 4 : 2.6} raycast={() => null} />
       )}
       {showLabel && (
         <Html position={[l.kind === 'bridge' ? 2 : 0, labelHeight, 0]} center zIndexRange={[19, 10]} style={{ pointerEvents: 'none' }}>
