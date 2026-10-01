@@ -3,6 +3,9 @@ import { useView } from '../scene/viewStore'
 import { useStore } from '../store'
 import { WORLD, worldToUV, toUV } from '../lib/geo'
 
+/** The picture behind the open map. Only drawn once opened, but fetched and decoded in the background beforehand (see below). */
+const MAP_IMAGE = '/data/map-small.webp'
+
 const LABELS: { name: string; lat: number; lng: number; big?: boolean }[] = [
   { name: 'San Francisco', lat: 37.775, lng: -122.43, big: true },
   { name: 'Golden Gate Bridge', lat: 37.8199, lng: -122.4783 },
@@ -31,6 +34,24 @@ export function Minimap() {
 
   useEffect(() => {
     fetch('/data/outline.json').then((r) => r.json()).then(setOutline).catch(() => setOutline([]))
+  }, [])
+  // The minimap mounts once the first view's data is in; wait until the first frames are drawn too, then warm the open
+  // map's picture at low priority so the first open shows it at once. The ref keeps the decoded image in memory.
+  const warm = useRef<HTMLImageElement | null>(null)
+  useEffect(() => {
+    const start = () => {
+      const img = new Image()
+      img.fetchPriority = 'low'
+      img.src = MAP_IMAGE
+      img.decode().catch(() => {})
+      warm.current = img
+    }
+    if ('requestIdleCallback' in window) {
+      const id = requestIdleCallback(start, { timeout: 4000 })
+      return () => cancelIdleCallback(id)
+    }
+    const id = setTimeout(start, 1500)
+    return () => clearTimeout(id)
   }, [])
   useEffect(() => {
     if (!open) return
@@ -63,7 +84,7 @@ export function Minimap() {
       {open && <div className="minimap-scrim" onClick={() => setOpen(false)} />}
       <div ref={box} className={'minimap' + (open ? ' is-open' : '')} onClick={onClick} role="button" aria-label="minimap" title={open ? undefined : 'Open map'}>
         <svg viewBox="0 0 1000 1000" preserveAspectRatio="none">
-          {open && <image href="/data/map-small.webp" x="0" y="0" width="1000" height="1000" className="minimap__img" />}
+          {open && <image href={MAP_IMAGE} x="0" y="0" width="1000" height="1000" className="minimap__img" />}
           <path d={landPath} className="minimap__land" fillRule="evenodd" />
           {open &&
             LABELS.map((l) => {
