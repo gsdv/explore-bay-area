@@ -241,7 +241,7 @@ vercel.json             build settings + cache headers for Vercel (see Hosting)
   as it is, because the buffer collapsed Dolores Park's plain rectangle), so neighbours a path
   apart become one outline (Crissy Field = its grass common + Crissy Marsh + East Beach, from `osm.fetchAreaPieces`; the Panhandle joins
   Golden Gate Park); pieces more than 3 km from the landmark are namesakes and skipped. Nested areas float a smaller area's clear fill a
-  few metres higher so it wins the pointer over the one around it (Crissy inside the Presidio). `park` and `beach` kinds are eligible (Dolores Park is one too); adding another (Baker Beach, Lands End) = one entry in `AREA_PARKS` + `pnpm data`.
+  few metres higher so it wins the pointer over the one around it (Crissy inside the Presidio). `park` and `beach` kinds are eligible (Dolores Park and Lands End are too); adding another (Baker Beach) = one entry in `AREA_PARKS` + `pnpm data`.
   Bridges (`goldenGate` / `bayBridge` in `LandmarkModel.tsx`) return parts plus thin `landmarkLines` (suspenders, bracing, trusses)
   and heavier `landmarkCables` (main cables). The Bay Bridge is on its real alignment: the landmark axis is the west span (SF to Yerba
   Buena's west tunnel portal) and `path` carries the east span's curved polyline (OSM way 237731428, simplified), built by `road()`

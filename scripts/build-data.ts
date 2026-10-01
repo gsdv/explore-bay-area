@@ -56,6 +56,7 @@ const AREA_PARKS: Record<string, string[]> = {
   oceanbeach: ['Ocean Beach'],
   crissy: ['Crissy Field', 'Crissy Marsh', 'East Beach'],
   dolores: ['Mission Dolores Park'],
+  landsend: ['Lands End'],
 }
 const beachesGeo = osmtogeojson(await osm.fetchBeaches()) as GeoJSON.FeatureCollection
 const piecesGeo = osmtogeojson(await osm.fetchAreaPieces()) as GeoJSON.FeatureCollection
