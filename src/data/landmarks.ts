@@ -1,6 +1,6 @@
 export type LandmarkKind =
   | 'bridge' | 'tower' | 'pyramid' | 'ferry' | 'coit' | 'sutro' | 'rotunda' | 'stadium' | 'arena'
-  | 'peak' | 'park' | 'beach' | 'houses' | 'island' | 'campanile' | 'museum' | 'wharf' | 'street' | 'gate' | 'forest' | 'town' | 'campus' | 'legion' | 'alcatraz' | 'twinpeaks' | 'ballpark'
+  | 'peak' | 'park' | 'beach' | 'houses' | 'island' | 'campanile' | 'museum' | 'wharf' | 'street' | 'gate' | 'forest' | 'town' | 'campus' | 'legion' | 'lombard' | 'alcatraz' | 'twinpeaks' | 'ballpark'
 
 export interface Landmark {
   id: string
@@ -41,7 +41,7 @@ export const landmarks: Landmark[] = [
   { id: 'chasecenter', name: 'Chase Center', kind: 'arena', lat: 37.76789, lng: -122.38742, bearing: -4, height: 38, area: 'Mission Bay', blurb: 'Home of the Golden State Warriors since 2019.', tags: ['culture'] },
   { id: 'paintedladies', name: 'Painted Ladies', kind: 'houses', lat: 37.77628, lng: -122.43272, bearing: 81, area: 'Alamo Square', blurb: 'The row of Victorian houses on Steiner Street, with downtown rising behind them. The classic postcard, and the Full House intro.', tags: ['icon'] },
   { id: 'twinpeaks', name: 'Twin Peaks', kind: 'twinpeaks', lat: 37.75191, lng: -122.44815, bearing: 18, area: 'Twin Peaks', blurb: 'Two 922-foot hills near the geographic centre of the city, with the best free panorama in San Francisco.', tip: 'Sunset is the move; wind is guaranteed.', tags: ['view', 'nature'] },
-  { id: 'lombard', name: 'Lombard Street', kind: 'street', lat: 37.8021, lng: -122.4187, area: 'Russian Hill', blurb: 'The "crookedest street", eight hairpin turns on a 27% grade, planted with hydrangeas.', tags: ['icon'] },
+  { id: 'lombard', name: 'Lombard Street', kind: 'lombard', lat: 37.80211, lng: -122.41881, bearing: -9, area: 'Russian Hill', blurb: 'The "crookedest street", eight hairpin turns on a 27% grade, planted with hydrangeas.', tags: ['icon'] },
   { id: 'ggpark', name: 'Golden Gate Park', kind: 'park', lat: 37.7694, lng: -122.4862, area: 'Richmond / Sunset', blurb: '1,017 acres, bigger than Central Park: the de Young, the Academy of Sciences, a Japanese tea garden, bison, and windmills at the ocean end.', tip: 'JFK Drive is car-free. Rent a bike at Stanyan and ride to the beach.', tags: ['nature', 'culture'] },
   { id: 'presidio', name: 'The Presidio', kind: 'park', lat: 37.7989, lng: -122.4662, area: 'Presidio', blurb: 'A former army post turned national park: eucalyptus forest, coastal bluffs, the Tunnel Tops, and the Walt Disney museum.', tags: ['nature', 'hike'] },
   { id: 'landsend', name: 'Lands End', kind: 'beach', areaOnly: true, lat: 37.7876, lng: -122.5055, area: 'Outer Richmond', blurb: 'Wild cliffs at the mouth of the Golden Gate. The Coastal Trail passes the Sutro Baths ruins and a hidden labyrinth.', tags: ['nature', 'hike', 'view'] },

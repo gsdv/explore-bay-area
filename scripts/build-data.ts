@@ -228,7 +228,7 @@ const contains = (ring: { lat: number; lon: number }[], lat: number, lng: number
 }
 // Landmark models that stand among buildings are toy-scale, far bigger than the real thing, so the survey's houses would
 // poke through them: clear each model's ground rectangle (in its own bearing), measured from the same parts list the app draws.
-const STANDS_IN_TOWN = /^(coit|sutro|rotunda|houses|wharf|gate|museum|street|ferry|tower|pyramid|stadium|arena|campanile|campus|legion|ballpark|twinpeaks)$/
+const STANDS_IN_TOWN = /^(coit|sutro|rotunda|houses|wharf|gate|museum|street|ferry|tower|pyramid|stadium|arena|campanile|campus|legion|ballpark|twinpeaks|lombard)$/
 const clearings = landmarks
   .filter((l) => STANDS_IN_TOWN.test(l.kind))
   .map((l) => {
@@ -251,7 +251,7 @@ const inClearing = (c: (typeof clearings)[number], x: number, z: number) => {
   return Math.abs(dx * c.cos - dz * c.sin) < c.hx && Math.abs(dx * c.sin + dz * c.cos) < c.hz
 }
 // a model that stands in for a whole complex (Pier 39's two dozen shops) replaces every downtown footprint centred under it
-const COMPLEX = /^(wharf)$/
+const COMPLEX = /^(wharf|lombard)$/
 const bld = await osm.fetchBuildingsDowntown()
 const buildings: { p: number[]; h: number; y: number }[] = []
 for (const w of bld.elements) {

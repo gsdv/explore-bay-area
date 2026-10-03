@@ -821,6 +821,65 @@ export function landmarkParts(l: Landmark, ground?: BridgeGround): Part[] {
       p.push(blocks(Array.from({ length: 12 }, (_, k) => [wx + R * Math.cos((k * Math.PI) / 6), wz, 0.045, 0.05, wy + R * Math.sin((k * Math.PI) / 6) - 0.05, wy + R * Math.sin((k * Math.PI) / 6) - 0.005]), '#3f6fb0', { detail: true }))
       return p
     }
+    case 'lombard': {
+      // Lombard Street's crooked block, Hyde down to Leavenworth: the real switchbacks (OSM way 402111597, in this frame) drawn
+      // 1.8x in plan, or the 13 m swings would vanish; a red-brick road snaking down terraced beds of hedge and hydrangeas, the
+      // stairs on both sides, and the houses that line the block (`scenery`: they replace the real ones the clearing takes, but
+      // the hover box and label stay on the street). The terrain falls ~0.36 units per unit east here; the model follows it.
+      // lifted 15 m: the terrain mesh (a vertex every ~150 m) runs above the finer heightmap on this hill, and buried the beds
+      const S = 1.8, slope = -0.36, LIFT = 0.15
+      const yAt = (x: number) => slope * x + LIFT
+      const ZIG: [number, number][] = [[-0.735, 0.009], [-0.649, 0.019], [-0.628, 0.016], [-0.608, 0.006], [-0.535, -0.056], [-0.512, -0.065], [-0.485, -0.063], [-0.462, -0.052], [-0.444, -0.033], [-0.395, 0.046], [-0.375, 0.061], [-0.352, 0.067], [-0.328, 0.062], [-0.308, 0.047], [-0.264, -0.033], [-0.25, -0.051], [-0.228, -0.064], [-0.201, -0.066], [-0.185, -0.061], [-0.168, -0.051], [-0.154, -0.036], [-0.108, 0.04], [-0.09, 0.056], [-0.069, 0.065], [-0.051, 0.066], [-0.027, 0.057], [-0.01, 0.04], [0.034, -0.04], [0.051, -0.056], [0.074, -0.066], [0.101, -0.064], [0.117, -0.057], [0.136, -0.04], [0.181, 0.034], [0.197, 0.051], [0.218, 0.063], [0.243, 0.066], [0.266, 0.057], [0.283, 0.04], [0.324, -0.033], [0.337, -0.051], [0.359, -0.064], [0.385, -0.066], [0.41, -0.057], [0.43, -0.04], [0.478, 0.04], [0.496, 0.056], [0.519, 0.065], [0.543, 0.064], [0.566, 0.05], [0.623, -0.013], [0.655, -0.017], [0.735, -0.009]]
+      const pts = ZIG.map(([x, z]) => [x * S, z * S] as [number, number])
+      const X0 = pts[0][0], X1 = pts[pts.length - 1][0]
+      // the profile follows x, so sample it at every polyline vertex (s -> y)
+      const cum = [0]
+      for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]))
+      const street = road(pts, pts.map((q, i) => [cum[i], yAt(q[0]) + 0.035] as [number, number]))
+      const BRICK = '#a4533d', BED = '#6aa457', HEDGE = '#3f7d42', STEP = '#d6d0c2', SIDEWALK = '#c9c3b5'
+      const bedW = 0.27, SKIRT = 0.45
+      const p: Part[] = []
+      // terraced beds: ten level slices down the hill, each sunk into the slope below it
+      const n = 10, w = (X1 - X0) / n
+      for (let i = 0; i < n; i++) {
+        const xm = X0 + w * (i + 0.5), top = yAt(xm) + 0.01
+        p.push(box(xm, top - SKIRT, top, 0, w + 0.004, bedW, BED))
+        p.push(box(xm, top, top + 0.012, -bedW / 2 + 0.008, w, 0.016, HEDGE, true), box(xm, top, top + 0.012, bedW / 2 - 0.008, w, 0.016, HEDGE, true))
+      }
+      p.push(...street.deck(0, cum[cum.length - 1], 0, 0.05, 0.02, BRICK, 0, true))
+      // hydrangeas on the inside of each hairpin, alternating sides
+      const blooms: [number, number, string][] = []
+      ZIG.forEach(([x, z], i) => {
+        if (i % 3 !== 1 || Math.abs(z) < 0.05) return
+        const c = ['#e58fb5', '#8f6cc4', '#7fa6dd', '#d9463d'][i % 4]
+        blooms.push([x * S + 0.02, -Math.sign(z) * 0.02 + z * S * 0.4, c], [x * S - 0.03, z * S * 0.15, c])
+      })
+      for (const [x, z, c] of blooms) p.push({ geo: 'sphere', pos: [x, yAt(x) + 0.03, z], scale: [0.022, 0.018, 0.022], color: c, detail: true })
+      // stairs down both sides of the block, and the straight street beyond each end
+      const stairs: number[][] = []
+      for (const side of [-1, 1]) for (let i = 0; i < 24; i++) {
+        const x = X0 + ((X1 - X0) * (i + 0.5)) / 24
+        stairs.push([x, side * (bedW / 2 + 0.025), (X1 - X0) / 24 + 0.002, 0.04, yAt(x) - SKIRT, yAt(x) + 0.012])
+      }
+      p.push(blocks(stairs, STEP, { detail: true }))
+      p.push(box(X0 - 0.25, yAt(X0) - SKIRT, yAt(X0) + 0.02, 0, 0.5, bedW + 0.1, SIDEWALK, true), box(X1 + 0.25, yAt(X1) - SKIRT, yAt(X1) + 0.02, 0, 0.5, bedW + 0.1, SIDEWALK, true))
+      // the houses that line it, stepping down the hill: pastel walls, flat roofs, a white bay on each
+      const PAINT = ['#e9dcc4', '#c9d8e2', '#ead2c4', '#d6e2c8', '#f0e6cf', '#d9cde4', '#e6c9b8']
+      const walls: number[][][] = PAINT.map(() => []), bays: number[][] = [], roofs: number[][] = []
+      for (const side of [-1, 1]) for (let i = 0; i < 9; i++) {
+        const w0 = (X1 - X0 + 0.5) / 9, x = X0 - 0.25 + w0 * (i + 0.5), k = i * 2 + (side + 1) / 2
+        const base = yAt(x) - LIFT, h = 0.13 + ((k * 7) % 4) * 0.025, z = side * (bedW / 2 + 0.17)
+        walls[k % PAINT.length].push([x, z, w0 - 0.012, 0.22, base - SKIRT, base + h])
+        roofs.push([x, z, w0 - 0.004, 0.225, base + h, base + h + 0.015])
+        bays.push([x, z - side * 0.115, w0 * 0.45, 0.02, base + 0.05, base + h - 0.03])
+      }
+      const scenery = (q: Part): Part => ({ ...q, detail: true, scenery: true })
+      walls.forEach((list, i) => list.length && p.push(scenery(blocks(list, PAINT[i]))))
+      p.push(scenery(blocks(roofs, '#8d877b')), scenery(blocks(bays, '#f7f4ee')))
+      // one invisible box over the whole block: the hover target, and what sizes the pipeline's clearing (houses included)
+      p.push({ geo: 'box', pos: [0, 0, 0], scale: [X1 - X0 + 1.0, 1.1, 2 * (bedW / 2 + 0.29)], color: '#000', hit: true })
+      return p
+    }
     case 'street':
       return [
         { geo: 'box', pos: [0, 0.05, 0], rot: [0, 0, 0.18], scale: [0.9, 0.1, 0.5], color: '#f7f4ee' },
