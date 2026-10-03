@@ -33,6 +33,7 @@ export const quests: Quest[] = [
       { id: 'anthropic', name: 'Anthropic', lat: 37.7877, lng: -122.3960, ref: { kind: 'company', id: 'anthropic' }, view: { dist: 10, yaw: -0.7 }, todo: 'Start at 500 Howard. Grab a coffee at the Salesforce Park rooftop next door.' },
       { id: 'databricks', name: 'Databricks', lat: 37.7917, lng: -122.3927, ref: { kind: 'company', id: 'databricks' }, view: { dist: 10, yaw: -1.0 }, todo: 'Walk to the Embarcadero waterfront; the Ferry Building is a block away.' },
       { id: 'perplexity', name: 'Perplexity', lat: 37.7917, lng: -122.4012, ref: { kind: 'company', id: 'perplexity' }, view: { dist: 10, yaw: -0.5 }, todo: 'Cut back through the Financial District.' },
+      { id: 'notion', name: 'Notion', lat: 37.7876, lng: -122.4028, ref: { kind: 'company', id: 'notion' }, view: { dist: 10, yaw: -0.5 }, todo: 'Down Montgomery to Market. Notion AI is written in the Monadnock Building, a few doors from the Palace Hotel.' },
       { id: 'scale', name: 'Scale AI', lat: 37.7709, lng: -122.4030, ref: { kind: 'company', id: 'scale' }, view: { dist: 10, yaw: -0.3 }, todo: 'Head south through SoMa along Townsend.' },
       { id: 'openai', name: 'OpenAI', lat: 37.7679, lng: -122.3900, ref: { kind: 'company', id: 'openai' }, view: { dist: 12, yaw: -1.1 }, todo: 'Finish in Mission Bay. Oracle Park and the Chase Center are right here for a game afterwards.' },
     ],
