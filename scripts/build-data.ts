@@ -58,6 +58,7 @@ const AREA_PARKS: Record<string, string[]> = {
   dolores: ['Mission Dolores Park'],
   landsend: ['Lands End'],
   mttam: ['Mount Tamalpais State Park'],
+  muirwoods: ['Muir Woods National Monument'],
 }
 const beachesGeo = osmtogeojson(await osm.fetchBeaches()) as GeoJSON.FeatureCollection
 const piecesGeo = osmtogeojson(await osm.fetchAreaPieces()) as GeoJSON.FeatureCollection

@@ -565,14 +565,43 @@ export function landmarkParts(l: Landmark, ground?: BridgeGround): Part[] {
         { geo: 'cyl', pos: [0.2, 0.2, -0.2], scale: [1, 0.4, 1], color: '#8a5a3c', args: [0.07, 0.09, 6] },
         { geo: 'cyl', pos: [0.6, 0.12, 0.35], scale: [1, 0.25, 1], color: '#8a5a3c', args: [0.05, 0.07, 6] },
       ]
-    case 'forest':
-      return [0, 1, 2, 3, 4, 5].map((i) => ({
-        geo: 'cone' as const,
-        pos: [Math.cos(i * 1.7) * 0.6, 0.6 + (i % 2) * 0.2, Math.sin(i * 1.7) * 0.6],
-        scale: [1, 1.2 + (i % 3) * 0.3, 1],
-        color: i % 2 ? '#3f7a45' : '#4f8f52',
-        args: [0.32, 7],
-      }))
+    case 'forest': {
+      // Muir Woods: a grove of old-growth coast redwoods along Redwood Creek, the main trail heading up the canyon from the
+      // entrance (local -z, turned up-canyon by the landmark's bearing). Trees at true height (the tallest ~75 m): straight red-
+      // brown trunks, bare for their lower half, under narrow dark crowns, with ferns at their feet; the creek and the boardwalk
+      // wind between them. The National Monument's outline is the landmark's hoverable area (areas.json).
+      const TRUNK = '#8a4b32', CROWN_A = '#2f5d3a', CROWN_B = '#3a6b44', FERN = '#5f8f4a', BOARD = '#b89a6a', CREEK = '#6f9fbf'
+      const p: Part[] = []
+      // the creek and the boardwalk as gentle zigzags up the canyon
+      const creek: [number, number][] = [[0.02, 0.75], [-0.05, 0.4], [0.06, 0.05], [-0.03, -0.3], [0.05, -0.65], [-0.02, -0.95]]
+      const walk: [number, number][] = creek.map(([x, z], k) => [x + (k % 2 ? 0.07 : -0.07), z])
+      const strip = (pts: [number, number][], w: number, y: number, color: string) => {
+        const r = road(pts, [[0, y]])
+        return r.deck(0, r.length, 0, w, 0.01, color, 0, true)
+      }
+      p.push(...strip(creek, 0.035, 0.005, CREEK), ...strip(walk, 0.03, 0.012, BOARD))
+      // trees: a pseudo-random scatter either side of the creek, denser in the middle of the grove
+      let seed = 7
+      const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
+      const trunks: [number, number, number][] = []
+      for (let k = 0; k < 34; k++) {
+        const z = 0.8 - 1.75 * rnd(), side = rnd() < 0.5 ? -1 : 1
+        const x = side * (0.09 + 0.22 * rnd()) + 0.03 * Math.sin(z * 4)
+        trunks.push([x, z, H(45 + 30 * rnd())])
+      }
+      for (const [x, z, h] of trunks) {
+        const r = 0.012 + h * 0.006
+        p.push({ geo: 'cyl', pos: [x, (h * 0.55 - 0.3) / 2, z], scale: [1, h * 0.55 + 0.3, 1], color: TRUNK, args: [r * 0.8, r, 7], detail: true })
+        p.push({ geo: 'cone', pos: [x, h * 0.72, z], scale: [r * 6, h * 0.56, r * 6], color: rnd() < 0.5 ? CROWN_A : CROWN_B, args: [0.5, 7], detail: true })
+      }
+      for (let k = 0; k < 18; k++) {
+        const z = 0.75 - 1.6 * rnd(), x = (rnd() - 0.5) * 0.5
+        p.push({ geo: 'sphere', pos: [x, 0.01, z], scale: [0.05, 0.025, 0.05], color: FERN, detail: true, args: [1, 7, 4] })
+      }
+      // the grove's hover box (the trees are all detail: their hulls would be a forest of outlines)
+      p.push({ geo: 'box', pos: [0, H(75) / 2, -0.07], scale: [0.7, H(75), 1.85], color: '#000', hit: true })
+      return p
+    }
     case 'beach':
       return [
         { geo: 'box', pos: [0, 0.03, 0], rot: [0, 0.4, 0], scale: [1.8, 0.06, 0.8], color: '#f0e2b8' },
