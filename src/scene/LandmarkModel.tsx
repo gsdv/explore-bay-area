@@ -887,13 +887,57 @@ export function landmarkParts(l: Landmark, ground?: BridgeGround): Part[] {
         { geo: 'box', pos: [0.05, 0.22, 0.12], scale: [0.14, 0.14, 0.14], color: '#7f8ed0' },
         { geo: 'box', pos: [0.32, 0.27, -0.1], scale: [0.14, 0.14, 0.14], color: '#e6a94f' },
       ]
-    case 'gate':
-      return [
-        { geo: 'box', pos: [-0.35, 0.35, 0], scale: [0.12, 0.7, 0.12], color: '#2f8f5b' },
-        { geo: 'box', pos: [0.35, 0.35, 0], scale: [0.12, 0.7, 0.12], color: '#2f8f5b' },
-        { geo: 'box', pos: [0, 0.78, 0], scale: [1.0, 0.16, 0.3], color: '#c8402f' },
-        { geo: 'box', pos: [0, 0.94, 0], scale: [0.7, 0.14, 0.26], color: '#2f8f5b' },
+    case 'gate': {
+      // The Dragon Gate at Grant and Bush, facing south (+z) down Grant Avenue: four grey stone pillars making a wide central
+      // opening over the street and a narrower one over each sidewalk; a red and green painted frieze with the blue plaque; green
+      // tiled roofs with upturned corners, the central one highest, two dragons chasing a gold pearl along its ridge and fish at
+      // the ends; foo dogs out front; and red lanterns strung up the avenue behind (`scenery`, so the hover box stays on the
+      // gate). About 2.4x true size.
+      const STONE_ = '#cfcac0', TILE = '#3f8f6a', TILE_DARK = '#2c6b4e', RED_ = '#b33a2b', GOLD = '#d9b44a', BLUE = '#2f5f9e', LANTERN = '#d23b2a'
+      const pw = 0.045, pz = 0.07, xc = 0.15, xs = 0.31 // pillar size; inner and outer pillar centres
+      const p: Part[] = [
+        blocks([-xs, -xc, xc, xs].map((x) => [x, 0, pw, pz, -0.05, x === -xc || x === xc ? 0.33 : 0.25]), STONE_),
+        // friezes over each opening, and the plinths
+        blocks([[0, 0, 2 * xc + pw, 0.05, 0.27, 0.33], [-(xc + xs) / 2, 0, xs - xc + pw, 0.045, 0.2, 0.25], [(xc + xs) / 2, 0, xs - xc + pw, 0.045, 0.2, 0.25]], RED_),
+        blocks([[0, 0, 2 * xc + pw + 0.004, 0.052, 0.296, 0.304], [-(xc + xs) / 2, 0, xs - xc + pw + 0.004, 0.047, 0.222, 0.228], [(xc + xs) / 2, 0, xs - xc + pw + 0.004, 0.047, 0.222, 0.228]], GOLD, { detail: true }),
+        blocks([-xs, -xc, xc, xs].map((x) => [x, 0, pw + 0.02, pz + 0.02, -0.05, 0.03]), STONE_, { detail: true }),
+        // the plaque between the central roof and its frieze
+        box(0, 0.335, 0.39, 0, 0.11, 0.058, BLUE, true),
+        box(0, 0.345, 0.38, 0, 0.08, 0.06, GOLD, true),
       ]
+      // roofs: a hipped body, an overhanging eave a tone darker underneath, and four upturned corner tips
+      const roof = (x: number, w: number, y: number, h: number) => {
+        p.push(blocks([[x, 0, w + 0.06, pz + 0.07, y, y + 0.014]], TILE_DARK))
+        p.push(blocks([[x, 0, w + 0.03, pz + 0.04, y + 0.014, y + h]], TILE, { gabled: 'x' }))
+        p.push(blocks([[x, 0, w - 0.04, 0.012, y + h - 0.004, y + h + 0.012]], TILE_DARK, { detail: true }))
+        p.push(blocks([-1, 1].flatMap((sx) => [-1, 1].map((sz) => [x + sx * (w / 2 + 0.025), sz * (pz / 2 + 0.032), 0.014, 0.014, y + 0.008, y + 0.035])), TILE, { detail: true }))
+      }
+      roof(0, 2 * xc + pw, 0.39, 0.075)
+      roof(-(xc + xs) / 2, xs - xc + pw, 0.255, 0.06)
+      roof((xc + xs) / 2, xs - xc + pw, 0.255, 0.06)
+      // dragons chasing the pearl along the central ridge, fish at the ends of the side ridges
+      for (const sx of [-1, 1]) {
+        p.push({ geo: 'sphere', pos: [sx * 0.065, 0.485, 0], scale: [0.04, 0.014, 0.01], color: TILE_DARK, detail: true })
+        p.push({ geo: 'sphere', pos: [sx * 0.03, 0.495, 0], scale: [0.012, 0.012, 0.01], color: TILE_DARK, detail: true })
+        p.push({ geo: 'sphere', pos: [sx * ((xc + xs) / 2 + 0.05), 0.33, 0], scale: [0.01, 0.018, 0.008], color: GOLD, detail: true })
+      }
+      p.push({ geo: 'sphere', pos: [0, 0.5, 0], scale: [0.013, 0.013, 0.013], color: GOLD, detail: true })
+      // foo dogs on plinths before the inner pillars
+      for (const sx of [-1, 1]) {
+        p.push(box(sx * (xc + 0.04), 0, 0.05, 0.1, 0.035, 0.035, STONE_, true))
+        p.push({ geo: 'sphere', pos: [sx * (xc + 0.04), 0.07, 0.1], scale: [0.016, 0.022, 0.018], color: '#b7b1a5', detail: true })
+      }
+      // lanterns strung across Grant Avenue going uphill behind the gate
+      const scenery = (q: Part): Part => ({ ...q, detail: true, scenery: true })
+      const wires: number[][] = [], lamps: [number, number][] = []
+      for (let z = -0.25; z > -1.4; z -= 0.17) {
+        wires.push([0, z, 0.36, 0.004, 0.3, 0.304])
+        for (const x of [-0.12, -0.04, 0.04, 0.12]) lamps.push([x, z])
+      }
+      p.push(scenery(blocks(wires, '#4a4a4a')))
+      for (const [x, z] of lamps) p.push(scenery({ geo: 'sphere', pos: [x, 0.28, z], scale: [0.014, 0.018, 0.014], color: LANTERN }))
+      return p
+    }
     case 'town':
       return [0, 1, 2, 3].map((i) => ({
         geo: 'box' as const,
