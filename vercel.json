@@ -5,6 +5,14 @@
   "outputDirectory": "dist",
   "installCommand": "pnpm install --frozen-lockfile",
   "git": { "deploymentEnabled": { "main": true } },
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "explore-bay-area.vercel.app" }],
+      "destination": "https://sfbayarea.ca/:path*",
+      "permanent": true
+    }
+  ],
   "headers": [
     {
       "source": "/data/(.*)",
