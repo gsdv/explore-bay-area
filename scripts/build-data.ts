@@ -57,13 +57,19 @@ const AREA_PARKS: Record<string, string[]> = {
   crissy: ['Crissy Field', 'Crissy Marsh', 'East Beach'],
   dolores: ['Mission Dolores Park'],
   landsend: ['Lands End'],
-  mttam: ['Mount Tamalpais State Park'],
+  mttam: ['Mount Tamalpais State Park', 'Mount Tamalpais Watershed'],
   muirwoods: ['Muir Woods National Monument'],
 }
 const beachesGeo = osmtogeojson(await osm.fetchBeaches()) as GeoJSON.FeatureCollection
+// Pieces cut to a box [west, south, east, north] before merging. Mount Tamalpais is the State Park plus only the water district's land
+// on the mountain itself: the summit ridge (East Peak is outside the State Park in OSM) and the slopes about 1 km north of it, not
+// the watershed's lakes country running on to Fairfax and Kent Lake.
+const AREA_CLIP: Record<string, [number, number, number, number]> = {
+  'Mount Tamalpais Watershed': [-122.635, 37.9, -122.555, 37.94],
+}
 const piecesGeo = osmtogeojson(await osm.fetchAreaPieces()) as GeoJSON.FeatureCollection
 const { default: mapshaper } = await import('mapshaper')
-const areas: Record<string, number[][]> = {}
+const areas: Record<string, { rings: number[][]; holes: number[][] }> = {}
 for (const [id, names] of Object.entries(AREA_PARKS)) {
   // namesakes elsewhere (a "Golden Gate Park" rec centre 16 km away) are skipped: a piece must come within 3 km of the landmark
   const lm = landmarks.find((l) => l.id === id)!
@@ -77,6 +83,18 @@ for (const [id, names] of Object.entries(AREA_PARKS)) {
   )
   // several pieces: grow 15 m, merge, shrink 10 m, so pieces a path or a creek apart (Crissy Field's, the Panhandle and the park)
   // become one outline. A single piece is used as it is: mapshaper's buffer collapsed Dolores Park's plain rectangle to nothing.
+  for (const f of pieces) {
+    const box = AREA_CLIP[f.properties?.name]
+    if (!box) continue
+    const res: any = await mapshaper.applyCommands(`-i in.json -clip bbox=${box.join(',')} -o out.json format=geojson`, {
+      'in.json': { type: 'FeatureCollection', features: [f] },
+    })
+    const out = JSON.parse(res['out.json'].toString())
+    const polys = (out.geometries ?? out.features?.map((q: GeoJSON.Feature) => q.geometry) ?? []).flatMap((g: GeoJSON.Geometry) =>
+      g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [],
+    )
+    f.geometry = { type: 'MultiPolygon', coordinates: polys }
+  }
   let geoms: GeoJSON.Geometry[] = pieces.map((f) => f.geometry)
   if (pieces.length > 1) {
     const res: any = await mapshaper.applyCommands('-i in.json -buffer 15 -dissolve2 -buffer -10 -simplify interval=3 keep-shapes -o out.json format=geojson', {
@@ -84,20 +102,45 @@ for (const [id, names] of Object.entries(AREA_PARKS)) {
     })
     // a dissolve with no fields comes back as a bare GeometryCollection (like land.ts's counties)
     geoms = (JSON.parse(res['out.json'].toString()) as GeoJSON.GeometryCollection).geometries
-  }
-  areas[id] = []
-  for (const g of geoms) {
-    // outer rings only: holes don't matter to a hover area
-    const polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : []
-    for (const poly of polys) {
-      const ring = poly[0].slice(0, -1).map(([lng, lat]) => project(lat, lng))
-      let a = 0
-      for (let i = 0; i < ring.length; i++) a += ring[i][0] * ring[(i + 1) % ring.length][1] - ring[(i + 1) % ring.length][0] * ring[i][1]
-      if (Math.abs(a / 2) < 0.5) continue // slivers
-      areas[id].push(ring.flatMap(([x, z]) => [Math.round(x * 100) / 100, Math.round(z * 100) / 100]))
+    // the buffer fills holes in: put back each piece's holes that no other piece covers (Muir Woods in the State Park)
+    const polysOf = (g: GeoJSON.Geometry) => (g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [])
+    const inRingLL = (ring: GeoJSON.Position[], [x, y]: number[]) => {
+      let c = false
+      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const [xi, yi] = ring[i], [xj, yj] = ring[j]
+        if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) c = !c
+      }
+      return c
+    }
+    const holes = pieces.flatMap((f, k) => polysOf(f.geometry).flatMap(([, ...hs]) => hs).filter((h) => {
+      const c = [h.reduce((a, q) => a + q[0], 0) / h.length, h.reduce((a, q) => a + q[1], 0) / h.length]
+      return !pieces.some((o, m) => m !== k && polysOf(o.geometry).some(([outer, ...oh]) => inRingLL(outer, c) && !oh.some((q) => inRingLL(q, c))))
+    }))
+    if (holes.length) {
+      // (which outline a hole hangs on doesn't matter: areas.json keeps outlines and holes as two plain lists)
+      const [first, ...rest] = geoms.flatMap(polysOf).map(([outer]) => [outer])
+      geoms = [{ type: 'MultiPolygon', coordinates: [[...first, ...holes], ...rest] }]
     }
   }
-  log('area', id, 'pieces', pieces.length, 'rings', areas[id].length, 'points', areas[id].reduce((n, r) => n + r.length / 2, 0))
+  // outer rings, and the holes in them (Muir Woods is a hole in Mount Tamalpais State Park), in world x, z
+  const flat = (ring: GeoJSON.Position[]) => {
+    const pts = ring.slice(0, -1).map(([lng, lat]) => project(lat, lng))
+    let a = 0
+    for (let i = 0; i < pts.length; i++) a += pts[i][0] * pts[(i + 1) % pts.length][1] - pts[(i + 1) % pts.length][0] * pts[i][1]
+    return Math.abs(a / 2) < 0.5 ? null : pts.flatMap(([x, z]) => [Math.round(x * 100) / 100, Math.round(z * 100) / 100]) // slivers
+  }
+  const area: { rings: number[][]; holes: number[][] } = { rings: [], holes: [] }
+  for (const g of geoms) {
+    const polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : []
+    for (const [outer, ...holes] of polys) {
+      const r = flat(outer)
+      if (!r) continue
+      area.rings.push(r)
+      for (const h of holes) { const q = flat(h); if (q) area.holes.push(q) }
+    }
+  }
+  areas[id] = area
+  log('area', id, 'pieces', pieces.length, 'rings', area.rings.length, 'holes', area.holes.length, 'points', area.rings.reduce((n, r) => n + r.length / 2, 0))
 }
 writeJSON(path.join(OUT, 'areas.json'), areas)
 const parksSvg = `<path fill="#00ff00" fill-opacity="0.8" fill-rule="evenodd" d="${wildD}"/><path fill="#ff0000" fill-opacity="0.9" fill-rule="evenodd" d="${cityD}"/>`

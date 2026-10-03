@@ -22,7 +22,17 @@ function clip(poly: Pt[], axis: 0 | 1, limit: number, keepBelow: boolean): Pt[] 
  * A ground polygon as triangles that follow the terrain: the ring (world x, z) is cut into `cell`-sized squares, each piece
  * triangulated and every vertex lifted to `yAt + lift`. Returns xyz triples, wound to face up.
  */
-export function drapePolygon(ring: Pt[], yAt: (x: number, z: number) => number, cell = 0.5, lift = 0.05): number[] {
+const inside = (ring: Pt[], x: number, z: number) => {
+  let c = false
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, zi] = ring[i], [xj, zj] = ring[j]
+    if (zi > z !== zj > z && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) c = !c
+  }
+  return c
+}
+
+/** `holes` are left out a triangle at a time (by centroid), so their edges are as fine as `cell`: plenty for a hover target. */
+export function drapePolygon(ring: Pt[], yAt: (x: number, z: number) => number, cell = 0.5, lift = 0.05, holes: Pt[][] = []): number[] {
   const xs = ring.map((p) => p[0]), zs = ring.map((p) => p[1])
   const x0 = Math.floor(Math.min(...xs) / cell) * cell, x1 = Math.max(...xs)
   const z0 = Math.floor(Math.min(...zs) / cell) * cell, z1 = Math.max(...zs)
@@ -36,6 +46,7 @@ export function drapePolygon(ring: Pt[], yAt: (x: number, z: number) => number, 
       const tri = earcut(piece.flat())
       for (let i = 0; i < tri.length; i += 3) {
         const [a, b, c] = [piece[tri[i]], piece[tri[i + 1]], piece[tri[i + 2]]]
+        if (holes.some((h) => inside(h, (a[0] + b[0] + c[0]) / 3, (a[1] + b[1] + c[1]) / 3))) continue
         // in (x, z) a positive cross product faces down (y = z cross x), so flip those
         const up = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]) < 0
         for (const p of up ? [a, b, c] : [a, c, b]) pos.push(p[0], yAt(p[0], p[1]) + lift, p[1])

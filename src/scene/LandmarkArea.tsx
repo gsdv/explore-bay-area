@@ -10,8 +10,8 @@ import { useStore } from '../store'
 import { hullMaterial } from './hoverGlow'
 import { useZoomTier } from './viewStore'
 
-/** Outlines of the landmarks that are a whole area (public/data/areas.json, baked from the OSM parks): id -> rings of flat x, z. */
-type Areas = Record<string, number[][]>
+/** Outlines of the landmarks that are a whole area (public/data/areas.json, baked from the OSM parks): id -> outer rings and holes, flat x, z. */
+type Areas = Record<string, { rings: number[][]; holes: number[][] }>
 let pending: Promise<Areas> | null = null
 const loadAreas = () => (pending ??= fetch('/data/areas.json').then((r) => r.json() as Promise<Areas>).catch((): Areas => ({})))
 
@@ -31,11 +31,13 @@ const BAND = 0.2, HALO = 0.7
  * model, so its name label is drawn here instead.
  */
 export function LandmarkArea({ landmark: l, world }: { landmark: Landmark; world: World }) {
-  const [rings, setRings] = useState<[number, number][][]>([])
+  const [{ rings, holes }, setShape] = useState<{ rings: [number, number][][]; holes: [number, number][][] }>({ rings: [], holes: [] })
   useEffect(() => {
     let live = true
+    const pts = (flat: number[]) => Array.from({ length: flat.length / 2 }, (_, i) => [flat[i * 2], flat[i * 2 + 1]] as [number, number])
     loadAreas().then((all) => {
-      if (live) setRings((all[l.id] ?? []).map((flat) => Array.from({ length: flat.length / 2 }, (_, i) => [flat[i * 2], flat[i * 2 + 1]] as [number, number])))
+      const a = all[l.id]
+      if (live && a) setShape({ rings: a.rings.map(pts), holes: a.holes.map(pts) })
     })
     return () => {
       live = false
@@ -52,17 +54,19 @@ export function LandmarkArea({ landmark: l, world }: { landmark: Landmark; world
     const geo = new THREE.BufferGeometry()
     // areas nest (Crissy Field lies inside the Presidio) and the pointer takes the nearest surface, so a smaller area floats its
     // invisible fill a little higher: 5 m above the ground for the biggest, up to 10 m for a small one (the fill is clear at rest)
-    const ha = rings.reduce((sum, r) => sum + Math.abs(r.reduce((a, p, i) => { const q = r[(i + 1) % r.length]; return a + p[0] * q[1] - q[0] * p[1] }, 0) / 2), 0)
+    const size = (r: [number, number][]) => Math.abs(r.reduce((a, p, i) => { const q = r[(i + 1) % r.length]; return a + p[0] * q[1] - q[0] * p[1] }, 0) / 2)
+    const ha = rings.reduce((sum, r) => sum + size(r), 0) - holes.reduce((sum, h) => sum + size(h), 0)
     const lift = 0.05 + 0.05 / (1 + ha / 20)
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(rings.flatMap((r) => drapePolygon(r, yAt, 0.5, lift)), 3))
-    const borders = rings.map((r) => drapeLine(r, yAt))
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(rings.flatMap((r) => drapePolygon(r, yAt, 0.5, lift, holes)), 3))
+    // the border runs round the holes too (Muir Woods inside Mount Tamalpais State Park)
+    const borders = [...rings, ...holes].map((r) => drapeLine(r, yAt))
     const band = (width: number, lift: number) => {
       const g = new THREE.BufferGeometry()
       g.setAttribute('position', new THREE.Float32BufferAttribute(borders.flatMap((b) => ribbon(b, width, lift)), 3))
       return g
     }
     return { ground: geo, outline: band(BAND, 0.02), glow: band(HALO, 0.01) }
-  }, [rings, world])
+  }, [rings, holes, world])
   const tier = useZoomTier()
   const atlas = useStore((s) => s.heat === 'hoods')
   const labelAt = useMemo(() => {

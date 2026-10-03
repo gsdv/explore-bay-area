@@ -252,8 +252,10 @@ vercel.json             build settings + cache headers for Vercel (see Hosting)
   are `scenery`; one `hit` box over the whole block is the hover target and also sizes the pipeline's clearing (hit parts aren't
   `detail`). `street` stays the generic model for Clarion Alley.
   Mount Tamalpais (`tamalpais`) is a model and an area at once: the Gardner fire lookout (~5x) on a rocky crown sunk into East Peak, plus
-  the State Park outline from `AREA_PARKS` (`LandmarkArea` serves `park`, `beach`, `tamalpais` and `forest`: Muir Woods is the same pattern, its redwood grove plus the National Monument outline). East Peak lies just outside that
-  outline in OSM, and the north/east slopes are the MMWD watershed (`Mount Tamalpais Watershed`, not included). Skirts that try to meet
+  an outline from `AREA_PARKS` (`LandmarkArea` serves `park`, `beach`, `tamalpais` and `forest`: Muir Woods is the same pattern, its redwood grove plus the National Monument outline). In OSM the State Park stops short of
+  East Peak, so the outline is the State Park merged with the water district's `Mount Tamalpais Watershed` cut by `AREA_CLIP` to a box
+  ending ~1 km north of the summit (not the lakes country). `areas.json` keeps holes (`{ rings, holes }`): Muir Woods is two holes in
+  the State Park; the merge's buffer fills holes, so uncovered ones are put back, and the drape drops triangles inside them. Skirts that try to meet
   a mountain's slopes stand out like pedestals: the terrain's 80 m pixels round peaks off, so sink the base instead.
   Models on a hilltop stand on the height at their centre only, so run their base below y = 0 (Coit has a green knoll for this).
 - `src/data/quests.ts`: ordered stops with a to-do and a tour `view` each. No persisted progress.
