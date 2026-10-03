@@ -14,7 +14,7 @@ export { useZoomTier, useCameraDistance } from './viewStore'
  *   right-drag / ctrl-drag   orbit around the point at screen centre (rotate + tilt)
  *   scroll / pinch           altitude, anchored on the ground under the cursor (zoom-to-cursor)
  *   arrows / WASD            pan (shift = fast)      Q / E rotate      R / F, PageUp / PageDown straight up / down
- *   double-click             fly to that spot
+ *   double-click / double-tap  fly to that spot (iOS never fires dblclick for touch, so taps are counted here)
  * Pitch follows altitude by default (steep from high up, oblique near the ground); tilting adds an offset.
  * Hard bounds: camera x/z inside the region, altitude between FLOOR and CEILING.
  */
@@ -66,6 +66,10 @@ export function CameraRig({ world }: { world: World }) {
     pointers: new Map<number, { x: number; y: number }>(),
     drag: null as Drag | null,
     pending: null as null | { id: number; x: number; y: number; orbit: boolean },
+    /** the finger that's down on the map, while it could still be a tap; then the last tap, for double-tap */
+    tap: null as null | { id: number; x: number; y: number; t: number },
+    lastTap: null as null | { x: number; y: number; t: number },
+    tapFlew: 0,
     inertia: new THREE.Vector3(),
     anim: null as Anim | null,
     handled: 0,
@@ -115,6 +119,7 @@ export function CameraRig({ world }: { world: World }) {
       if (e.button > 2) return
       s.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
       s.anim = null
+      s.tap = e.pointerType === 'touch' && s.pointers.size === 1 && e.target === el ? { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now() } : null
       if (s.pointers.size === 2) {
         for (const id of s.pointers.keys()) try { root.setPointerCapture(id) } catch {}
         const [a, b] = [...s.pointers.values()]
@@ -136,6 +141,7 @@ export function CameraRig({ world }: { world: World }) {
       if (!pt) return
       pt.x = e.clientX
       pt.y = e.clientY
+      if (s.tap?.id === e.pointerId && Math.hypot(e.clientX - s.tap.x, e.clientY - s.tap.y) > 10) s.tap = null
       if (s.pending && s.pending.id === e.pointerId && !s.drag) {
         if (Math.hypot(e.clientX - s.pending.x, e.clientY - s.pending.y) > 4) {
           root.setPointerCapture(e.pointerId)
@@ -179,8 +185,22 @@ export function CameraRig({ world }: { world: World }) {
         s.tilt = clamp(pitch - autoPitch(s.p.y), TILT.min, TILT.max)
       }
     }
+    const flyToScreen = (x: number, y: number) => {
+      const g = groundAt(x, y, 0, new THREE.Vector3())
+      useStore.getState().flyTo(g.x, g.z, Math.max(6, s.centerDist * 0.45))
+    }
     const pup = (e: PointerEvent) => {
       s.pointers.delete(e.pointerId)
+      const now = performance.now()
+      if (s.tap?.id === e.pointerId && e.type === 'pointerup' && now - s.tap.t < 300) {
+        const last = s.lastTap
+        if (last && now - last.t < 380 && Math.hypot(e.clientX - last.x, e.clientY - last.y) < 40) {
+          s.lastTap = null
+          s.tapFlew = now
+          flyToScreen(e.clientX, e.clientY)
+        } else s.lastTap = { x: e.clientX, y: e.clientY, t: now }
+      }
+      s.tap = null
       try { root.releasePointerCapture(e.pointerId) } catch {}
       if (s.drag?.kind === 'pan' && performance.now() - s.drag.lastT < 80) s.inertia.copy(s.drag.vel)
       s.drag = null
@@ -195,9 +215,8 @@ export function CameraRig({ world }: { world: World }) {
       s.anim = null
     }
     const dbl = (e: MouseEvent) => {
-      if (e.target !== el) return
-      const g = groundAt(e.clientX, e.clientY, 0, new THREE.Vector3())
-      useStore.getState().flyTo(g.x, g.z, Math.max(6, s.centerDist * 0.45))
+      if (e.target !== el || performance.now() - s.tapFlew < 600) return // Android also sends dblclick for a double-tap
+      flyToScreen(e.clientX, e.clientY)
     }
     const ctx = (e: Event) => e.preventDefault()
     window.addEventListener('keydown', down)

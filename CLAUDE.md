@@ -101,10 +101,16 @@ vercel.json             build settings + cache headers for Vercel (see Hosting)
   shows the dot line top-right, the quest list and Layers panel hide, company chips hide (route pins carry
   the names), landmarks lose labels/hover/select. No check-off state: the owner removed it on purpose.
   Esc exits when nothing else is open. Anything new that adds clutter should respect `activeQuest`.
-- **Layers panel folds.** Its header is a button and `L` toggles it (local state in `Layers.tsx`, like the quest list).
+- **Layers panel folds.** Its header is a button and `L` toggles it (fold state for it and the quest list lives in `ui/panels.ts`).
   The fold is a `grid-template-rows: 1fr → 0fr` transition; rows are pinned to the panel's bottom edge so they stay put
   while the top edge comes down. The body uses `overflow: clip` (unscrollable) and the rent key sits outside it, hidden
   while folded. Global key handlers must let checkboxes through: they keep focus after a click.
+- **Phones.** One breakpoint, `COMPACT` in `lib/media.ts` (`max-width: 640px` or `max-height: 520px`), mirrored by the last
+  `@media` block in `styles.css`. There the quest list and Layers start folded and open one at a time (`ui/panels.ts`; selecting
+  something folds both), the minimap shrinks into the bottom-right corner with Layers / quest progress beside it, and the detail
+  card is a sheet capped below the screen centre (where fly-to puts its subject; a short landscape screen gets a right-hand column).
+  `TOUCH` swaps the help to gestures. Double-tap is counted in `CameraRig` because iOS never sends `dblclick` for touch. Company
+  chips open out closer in (`EXPAND_DIST_COMPACT`), and the quest overview backs off by the aspect ratio so the route fits across.
 - **Landmark hit-testing** uses an invisible bounding box around each model (`Landmarks.tsx`), so gaps
   between tower legs or bridge spans still count as hovering. Keep it when adding kinds.
 - **Transit lines are clipped** to the terrain rectangle in `build-data.ts` (`clipToWorld`); Overpass

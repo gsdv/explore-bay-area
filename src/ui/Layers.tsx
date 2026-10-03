@@ -1,6 +1,7 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import { useStore, type TransitMode } from '../store'
 import { RENT_CLASSES, fmtK } from '../lib/rent'
+import { panelStore } from './panels'
 
 const MODES: { m: TransitMode; label: string; swatch: string }[] = [
   { m: 'rail', label: 'BART · Caltrain · Muni Metro', swatch: '#d13c3c' },
@@ -18,7 +19,8 @@ export function Layers() {
   const toggleHeat = useStore((s) => s.toggleHeat)
   const toggle = useStore((s) => s.toggle)
   const quest = useStore((s) => s.activeQuest)
-  const [open, setOpen] = useState(true)
+  const open = panelStore((s) => s.layers)
+  const setPanel = panelStore((s) => s.set)
   const panel = useRef<HTMLElement>(null)
   const body = useRef<HTMLDivElement>(null)
   const rentRow = useRef<HTMLLabelElement>(null)
@@ -30,11 +32,11 @@ export function Layers() {
       if (e.key.toLowerCase() !== 'l' || e.metaKey || e.ctrlKey || e.altKey || e.repeat) return
       const t = e.target as HTMLElement | null
       if (t && (/^(TEXTAREA|SELECT)$/.test(t.tagName) || (t.tagName === 'INPUT' && (t as HTMLInputElement).type !== 'checkbox'))) return
-      setOpen((o) => !o)
+      setPanel('layers', !panelStore.getState().layers)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [quest])
+  }, [quest, setPanel])
 
   // the rent key lives outside the folding body (which clips), so tell it where its row is. Rows are pinned to the
   // panel's bottom edge while it folds, so the distance from that edge holds in every state.
@@ -54,7 +56,7 @@ export function Layers() {
 
   return (
     <aside ref={panel} className={'layers' + (quest ? ' is-away' : '') + (open ? '' : ' is-collapsed')} aria-hidden={!!quest}>
-      <button className="layers__head" onClick={() => setOpen((o) => !o)} aria-expanded={open} title={open ? 'Minimise (L)' : 'Show layers (L)'}>
+      <button className="layers__head" onClick={() => setPanel('layers', !open)} aria-expanded={open} title={open ? 'Minimise (L)' : 'Show layers (L)'}>
         <span className="layers__title">Layers</span>
         <kbd className="layers__key">L</kbd>
         <span className="layers__chev">{open ? '–' : '+'}</span>

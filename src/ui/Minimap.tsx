@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useView } from '../scene/viewStore'
 import { useStore } from '../store'
 import { WORLD, worldToUV, toUV } from '../lib/geo'
+import { TOUCH, useMedia } from '../lib/media'
 
 /** The picture behind the open map. Only drawn once opened, but fetched and decoded in the background beforehand (see below). */
 const MAP_IMAGE = '/data/map-small.webp'
@@ -31,6 +32,7 @@ export function Minimap() {
   const view = useView()
   const flyTo = useStore((s) => s.flyTo)
   const box = useRef<HTMLDivElement>(null)
+  const touch = useMedia(TOUCH)
 
   useEffect(() => {
     fetch('/data/outline.json').then((r) => r.json()).then(setOutline).catch(() => setOutline([]))
@@ -104,7 +106,7 @@ export function Minimap() {
             <circle r="16" className="minimap__dot" />
           </g>
         </svg>
-        <div className="minimap__hint">{open ? 'Click anywhere to fly there · Esc to close' : 'The Bay'}</div>
+        <div className="minimap__hint">{open ? (touch ? 'Tap anywhere to fly there' : 'Click anywhere to fly there · Esc to close') : 'The Bay'}</div>
       </div>
     </>
   )

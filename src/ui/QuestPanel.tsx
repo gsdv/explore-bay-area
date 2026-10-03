@@ -1,17 +1,18 @@
-import { useState } from 'react'
 import { quests } from '../data/quests'
 import { useStore } from '../store'
+import { panelStore } from './panels'
 
 /** The quest list. Hidden while a quest is active; the header takes over as the tour guide. */
 export function QuestPanel() {
   const active = useStore((s) => s.activeQuest)
   const openQuest = useStore((s) => s.openQuest)
-  const [open, setOpen] = useState(true)
+  const open = panelStore((s) => s.quests)
+  const setPanel = panelStore((s) => s.set)
   if (active) return null
 
   return (
     <aside className={'quests' + (open ? '' : ' is-collapsed')}>
-      <button className="quests__head" onClick={() => setOpen((o) => !o)}>
+      <button className="quests__head" onClick={() => setPanel('quests', !open)} aria-expanded={open}>
         <span className="quests__eyebrow">Nº —</span>
         <span className="quests__title">Quests</span>
         <span className="quests__chev">{open ? '–' : '+'}</span>

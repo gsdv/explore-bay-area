@@ -73,7 +73,9 @@ export const useStore = create<State>((set, get) => ({
     const cx = xs.reduce((a, p) => a + p[0], 0) / xs.length
     const cz = xs.reduce((a, p) => a + p[1], 0) / xs.length
     const span = Math.max(...xs.map((p) => Math.hypot(p[0] - cx, p[1] - cz)))
-    get().flyTo(cx, cz, Math.max(18, span * 2.6), false, { duration: 1.8 })
+    // the lens is fixed vertically, so a portrait phone sees less ground across: back off until the route fits sideways
+    const narrow = Math.min(2.2, Math.max(1, window.innerHeight / window.innerWidth))
+    get().flyTo(cx, cz, Math.max(18, span * 2.6 * narrow), false, { duration: 1.8 })
   },
   beginQuest: () => get().goToStop(0),
   goToStop: (i) => {

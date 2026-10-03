@@ -1,5 +1,6 @@
 import { helpStore } from './Help'
 import { useStore } from '../store'
+import { TOUCH, useMedia } from '../lib/media'
 
 export function Header() {
   const openHelp = helpStore((s) => s.set)
@@ -9,6 +10,7 @@ export function Header() {
   const beginQuest = useStore((s) => s.beginQuest)
   const nextStop = useStore((s) => s.nextStop)
   const prevStop = useStore((s) => s.prevStop)
+  const touch = useMedia(TOUCH)
 
   if (!quest) {
     return (
@@ -20,7 +22,7 @@ export function Header() {
             </h1>
             <button className="help-btn" onClick={() => openHelp(true)} aria-label="Controls help" title="Controls (?)">?</button>
           </div>
-          <p className="header__sub">A field guide for newcomers. Pick a quest, explore the city. Press <b>?</b> for controls.</p>
+          <p className="header__sub">A field guide for newcomers. Pick a quest, explore the city. {touch ? <>Tap <b>?</b> for gestures.</> : <>Press <b>?</b> for controls.</>}</p>
         </div>
       </header>
     )

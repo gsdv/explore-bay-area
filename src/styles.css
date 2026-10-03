@@ -17,9 +17,11 @@
 }
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
-body { font-family: var(--sans); color: var(--ink); background: #dbe6ee; overflow: hidden; -webkit-font-smoothing: antialiased; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body { font-family: var(--sans); color: var(--ink); background: #dbe6ee; overflow: hidden; overscroll-behavior: none; -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent; }
 button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
-.app { position: relative; width: 100%; height: 100%; }
+button, label, a { touch-action: manipulation; } /* no double-tap page zoom on controls */
+.app { position: relative; width: 100%; height: 100%; height: 100dvh; }
 .app > canvas { display: block; }
 
 /* ---------- panels (a shared "printed card" look) ---------- */
@@ -106,7 +108,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .layers__legend-ticks span { position: absolute; top: 2px; transform: translateX(-50%); white-space: nowrap; }
 
 /* ---------- detail card ---------- */
-.card { --card-top: var(--edge); position: absolute; right: var(--edge); top: var(--card-top); width: 360px; max-height: calc(100% - var(--card-top) - var(--minimap-size) - var(--edge) - 20px); overflow: auto; padding: 18px 20px 20px; z-index: 120; animation: card-in 0.32s cubic-bezier(.2,.8,.2,1) both; }
+.card { --card-top: var(--edge); position: absolute; right: var(--edge); top: var(--card-top); width: min(360px, calc(100% - 2 * var(--edge))); max-height: calc(100% - var(--card-top) - var(--minimap-size) - var(--edge) - 20px); overflow: auto; padding: 18px 20px 20px; z-index: 120; animation: card-in 0.32s cubic-bezier(.2,.8,.2,1) both; }
 .card > * { animation: rise-in 0.36s cubic-bezier(.2,.8,.2,1) both; }
 .card > :nth-child(2) { animation-delay: 0.05s; }
 .card > :nth-child(3) { animation-delay: 0.09s; }
@@ -180,16 +182,6 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .loading__stage { font-family: var(--mono); font-size: 12px; color: var(--ink-2); margin-top: 8px; }
 .loading__hint { font-family: var(--mono); font-size: 11px; color: var(--ink-3); margin-top: 10px; }
 
-@media (max-width: 760px) {
-  .quests { width: calc(100% - 44px); top: 88px; max-height: 40%; }
-  .card { width: calc(100% - 44px); top: auto; bottom: 22px; max-height: 55%; }
-  .layers { left: 22px; bottom: 22px; }
-}
-/* no room beside the panel: the key sits on top of it instead */
-@media (max-width: 520px) {
-  .layers__legend { left: -1.5px; bottom: calc(100% + 8px); transform: translateY(8px); }
-  .layers__legend.is-on { transform: none; }
-}
 
 /* ---------- minimap ---------- */
 .minimap {
@@ -217,14 +209,13 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .is-open .minimap__dot { r: 10; stroke-width: 4; }
 .is-open .minimap__cone { d: path('M0 0 L80 -38 L80 38 Z'); }
 .minimap__hint { position: absolute; left: 0; right: 0; bottom: 0; padding: 3px 8px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-2); background: rgba(247,242,231,0.9); border-top: 1px solid var(--ink); pointer-events: none; }
-@media (max-width: 760px) { .minimap { --minimap-size: 120px; } .layers { bottom: 160px; } }
 
 /* ---------- help + generic modal ---------- */
 .header__row { display: flex; align-items: center; gap: 12px; }
 .help-btn { pointer-events: auto; flex: none; width: 30px; height: 30px; margin-top: 2px; background: var(--paper); border: 1.5px solid var(--ink); box-shadow: 2px 2px 0 var(--ink); font-family: var(--serif); font-size: 18px; font-weight: 600; line-height: 1; z-index: 105; }
 .help-btn:hover { background: #fff; color: var(--orange); }
 .modal-scrim { position: fixed; inset: 0; background: rgba(27,29,26,0.35); z-index: 200; display: grid; place-items: center; animation: fade-in 0.2s both; }
-.modal { position: relative; width: 420px; max-width: calc(100vw - 44px); padding: 18px 20px 20px; animation: modal-in 0.3s cubic-bezier(.2,.8,.2,1) both; }
+.modal { position: relative; width: 420px; max-width: calc(100vw - 44px); max-height: calc(100% - 2 * var(--edge)); overflow: auto; padding: 18px 20px 20px; animation: modal-in 0.3s cubic-bezier(.2,.8,.2,1) both; }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes modal-in { from { opacity: 0; transform: translateY(14px) scale(0.97); } to { opacity: 1; transform: none; } }
 .help__rows { margin: 0 0 14px; padding: 0; border-top: 1px solid var(--ink); }
@@ -252,3 +243,62 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .quest-progress__label { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-2); text-align: right; margin-top: 2px; }
 .is-quest .header__sub--quest { max-width: 460px; }
 .card.is-below { --card-top: 96px; }
+
+/* ---------- phones (and short landscape screens): COMPACT in src/lib/media.ts ----------
+   The header keeps the top, the minimap the bottom-right corner, and Layers / quest progress the strip beside it.
+   The quest list and Layers start folded and open one at a time (ui/panels.ts); the detail card is a sheet over the bottom. */
+@media (max-width: 640px), (max-height: 520px) {
+  :root { --edge: 12px; --minimap-size: 92px; --beside-map: calc(100% - var(--minimap-size) - 3 * var(--edge)); }
+  .header { top: 12px; left: var(--edge); right: var(--edge); max-width: 560px; }
+  .header__row { gap: 10px; }
+  .header__title { font-size: 27px; }
+  .header__sub { font-size: 10.5px; max-width: 300px; margin-top: 5px; }
+  .help-btn { width: 32px; height: 32px; margin-top: 0; }
+
+  .quests { top: 98px; left: var(--edge); width: min(320px, calc(100% - 2 * var(--edge))); max-height: calc(100% - 98px - var(--minimap-size) - 3 * var(--edge)); }
+  .quests__head { padding: 10px 14px; }
+  .quest { padding: 9px 14px; }
+
+  .layers { left: var(--edge); bottom: var(--edge); min-width: 0; width: min(250px, var(--beside-map)); }
+  .layers__head { padding: 10px 12px 9px; }
+  .layers__body { padding: 0 12px; }
+  .layers__key { display: none; }
+  /* no room beside the panel (the minimap is there): the key sits on top of it instead */
+  .layers__legend { left: -1.5px; bottom: calc(100% + 8px); transform: translateY(8px); }
+  .layers__legend.is-on { transform: none; }
+
+  .card { left: var(--edge); right: var(--edge); top: auto; bottom: var(--edge); width: auto; max-height: min(46%, calc(100% - 110px)); padding: 14px 16px 16px; z-index: 140; /* stays under the screen centre, where fly-to puts its subject */ animation-name: sheet-in; }
+  .card__title { font-size: 23px; margin: 4px 0 10px; padding-right: 22px; }
+  .card__close { top: 4px; right: 4px; width: 36px; height: 36px; }
+  .card__blurb { font-size: 13.5px; }
+
+  /* quest tour: the header is the guide; progress moves down beside the minimap */
+  .header__eyebrow { min-width: 0; }
+  .header__exit { flex: none; margin-left: auto; padding: 5px 8px; }
+  .header__sub--quest, .is-quest .header__sub--quest { max-width: none; font-size: 11px; }
+  .tour { max-width: 100%; }
+  .tour__btn { padding: 8px 10px; }
+  .tour__btn--primary { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .quest-frame { border-width: 5px; }
+  @keyframes frame-in { from { opacity: 0; border-width: 0; } to { opacity: 1; border-width: 5px; } }
+  .quest-progress { top: auto; right: auto; left: var(--edge); bottom: var(--edge); width: min(290px, var(--beside-map)); padding: 8px 10px 6px; }
+  .quest-progress svg { width: 100%; height: auto; }
+  .quest-progress__label { text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .minimap.is-open { --size: min(92vw, 78vh); }
+  .minimap__hint { font-size: 9px; padding: 2px 6px; }
+  .modal { padding: 16px 16px 18px; }
+  .help__row { grid-template-columns: minmax(0, 150px) 1fr; }
+  .loading__box { margin: 0 var(--edge); padding: 22px 24px; }
+  .loading__title { font-size: 25px; }
+}
+/* a phone on its side: wide but short, so the card is a full-height column on the right instead of a strip */
+@media (max-height: 520px) and (min-width: 641px) {
+  .card { left: auto; top: var(--edge); width: min(360px, 48%); max-height: none; animation-name: card-in; }
+}
+@keyframes sheet-in { from { opacity: 0; transform: translateY(24px); box-shadow: 0 0 0 var(--ink); } to { opacity: 1; transform: none; box-shadow: var(--shadow); } }
+/* fingers need bigger rows than a cursor does */
+@media (pointer: coarse) {
+  .layers__row { padding: 5px 0; }
+  .layers__row input { width: 16px; height: 16px; }
+}

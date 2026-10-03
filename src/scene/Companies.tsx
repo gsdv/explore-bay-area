@@ -6,9 +6,12 @@ import { project, UNIT, BUILDING_EXAGGERATION } from '../lib/geo'
 import type { World } from '../lib/world'
 import { useStore } from '../store'
 import { useZoomTier, useCameraDistance } from './viewStore'
+import { COMPACT, useMedia } from '../lib/media'
 
-/** closer than this (world units to the screen-centre point) chips show their name; further away, logo only */
+/** closer than this (world units to the screen-centre point) chips show their name; further away, logo only. A phone shows
+ *  the same depth of ground in a third of the width, so names wait until you're closer there. */
 const EXPAND_DIST = 34
+const EXPAND_DIST_COMPACT = 14
 
 const fmtCap = (b: number) => (b >= 1000 ? `$${(b / 1000).toFixed(1)}T` : `$${Math.round(b)}B`)
 
@@ -16,7 +19,8 @@ export function Companies({ world }: { world: World }) {
   const show = useStore((s) => s.showCompanies)
   const quest = useStore((s) => s.activeQuest)
   const tier = useZoomTier()
-  const compact = useCameraDistance() > EXPAND_DIST
+  const narrow = useMedia(COMPACT)
+  const compact = useCameraDistance() > (narrow ? EXPAND_DIST_COMPACT : EXPAND_DIST)
   const placed = useMemo(
     () =>
       companies.map((c) => {
