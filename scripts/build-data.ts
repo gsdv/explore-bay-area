@@ -57,6 +57,7 @@ const AREA_PARKS: Record<string, string[]> = {
   crissy: ['Crissy Field', 'Crissy Marsh', 'East Beach'],
   dolores: ['Mission Dolores Park'],
   landsend: ['Lands End'],
+  mttam: ['Mount Tamalpais State Park'],
 }
 const beachesGeo = osmtogeojson(await osm.fetchBeaches()) as GeoJSON.FeatureCollection
 const piecesGeo = osmtogeojson(await osm.fetchAreaPieces()) as GeoJSON.FeatureCollection

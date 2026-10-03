@@ -519,6 +519,37 @@ export function landmarkParts(l: Landmark, ground?: BridgeGround): Part[] {
         { ...wallOpenings(0, -zb + 0.17, 0.06, 0.26, 0.28, 0.36, 4, 0.006, { axis: 1, flat: true }), color: WHITE },
       ]
     }
+    case 'tamalpais': {
+      // Mount Tamalpais: the terrain already has the mountain, so the model is what stands on East Peak: the Gardner fire
+      // lookout (1936), a rough stone base tapering up two storeys to a wooden cab with windows all round, a catwalk, a hipped
+      // roof and a flagpole, on the summit's rocky knoll. ~5x true size, or it vanishes on a 784 m mountain. The whole State
+      // Park is the landmark's hoverable outline (areas.json).
+      const ROCK = '#a9a08a', STONE_ = '#9d958a', WOOD = '#6e4e36', CAB = '#e9e2d0', GLASS_ = '#3e4a52', ROOF_ = '#5a3f2e'
+      const sq = (y0: number, y1: number, r0: number, r1: number, color: string, detail = false): Part =>
+        ({ geo: 'cyl', pos: [0, (y0 + y1) / 2, 0], scale: [2 * r0 * Math.SQRT2, y1 - y0, 2 * r0 * Math.SQRT2], color, detail, args: [r4(0.5 * r1 / r0), 0.5, 4, 1, false, Math.PI / 4] })
+      const yb = 0.05, yc = 0.42, yr = 0.58
+      return [
+        // the summit's rocky crown, sunk deep: the terrain's 80 m pixels round the real peak off, and any skirt wide enough to
+        // meet the slopes stood out from them like a pedestal
+        tier(0, -0.7, 0.02, 0.42, 0.3, ROCK, 9),
+        { geo: 'sphere', pos: [0.22, 0.02, 0.1], scale: [0.14, 0.07, 0.11], color: ROCK, detail: true, args: [1, 7, 5] },
+        { geo: 'sphere', pos: [-0.2, 0.0, -0.14], scale: [0.12, 0.06, 0.1], color: ROCK, detail: true, args: [1, 7, 5] },
+        sq(yb - 0.1, yc, 0.21, 0.16, STONE_),
+        // the door and a window in the stone, the stair up the south side
+        box(0, yb, yb + 0.14, 0.17, 0.07, 0.02, '#3b3127', true),
+        box(0.09, yb + 0.2, yb + 0.27, 0.19 - 0.012, 0.05, 0.02, '#3b3127', true),
+        box(-0.16, yb - 0.06, yb + 0.09, 0.22, 0.12, 0.12, STONE_, true),
+        // the catwalk, the cab with its band of windows, the roof and the flag
+        box(0, yc, yc + 0.025, 0, 0.44, 0.44, WOOD),
+        blocks([-1, 1].flatMap((sd) => [[0, sd * 0.215, 0.44, 0.008, yc + 0.025, yc + 0.075], [sd * 0.215, 0, 0.008, 0.44, yc + 0.025, yc + 0.075]]), WOOD, { detail: true }),
+        box(0, yc + 0.025, yr, 0, 0.3, 0.3, CAB),
+        box(0, yc + 0.06, yr - 0.02, 0, 0.306, 0.306, GLASS_, true),
+        blocks([-1, 0, 1].flatMap((k) => [[k * 0.1, 0.153, 0.012, 0.004, yc + 0.06, yr - 0.02], [k * 0.1, -0.153, 0.012, 0.004, yc + 0.06, yr - 0.02], [0.153, k * 0.1, 0.004, 0.012, yc + 0.06, yr - 0.02], [-0.153, k * 0.1, 0.004, 0.012, yc + 0.06, yr - 0.02]]), CAB, { detail: true }),
+        blocks([[0, 0, 0.4, 0.4, yr, yr + 0.12]], ROOF_, { pyramid: true }),
+        box(0.12, yr + 0.05, yr + 0.36, 0.12, 0.008, 0.008, '#4a4a4a', true),
+        box(0.16, yr + 0.29, yr + 0.35, 0.12, 0.08, 0.004, ORANGE, true),
+      ]
+    }
     case 'peak':
       return [
         { geo: 'cone', pos: [0, 0.35, 0], scale: [1, 0.7, 1], color: '#c9b98f', args: [0.55, 6] },

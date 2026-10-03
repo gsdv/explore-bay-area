@@ -251,6 +251,10 @@ vercel.json             build settings + cache headers for Vercel (see Hosting)
   in (-0.36 per unit east) and lifted 15 m because the terrain mesh (~150 m vertices) runs above the heightmap there. Its lining houses
   are `scenery`; one `hit` box over the whole block is the hover target and also sizes the pipeline's clearing (hit parts aren't
   `detail`). `street` stays the generic model for Clarion Alley.
+  Mount Tamalpais (`tamalpais`) is a model and an area at once: the Gardner fire lookout (~5x) on a rocky crown sunk into East Peak, plus
+  the State Park outline from `AREA_PARKS` (`LandmarkArea` serves `park`, `beach` and `tamalpais`). East Peak lies just outside that
+  outline in OSM, and the north/east slopes are the MMWD watershed (`Mount Tamalpais Watershed`, not included). Skirts that try to meet
+  a mountain's slopes stand out like pedestals: the terrain's 80 m pixels round peaks off, so sink the base instead.
   Models on a hilltop stand on the height at their centre only, so run their base below y = 0 (Coit has a green knoll for this).
 - `src/data/quests.ts`: ordered stops with a to-do and a tour `view` each. No persisted progress.
 - Restaurant heatmap: `osm.fetchFood()` (amenity=restaurant|cafe|fast_food, bars excluded on purpose) is binned,
