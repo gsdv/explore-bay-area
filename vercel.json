@@ -13,6 +13,7 @@
       "permanent": true
     }
   ],
+  "rewrites": [{ "source": "/emma", "destination": "/emma/index.html" }],
   "headers": [
     {
       "source": "/data/(.*)",
