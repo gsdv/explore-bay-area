@@ -2,15 +2,15 @@ import { fileURLToPath } from 'node:url'
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// The dev server's SPA fallback would answer /emma with the main app; send it to its own page (vercel.json does the same).
+// The dev and preview servers' SPA fallback would answer /emma with the main app; send it to its own page (vercel.json does the same).
+const toEmma = (req: { url?: string }, _res: unknown, next: () => void) => {
+  if (req.url?.match(/^\/emma(\?|$)/)) req.url = req.url.replace('/emma', '/emma/')
+  next()
+}
 const emmaRoute: Plugin = {
   name: 'emma-route',
-  configureServer(server) {
-    server.middlewares.use((req, _res, next) => {
-      if (req.url?.match(/^\/emma(\?|$)/)) req.url = req.url.replace('/emma', '/emma/')
-      next()
-    })
-  },
+  configureServer: (server) => void server.middlewares.use(toEmma),
+  configurePreviewServer: (server) => void server.middlewares.use(toEmma),
 }
 
 export default defineConfig({
