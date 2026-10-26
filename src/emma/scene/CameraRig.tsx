@@ -1,0 +1,383 @@
+import { useEffect, useRef } from 'react'
+import { useFrame, useThree } from '@react-three/fiber'
+import * as THREE from 'three'
+import { useStore } from '../store'
+import { HOME_AT, project } from '../../lib/geo'
+import type { World } from '../world'
+import { BOX } from '../region'
+import { viewStore, type ZoomTier } from './viewStore'
+
+/**
+ * Map camera, "fly over a toy city" model:
+ *   left-drag / one finger   grab the ground and pan (with inertia)
+ *   right-drag / ctrl-drag   orbit around the point at screen centre (rotate + tilt)
+ *   scroll / pinch           altitude, anchored on the ground under the cursor (zoom-to-cursor)
+ *   arrows / WASD            pan (shift = fast)      Q / E rotate      R / F, PageUp / PageDown straight up / down
+ *   double-click / double-tap  fly to that spot (iOS never fires dblclick for touch, so taps are counted here)
+ * Pitch follows altitude by default (steep from high up, oblique near the ground); tilting adds an offset.
+ * Hard bounds: the screen-centre ground point inside Emma's box (region.ts), altitude between FLOOR and CEILING.
+ */
+const FLOOR = 3.4 // world units (1 = 100 m) above sea level; clears most buildings
+const CEILING = 260 // the whole box fits in view from about here
+const PITCH = { min: 0.2, max: 1.5, autoLow: 0.42, autoHigh: 1.3, altLow: 4, altHigh: 250 }
+const TILT = { min: -0.5, max: 0.6 }
+const MARGIN = 0.97
+const FIT = 2.4 // fly-to distance per unit of target height (42° lens)
+const [SF_X, SF_Z] = project(HOME_AT.lat, HOME_AT.lng)
+export const HOME = { x: SF_X, z: SF_Z, yaw: 0.46, alt: 30 }
+
+const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v))
+const smooth = (t: number) => t * t * (3 - 2 * t)
+const ease = (t: number) => 1 - Math.pow(1 - t, 3)
+/** default pitch (radians below horizontal) for an altitude */
+const autoPitch = (alt: number) => {
+  const t = clamp((Math.log(alt) - Math.log(PITCH.altLow)) / (Math.log(PITCH.altHigh) - Math.log(PITCH.altLow)), 0, 1)
+  return PITCH.autoLow + (PITCH.autoHigh - PITCH.autoLow) * smooth(t)
+}
+/** view direction for yaw (0 = north) and pitch (down from horizontal) */
+const dirOf = (yaw: number, pitch: number, out: THREE.Vector3) =>
+  out.set(-Math.sin(yaw) * Math.cos(pitch), -Math.sin(pitch), -Math.cos(yaw) * Math.cos(pitch))
+
+const KEYMAP: Record<string, string> = {
+  ArrowUp: 'f', KeyW: 'f', ArrowDown: 'b', KeyS: 'b', ArrowLeft: 'l', KeyA: 'l', ArrowRight: 'r', KeyD: 'r',
+  KeyQ: 'rl', KeyE: 'rr', KeyR: 'up', PageUp: 'up', KeyF: 'down', PageDown: 'down', ShiftLeft: 'fast', ShiftRight: 'fast',
+}
+
+type Anim = { t: number; dur: number; from: { p: THREE.Vector3; yaw: number; pitch: number }; to: { p: THREE.Vector3; yaw: number; pitch: number } }
+type Drag =
+  | { kind: 'pan'; plane: number; last: THREE.Vector3; vel: THREE.Vector3; lastT: number }
+  | { kind: 'orbit'; c: THREE.Vector3; d: number; lx: number; ly: number }
+  | { kind: 'pinch'; d0: number; alt0: number; a0: number; my0: number }
+
+export function CameraRig({ world }: { world: World }) {
+  const { camera, gl } = useThree()
+  const fly = useStore((s) => s.fly)
+  const s = useRef({
+    p: new THREE.Vector3(),
+    yaw: HOME.yaw,
+    tilt: 0,
+    pitch: autoPitch(HOME.alt),
+    altGoal: HOME.alt,
+    anchor: new THREE.Vector3(),
+    center: new THREE.Vector3(HOME.x, 0, HOME.z),
+    centerDist: 40,
+    keys: new Set<string>(),
+    pointers: new Map<number, { x: number; y: number }>(),
+    drag: null as Drag | null,
+    pending: null as null | { id: number; x: number; y: number; orbit: boolean },
+    /** the finger that's down on the map, while it could still be a tap; then the last tap, for double-tap */
+    tap: null as null | { id: number; x: number; y: number; t: number },
+    lastTap: null as null | { x: number; y: number; t: number },
+    tapFlew: 0,
+    inertia: new THREE.Vector3(),
+    anim: null as Anim | null,
+    handled: 0,
+    published: 0,
+    init: false,
+  }).current
+  const tmp = useRef({ v: new THREE.Vector3(), d: new THREE.Vector3(), g: new THREE.Vector3() }).current
+
+  /** ground hit for a client position on a horizontal plane; falls back to a far point when looking at the sky */
+  const groundAt = (clientX: number, clientY: number, planeY: number, out: THREE.Vector3) => {
+    const r = gl.domElement.getBoundingClientRect()
+    tmp.v.set(((clientX - r.left) / r.width) * 2 - 1, -((clientY - r.top) / r.height) * 2 + 1, 0.5).unproject(camera).sub(camera.position).normalize()
+    let t = (planeY - camera.position.y) / tmp.v.y
+    if (!(t > 0) || t > 2000) t = 2000
+    return out.copy(camera.position).addScaledVector(tmp.v, t)
+  }
+
+  useEffect(() => {
+    const el = gl.domElement
+    // listen on the container so labels (drei Html, siblings of the canvas) don't swallow wheel/touch
+    const root = el.parentElement ?? el
+    const isTyping = (e: KeyboardEvent) => /^(INPUT|TEXTAREA|SELECT)$/.test((e.target as HTMLElement)?.tagName ?? '')
+    const down = (e: KeyboardEvent) => {
+      if (isTyping(e)) return
+      const k = KEYMAP[e.code]
+      if (!k) return
+      s.keys.add(k)
+      if (e.code.startsWith('Arrow') || e.code.startsWith('Page')) e.preventDefault()
+    }
+    const up = (e: KeyboardEvent) => {
+      const k = KEYMAP[e.code]
+      if (k) s.keys.delete(k)
+    }
+    const blur = () => s.keys.clear()
+
+    const beginDrag = (x: number, y: number, orbit: boolean) => {
+      if (orbit) {
+        s.drag = { kind: 'orbit', c: s.center.clone(), d: s.centerDist, lx: x, ly: y }
+      } else {
+        const plane = world.heights.yAt(s.center.x, s.center.z)
+        s.drag = { kind: 'pan', plane, last: groundAt(x, y, plane, new THREE.Vector3()), vel: new THREE.Vector3(), lastT: performance.now() }
+        s.inertia.set(0, 0, 0)
+        root.style.cursor = 'grabbing'
+      }
+    }
+    const pdown = (e: PointerEvent) => {
+      if (e.button > 2) return
+      s.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+      s.anim = null
+      s.tap = e.pointerType === 'touch' && s.pointers.size === 1 && e.target === el ? { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now() } : null
+      if (s.pointers.size === 2) {
+        for (const id of s.pointers.keys()) try { root.setPointerCapture(id) } catch {}
+        const [a, b] = [...s.pointers.values()]
+        s.pending = null
+        s.drag = { kind: 'pinch', d0: Math.hypot(a.x - b.x, a.y - b.y), alt0: s.p.y, a0: Math.atan2(b.y - a.y, b.x - a.x), my0: (a.y + b.y) / 2 }
+        return
+      }
+      const orbit = e.button === 2 || e.button === 1 || e.ctrlKey || e.metaKey
+      if (e.target === el) {
+        root.setPointerCapture(e.pointerId)
+        beginDrag(e.clientX, e.clientY, orbit)
+      } else {
+        // pressed on a label: only becomes a drag once the pointer moves, so clicks still reach the label
+        s.pending = { id: e.pointerId, x: e.clientX, y: e.clientY, orbit }
+      }
+    }
+    const pmove = (e: PointerEvent) => {
+      const pt = s.pointers.get(e.pointerId)
+      if (!pt) return
+      pt.x = e.clientX
+      pt.y = e.clientY
+      if (s.tap?.id === e.pointerId && Math.hypot(e.clientX - s.tap.x, e.clientY - s.tap.y) > 10) s.tap = null
+      if (s.pending && s.pending.id === e.pointerId && !s.drag) {
+        if (Math.hypot(e.clientX - s.pending.x, e.clientY - s.pending.y) > 4) {
+          root.setPointerCapture(e.pointerId)
+          beginDrag(s.pending.x, s.pending.y, s.pending.orbit)
+          s.pending = null
+        } else return
+      }
+      const d = s.drag
+      if (!d) return
+      if (d.kind === 'pinch' && s.pointers.size === 2) {
+        const [a, b] = [...s.pointers.values()]
+        const dist = Math.hypot(a.x - b.x, a.y - b.y)
+        s.altGoal = clamp((d.alt0 * d.d0) / Math.max(1, dist), FLOOR, CEILING)
+        groundAt((a.x + b.x) / 2, (a.y + b.y) / 2, 0, s.anchor)
+        const ang = Math.atan2(b.y - a.y, b.x - a.x)
+        s.yaw += ang - d.a0
+        d.a0 = ang
+        const my = (a.y + b.y) / 2
+        s.tilt = clamp(s.tilt + (my - d.my0) * 0.004, TILT.min, TILT.max)
+        d.my0 = my
+        return
+      }
+      if (d.kind === 'pan') {
+        const g = groundAt(e.clientX, e.clientY, d.plane, tmp.g)
+        const dx = d.last.x - g.x, dz = d.last.z - g.z
+        s.p.x += dx
+        s.p.z += dz
+        const now = performance.now(), dt = Math.max(1, now - d.lastT) / 1000
+        d.vel.set(dx / dt, 0, dz / dt)
+        d.lastT = now
+        // the camera moved, so re-evaluate the grab point under the same cursor next move
+        d.last.copy(g).add(new THREE.Vector3(dx, 0, dz))
+      } else if (d.kind === 'orbit') {
+        const dx = e.clientX - d.lx, dy = e.clientY - d.ly
+        d.lx = e.clientX
+        d.ly = e.clientY
+        s.yaw -= dx * 0.005
+        const pitch = clamp(s.pitch + dy * 0.004, PITCH.min, PITCH.max)
+        dirOf(s.yaw, pitch, tmp.d)
+        s.p.copy(d.c).addScaledVector(tmp.d, -d.d)
+        s.tilt = clamp(pitch - autoPitch(s.p.y), TILT.min, TILT.max)
+      }
+    }
+    const flyToScreen = (x: number, y: number) => {
+      const g = groundAt(x, y, 0, new THREE.Vector3())
+      useStore.getState().flyTo(g.x, g.z, Math.max(6, s.centerDist * 0.45))
+    }
+    const pup = (e: PointerEvent) => {
+      s.pointers.delete(e.pointerId)
+      const now = performance.now()
+      if (s.tap?.id === e.pointerId && e.type === 'pointerup' && now - s.tap.t < 300) {
+        const last = s.lastTap
+        if (last && now - last.t < 380 && Math.hypot(e.clientX - last.x, e.clientY - last.y) < 40) {
+          s.lastTap = null
+          s.tapFlew = now
+          flyToScreen(e.clientX, e.clientY)
+        } else s.lastTap = { x: e.clientX, y: e.clientY, t: now }
+      }
+      s.tap = null
+      try { root.releasePointerCapture(e.pointerId) } catch {}
+      if (s.drag?.kind === 'pan' && performance.now() - s.drag.lastT < 80) s.inertia.copy(s.drag.vel)
+      s.drag = null
+      s.pending = null
+      root.style.cursor = ''
+    }
+    const wheel = (e: WheelEvent) => {
+      e.preventDefault()
+      const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY
+      s.altGoal = clamp(s.altGoal * Math.exp(dy * 0.0016), FLOOR, CEILING)
+      groundAt(e.clientX, e.clientY, 0, s.anchor)
+      s.anim = null
+    }
+    const dbl = (e: MouseEvent) => {
+      if (e.target !== el || performance.now() - s.tapFlew < 600) return // Android also sends dblclick for a double-tap
+      flyToScreen(e.clientX, e.clientY)
+    }
+    const ctx = (e: Event) => e.preventDefault()
+    window.addEventListener('keydown', down)
+    window.addEventListener('keyup', up)
+    window.addEventListener('blur', blur)
+    root.addEventListener('pointerdown', pdown)
+    root.addEventListener('pointermove', pmove)
+    root.addEventListener('pointerup', pup)
+    root.addEventListener('pointercancel', pup)
+    root.addEventListener('wheel', wheel, { passive: false })
+    root.addEventListener('dblclick', dbl)
+    root.addEventListener('contextmenu', ctx)
+    root.style.touchAction = 'none'
+    el.style.touchAction = 'none'
+    return () => {
+      window.removeEventListener('keydown', down)
+      window.removeEventListener('keyup', up)
+      window.removeEventListener('blur', blur)
+      root.removeEventListener('pointerdown', pdown)
+      root.removeEventListener('pointermove', pmove)
+      root.removeEventListener('pointerup', pup)
+      root.removeEventListener('pointercancel', pup)
+      root.removeEventListener('wheel', wheel)
+      root.removeEventListener('dblclick', dbl)
+      root.removeEventListener('contextmenu', ctx)
+    }
+  }, [gl, s, camera, world, tmp])
+
+  /** camera placement so that ground point (x,z), or the point `lift` above it, sits at screen centre `dist` away along the current yaw */
+  const placeFor = (x: number, z: number, dist: number, yaw: number, lift = 0) => {
+    const gy = world.heights.yAt(x, z) + lift
+    let pitch = s.pitch
+    for (let i = 0; i < 4; i++) pitch = clamp(autoPitch(Math.max(FLOOR, gy + dist * Math.sin(pitch))) + s.tilt, PITCH.min, PITCH.max)
+    const p = dirOf(yaw, pitch, new THREE.Vector3()).multiplyScalar(-dist).add(new THREE.Vector3(x, gy, z))
+    p.y = clamp(p.y, FLOOR, CEILING)
+    return { p, pitch }
+  }
+
+  useFrame((_, rawDt) => {
+    const dt = Math.min(rawDt, 0.05)
+    if (!s.init) {
+      s.init = true
+      const { p, pitch } = placeFor(HOME.x, HOME.z, HOME.alt / Math.sin(autoPitch(HOME.alt)), HOME.yaw)
+      s.p.copy(p)
+      s.pitch = pitch
+      s.altGoal = p.y
+    }
+    // ---- fly-to ----
+    if (fly && fly.nonce !== s.handled) {
+      s.handled = fly.nonce
+      // a tall target fills about half the frame's height, which leaves its top clear of the header
+      const tall = fly.height ?? 0
+      const dist = clamp(Math.max(fly.distance ?? Math.min(s.centerDist, 40), tall * FIT), 3, CEILING)
+      let yaw = s.yaw
+      if (fly.yaw !== undefined) {
+        // shortest turn toward the requested heading
+        const d = ((fly.yaw - s.yaw + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI
+        yaw = s.yaw + d
+      }
+      const { p, pitch } = placeFor(fly.x, fly.z, dist, yaw, tall / 2)
+      s.anim = { t: fly.instant ? 1 - 1e-6 : 0, dur: fly.duration ?? 1.4, from: { p: s.p.clone(), yaw: s.yaw, pitch: s.pitch }, to: { p, yaw, pitch } }
+      s.inertia.set(0, 0, 0)
+    }
+    if (s.anim) {
+      const a = s.anim
+      a.t = Math.min(1, a.t + dt / a.dur)
+      const k = ease(a.t)
+      s.p.lerpVectors(a.from.p, a.to.p, k)
+      s.yaw = a.from.yaw + (a.to.yaw - a.from.yaw) * k
+      s.pitch = a.from.pitch + (a.to.pitch - a.from.pitch) * k
+      s.altGoal = s.p.y
+      s.tilt = clamp(s.pitch - autoPitch(s.p.y), TILT.min, TILT.max)
+      if (a.t >= 1) s.anim = null
+    }
+    // ---- keys ----
+    const fx = -Math.sin(s.yaw), fz = -Math.cos(s.yaw), rx = -fz, rz = fx
+    let ax = 0, az = 0
+    if (s.keys.has('f')) { ax += fx; az += fz }
+    if (s.keys.has('b')) { ax -= fx; az -= fz }
+    if (s.keys.has('r')) { ax += rx; az += rz }
+    if (s.keys.has('l')) { ax -= rx; az -= rz }
+    const fast = s.keys.has('fast') ? 2.6 : 1
+    if (ax || az) {
+      const len = Math.hypot(ax, az)
+      const speed = fast * Math.max(4, s.p.y) * 0.9
+      s.inertia.x += ((ax / len) * speed - s.inertia.x) * Math.min(1, dt * 6)
+      s.inertia.z += ((az / len) * speed - s.inertia.z) * Math.min(1, dt * 6)
+      s.anim = null
+    }
+    if (s.keys.has('rl') || s.keys.has('rr')) {
+      const dy = (s.keys.has('rl') ? 1.3 : -1.3) * dt
+      // rotate around the screen-centre ground point
+      dirOf(s.yaw + dy, s.pitch, tmp.d)
+      s.p.copy(s.center).addScaledVector(tmp.d, -s.centerDist)
+      s.yaw += dy
+    }
+    if (s.keys.has('up') || s.keys.has('down')) {
+      s.altGoal = clamp(s.altGoal * Math.exp((s.keys.has('up') ? 1.4 : -1.4) * fast * dt), FLOOR, CEILING)
+      s.anchor.set(s.p.x, 0, s.p.z)
+      s.anim = null
+    }
+    // ---- pan inertia ----
+    if (!s.drag && s.inertia.lengthSq() > 1e-4) {
+      s.p.x += s.inertia.x * dt
+      s.p.z += s.inertia.z * dt
+      const decay = Math.exp(-dt * (ax || az ? 0 : 5))
+      s.inertia.multiplyScalar(decay)
+    }
+    // ---- altitude toward goal, anchored on the ground point under the cursor ----
+    if (Math.abs(s.altGoal - s.p.y) > 0.002) {
+      const alt = s.p.y - s.anchor.y, goal = s.altGoal - s.anchor.y
+      const next = alt + (goal - alt) * Math.min(1, dt * 9)
+      const f = next / alt
+      s.p.x = s.anchor.x + (s.p.x - s.anchor.x) * f
+      s.p.z = s.anchor.z + (s.p.z - s.anchor.z) * f
+      s.p.y = s.anchor.y + next
+    }
+    // ---- bounds ----
+    s.p.y = clamp(s.p.y, FLOOR, CEILING)
+    s.altGoal = clamp(s.altGoal, FLOOR, CEILING)
+    if (!s.anim) s.pitch = clamp(autoPitch(s.p.y) + s.tilt, PITCH.min, PITCH.max)
+    // the box is all there is, so it's the point at screen centre that has to stay inside it, not the camera:
+    // otherwise standing at an edge and looking out shows nothing but sky
+    const cx = (BOX.x0 + BOX.x1) / 2, cz = (BOX.z0 + BOX.z1) / 2
+    const hx = (BOX.width / 2) * MARGIN, hz = (BOX.depth / 2) * MARGIN
+    dirOf(s.yaw, s.pitch, tmp.d)
+    const reach = Math.max(0.5, (s.p.y - world.heights.yAt(s.center.x, s.center.z)) / Math.max(0.05, Math.sin(s.pitch)))
+    const lx = s.p.x + tmp.d.x * reach, lz = s.p.z + tmp.d.z * reach
+    if (Math.abs(lx - cx) > hx) { s.p.x += clamp(lx, cx - hx, cx + hx) - lx; s.inertia.x = 0 }
+    if (Math.abs(lz - cz) > hz) { s.p.z += clamp(lz, cz - hz, cz + hz) - lz; s.inertia.z = 0 }
+
+    // ---- apply ----
+    camera.position.copy(s.p)
+    dirOf(s.yaw, s.pitch, tmp.d)
+    camera.lookAt(tmp.v.copy(s.p).add(tmp.d))
+    // Near plane follows altitude: depth precision scales with it, and with a fixed 0.5 the sea sheet
+    // (3 m under the bayside flats) z-fights through the land from high up. Nothing is this close up there.
+    const near = clamp(s.p.y * 0.1, 0.5, 40)
+    if (Math.abs(near - camera.near) > camera.near * 0.02) {
+      camera.near = near
+      camera.updateProjectionMatrix()
+    }
+    // screen-centre ground point (two passes so the terrain height converges)
+    let gy = world.heights.yAt(s.center.x, s.center.z)
+    for (let i = 0; i < 2; i++) {
+      const t = Math.max(0.5, (s.p.y - gy) / Math.max(0.05, Math.sin(s.pitch)))
+      s.center.copy(s.p).addScaledVector(tmp.d, t)
+      s.centerDist = t
+      gy = world.heights.yAt(s.center.x, s.center.z)
+    }
+
+    // ---- publish ----
+    s.published += dt
+    const v = viewStore.getState()
+    const tier: ZoomTier = s.centerDist > 260 ? 'far' : s.centerDist > 55 ? 'mid' : 'near'
+    if (s.published > 0.08 || tier !== v.tier) {
+      s.published = 0
+      if (Math.abs(v.x - s.center.x) > 0.05 || Math.abs(v.z - s.center.z) > 0.05 || Math.abs(v.yaw - s.yaw) > 0.005 || Math.abs(v.dist - s.centerDist) > 0.2 || tier !== v.tier) {
+        viewStore.setState({ x: s.center.x, z: s.center.z, yaw: s.yaw, dist: s.centerDist, tier })
+      }
+    }
+  })
+
+  return null
+}

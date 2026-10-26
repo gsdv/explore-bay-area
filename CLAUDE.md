@@ -72,6 +72,22 @@ public/data/            generated, committed (≈9 MB) so deploys don't need the
 vercel.json             build settings + cache headers for Vercel (see Hosting)
 ```
 
+## The /emma page
+
+A second, separate page: a guide for the owner's friend Emma's visit to San Francisco. Its own Vite entry (`emma/index.html` ->
+`src/emma/`), store, CSS and scene; it imports nothing from `src/App.tsx`, `src/store.ts`, `src/scene/` (except the landmark
+models in `LandmarkModel.tsx`) or `src/ui/`, and the main page imports nothing from `src/emma/`. Keep it that way: changes for
+Emma go in `src/emma/`, copying a main-page file there rather than reaching into it. Shared on purpose: `lib/geo.ts` (same
+projection, so the same baked `public/data` files), `lib/blocks.ts`, `lib/drape.ts`, `lib/extrude.ts`, `data/landmarks.ts`
+and `scene/LandmarkModel.tsx`. React has its own chunk (`manualChunks` in `vite.config.ts`) so `/emma` never preloads more than it uses.
+- Region: `src/emma/region.ts` (`EMMA_BBOX`: SF, down to mid South San Francisco, up to Mt Tam). The scene is a diorama cut to
+  that box: terrain, water and buildings stop at it, the cut faces are drawn, and only landmarks inside it appear.
+- Data: `src/emma/world.ts` loads `height.png`, `map.webp` + `map-sf.webp`, and the `sf` + `rest` city parts, filtered to the box.
+  Outside SF's inset (Marin, Daly City, South SF) the ground is the ≈20 m/px regional texture with procedural blocks.
+- Camera: `src/emma/scene/CameraRig.tsx` is a copy of the main rig, but it keeps the screen-centre ground point (not the camera)
+  inside the box, with a lower ceiling. No deep links yet. `/emma` without a trailing slash is routed by a dev-server plugin in
+  `vite.config.ts` and a rewrite in `vercel.json`.
+
 ## Core conventions
 
 - **Coordinates.** World units: 1 unit = 100 m. X east, Y up, Z south (north is −Z). `project(lat, lng)`
