@@ -24,7 +24,14 @@ export default defineConfig({
         emma: fileURLToPath(new URL('emma/index.html', import.meta.url)),
       },
       output: {
-        manualChunks: { three: ['three'], r3f: ['@react-three/fiber', '@react-three/drei'] },
+        // React gets its own chunk so /emma doesn't pull in three/r3f just for it.
+        manualChunks(id) {
+          const pkg = id.match(/node_modules\/(@react-three\/[^/]+|[^/@.][^/]*)\//g)?.pop()
+          if (!pkg) return
+          if (/\/(react|react-dom|scheduler)\/$/.test(pkg)) return 'react'
+          if (pkg === 'node_modules/three/') return 'three'
+          if (pkg.includes('@react-three/')) return 'r3f'
+        },
       },
     },
   },
