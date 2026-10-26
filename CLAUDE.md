@@ -84,6 +84,12 @@ and `scene/LandmarkModel.tsx`. React has its own chunk (`manualChunks` in `vite.
   that box: terrain, water and buildings stop at it, the cut faces are drawn, and only landmarks inside it appear.
 - Data: `src/emma/world.ts` loads `height.png`, `map.webp` + `map-sf.webp`, and the `sf` + `rest` city parts, filtered to the box.
   Outside SF's inset (Marin, Daly City, South SF) the ground is the ≈20 m/px regional texture with procedural blocks.
+- Itinerary: `src/emma/days.ts` holds the three days (ISO `date`, `start`/`end` as 24-hour "HH:MM", a camera `view` per stop;
+  all placeholder content for now, to be replaced by the owner). Home is `ui/DayList`; opening a day (`store.openDay`) flies to an
+  overview of its route, then `goToStop/nextStop/prevStop` fly stop to stop. While a day is open: `ui/Schedule` (left agenda,
+  hidden on phones), `ui/StopCard` (right card, a bottom sheet on phones), `ui/DayFrame` (border, Esc exits) and
+  `scene/DayRoute` (dashed route + pins); landmarks drop labels, hover and clicks. Downtown, aim a stop's camera from a side
+  without towers (the Ferry Building is seen from the bay, yaw ≈ 1.35), or it lands inside them.
 - Camera: `src/emma/scene/CameraRig.tsx` is a copy of the main rig, but it keeps the screen-centre ground point (not the camera)
   inside the box, with a lower ceiling. No deep links yet. `/emma` without a trailing slash is routed by a dev-server plugin in
   `vite.config.ts` and a rewrite in `vercel.json`.

@@ -60,7 +60,9 @@ const grown = (p: Part, by: number): [number, number, number] => [p.scale[0] + b
 
 function LandmarkObject({ landmark: l, world }: { landmark: Landmark; world: World }) {
   const group = useRef<THREE.Group>(null)
-  const hovered = useStore((s) => s.hoveredLandmark === l.id)
+  // while a day is open its pins name the places: landmarks keep their models but drop labels, hover and clicks
+  const touring = useStore((s) => !!s.day)
+  const hovered = useStore((s) => s.hoveredLandmark === l.id) && !touring
   const setHovered = useStore((s) => s.setHoveredLandmark)
   const flyTo = useStore((s) => s.flyTo)
   const tier = useZoomTier()
@@ -113,6 +115,7 @@ function LandmarkObject({ landmark: l, world }: { landmark: Landmark; world: Wor
 
   const top = Math.max(...parts.filter((p) => !p.scenery && !p.hullOnly && !p.hit).map((p) => p.pos[1] + p.scale[1] / 2))
   const onOver = (e: ThreeEvent<PointerEvent>) => {
+    if (touring) return
     e.stopPropagation()
     setHovered(l.id)
     document.body.style.cursor = 'pointer'
@@ -123,12 +126,13 @@ function LandmarkObject({ landmark: l, world }: { landmark: Landmark; world: Wor
   }
   // a click flies to the landmark, backed off until all of it is in frame (a bridge's middle is half a span from its origin)
   const onClick = (e: ThreeEvent<MouseEvent>) => {
+    if (touring) return
     e.stopPropagation()
     const [x, z] = project(l.kind === 'bridge' ? (l.lat + l.lat2!) / 2 : l.lat, l.kind === 'bridge' ? (l.lng + l.lng2!) / 2 : l.lng)
     flyTo(x, z, l.kind === 'bridge' ? 32 : 12, false, { height: top })
   }
 
-  const showLabel = tier !== 'far' || l.tags?.includes('icon')
+  const showLabel = !touring && (tier !== 'far' || l.tags?.includes('icon'))
   const labelHeight = top + 0.6
 
   return (

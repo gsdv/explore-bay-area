@@ -5,6 +5,7 @@ import { Terrain } from './Terrain'
 import { Water } from './Water'
 import { Buildings } from './Buildings'
 import { Landmarks } from './Landmarks'
+import { DayRoute } from './DayRoute'
 import { CameraRig } from './CameraRig'
 
 export const SKY = '#dbe6ee'
@@ -26,6 +27,7 @@ export function Scene({ world }: { world: World }) {
       <Water />
       <Buildings world={world} />
       <Landmarks world={world} />
+      <DayRoute world={world} />
       <CameraRig world={world} />
     </Canvas>
   )

@@ -1,21 +1,134 @@
+/* Emma's page: the same printed field-guide language as the main page (cream paper, ink borders, hard offset shadows,
+   Fraunces / IBM Plex), written separately so the two pages never share a stylesheet. Each day brings its colour as --day. */
 :root {
   --paper: #f7f2e7;
+  --paper-2: #efe8d8;
   --ink: #1b1d1a;
   --ink-2: #4a4c47;
+  --ink-3: #8a8b85;
   --orange: #f04a00;
   --sky: #dbe6ee;
+  --shadow: 3px 3px 0 var(--ink);
+  --edge: 22px;
+  --serif: 'Fraunces', Georgia, serif;
   --mono: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  --sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --ease: cubic-bezier(.2, .8, .2, 1);
 }
 
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
 html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
-body { color: var(--ink); background: var(--sky); overflow: hidden; overscroll-behavior: none; -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent; }
+body { font-family: var(--sans); color: var(--ink); background: var(--sky); overflow: hidden; overscroll-behavior: none; -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; touch-action: manipulation; }
 
 .emma { position: relative; width: 100%; height: 100%; height: 100dvh; }
 .emma > div > canvas { display: block; }
 .emma-loading { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--mono); font-size: 12px; color: var(--ink-2); }
 
-/* in-scene names (drei Html) */
+.eyebrow { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-2); }
+
+/* ---------- in-scene names (drei Html) ---------- */
 .landmark-label { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink); white-space: nowrap; text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 1px 0 #fff; opacity: 0.85; }
 .landmark-label.is-hovered { opacity: 1; color: var(--orange); font-weight: 600; }
+
+.pin { display: flex; align-items: center; gap: 6px; background: var(--paper); border: 1.5px solid var(--day); box-shadow: 2px 2px 0 var(--day); padding: 2px 8px 2px 2px; font-family: var(--mono); font-size: 11.5px; white-space: nowrap; max-width: 220px; }
+.pin__n { flex: none; width: 18px; height: 18px; border-radius: 50%; background: var(--day); color: #fff; display: grid; place-items: center; font-size: 10.5px; font-weight: 600; }
+.pin__name { overflow: hidden; text-overflow: ellipsis; }
+.pin.is-current { background: var(--day); color: #fff; }
+.pin.is-current .pin__n { background: #fff; color: var(--day); }
+.pin.is-passed { opacity: 0.75; }
+
+/* ---------- home: the title and the three days ---------- */
+/* the block passes the pointer through to the map; only the day list takes it */
+.home { position: absolute; top: var(--edge); left: var(--edge); width: 380px; z-index: 110; display: flex; flex-direction: column; gap: 14px; max-height: calc(100% - 2 * var(--edge)); pointer-events: none; }
+.days { pointer-events: auto; }
+.home__head { animation: rise-in 0.45s var(--ease) both; }
+.home__head .eyebrow { display: inline-block; background: rgba(247, 242, 231, 0.85); padding: 2px 6px; }
+.home__title { font-family: var(--serif); font-weight: 500; font-size: 36px; line-height: 1.02; margin: 6px 0 0; letter-spacing: -0.01em; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7); }
+.home__title em { display: block; font-style: italic; font-weight: 600; color: var(--orange); }
+.home__sub { margin: 8px 0 0; display: inline-block; background: rgba(247, 242, 231, 0.85); padding: 3px 6px; font-family: var(--mono); font-size: 11.5px; line-height: 1.45; color: var(--ink-2); }
+
+.days { list-style: none; margin: 0; padding: 0; background: var(--paper); border: 1.5px solid var(--ink); box-shadow: var(--shadow); overflow: auto; animation: card-in-left 0.4s 0.08s var(--ease) both; }
+.days li + li { border-top: 1px solid var(--ink); }
+.day-row { display: grid; grid-template-columns: 78px 1fr auto; align-items: center; gap: 12px; width: 100%; padding: 14px 16px 14px 12px; text-align: left; border-left: 5px solid var(--day); transition: background 0.15s; }
+.day-row:hover { background: var(--paper-2); }
+.day-row__date { display: flex; flex-direction: column; font-family: var(--mono); line-height: 1.25; }
+.day-row__n { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--day); font-weight: 600; }
+.day-row__weekday { font-size: 11px; color: var(--ink-2); }
+.day-row__day { font-family: var(--serif); font-size: 22px; font-weight: 600; line-height: 1.1; }
+.day-row__title { display: block; font-family: var(--serif); font-size: 19px; font-weight: 600; line-height: 1.15; }
+.day-row__meta { display: block; font-family: var(--mono); font-size: 10.5px; color: var(--ink-2); margin-top: 4px; }
+.day-row__go { font-family: var(--mono); font-size: 16px; color: var(--ink-3); transition: transform 0.15s, color 0.15s; }
+.day-row:hover .day-row__go { transform: translateX(3px); color: var(--day); }
+
+/* ---------- inside a day: frame, schedule (left) and stop card (right) ---------- */
+.day-frame { position: fixed; inset: 0; pointer-events: none; z-index: 95; border: 7px solid var(--day); box-shadow: inset 0 0 0 2px var(--paper); animation: frame-in 0.5s var(--ease) both; }
+
+.schedule { position: absolute; top: var(--edge); left: var(--edge); width: 290px; max-height: calc(100% - 2 * var(--edge)); overflow: auto; z-index: 110; background: var(--paper); border: 1.5px solid var(--day); box-shadow: 3px 3px 0 var(--day); padding: 14px 0 8px; animation: card-in-left 0.4s var(--ease) both; }
+.schedule > .eyebrow { padding: 0 16px; }
+.schedule__title { font-family: var(--serif); font-size: 24px; font-weight: 600; font-style: italic; color: var(--day); line-height: 1.1; margin: 4px 16px 10px; }
+.schedule__list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--ink); }
+.slot { position: relative; display: grid; grid-template-columns: 74px 14px 1fr; gap: 8px; width: 100%; padding: 9px 16px 9px 16px; text-align: left; transition: background 0.15s; }
+.slot:hover { background: var(--paper-2); }
+.slot__time { font-family: var(--mono); font-size: 10.5px; white-space: nowrap; line-height: 1.35; color: var(--ink-2); padding-top: 2px; }
+.slot__start { display: block; font-weight: 600; color: var(--ink); }
+.slot__end { display: block; }
+.slot.is-current .slot__start { color: #fff; }
+/* the rail: a line through every dot, from the first stop to the last */
+.slot__dot { position: relative; align-self: stretch; }
+.slot__dot::before { content: ''; position: absolute; left: 6px; top: -9px; bottom: -9px; width: 2px; background: var(--ink-3); opacity: 0.45; }
+li:first-child .slot__dot::before { top: 8px; }
+li:last-child .slot__dot::before { bottom: calc(100% - 8px); }
+.slot__dot::after { content: ''; position: absolute; left: 2px; top: 4px; width: 10px; height: 10px; border-radius: 50%; background: var(--paper); border: 2px solid var(--ink-3); box-sizing: border-box; }
+.slot.is-passed .slot__dot::after { background: var(--ink-3); }
+.slot.is-current { background: var(--day); color: #fff; }
+.slot.is-current .slot__time, .slot.is-current .slot__kind { color: rgba(255, 255, 255, 0.85); }
+.slot.is-current .slot__dot::before { background: #fff; }
+.slot.is-current .slot__dot::after { background: #fff; border-color: #fff; }
+.slot__title { display: block; font-family: var(--serif); font-size: 15px; font-weight: 600; line-height: 1.2; }
+.slot__kind { display: block; font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-3); margin-top: 2px; }
+
+.stop { position: absolute; top: var(--edge); right: var(--edge); width: min(380px, calc(100% - 2 * var(--edge))); max-height: calc(100% - 2 * var(--edge)); overflow: auto; z-index: 120; background: var(--paper); border: 1.5px solid var(--ink); box-shadow: var(--shadow); padding: 16px 20px 18px; animation: card-in 0.32s var(--ease) both; }
+.stop__top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.link-btn { flex: none; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; border: 1.5px solid var(--day); color: var(--day); box-shadow: 2px 2px 0 var(--day); padding: 3px 8px; background: var(--paper); }
+.link-btn:hover { background: var(--day); color: #fff; }
+.stop__when { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 6px; margin-top: 12px; font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--day); }
+.stop__len { font-weight: 400; color: var(--ink-2); }
+.stop__kind { margin-left: auto; font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 500; color: var(--ink); border: 1px solid var(--ink); padding: 1px 6px; }
+.stop__title { font-family: var(--serif); font-size: 26px; font-weight: 600; line-height: 1.1; margin: 6px 0 0; letter-spacing: -0.005em; }
+.stop__place { font-family: var(--mono); font-size: 11px; color: var(--ink-2); margin-top: 5px; }
+.stop__there { margin: 12px 0 0; padding: 7px 10px; background: var(--paper-2); font-size: 13px; line-height: 1.45; color: var(--ink-2); }
+.stop__label { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink); margin-right: 4px; }
+.stop__about { margin: 12px 0 0; font-size: 14.5px; line-height: 1.55; }
+.stop__tips { margin: 10px 0 0; padding: 0; list-style: none; }
+.stop__tips li { position: relative; padding-left: 16px; font-size: 13px; line-height: 1.45; color: var(--ink-2); }
+.stop__tips li + li { margin-top: 4px; }
+.stop__tips li::before { content: '→'; position: absolute; left: 0; color: var(--day); font-family: var(--mono); }
+.stop__nav { display: flex; gap: 8px; margin-top: 16px; }
+.btn { font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.06em; text-transform: uppercase; background: var(--paper); border: 1.5px solid var(--ink); box-shadow: 2px 2px 0 var(--ink); padding: 7px 10px; transition: transform 0.12s; white-space: nowrap; }
+.btn:hover { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 var(--ink); }
+.btn:disabled { opacity: 0.4; pointer-events: none; }
+.btn--primary { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; background: var(--day); color: #fff; border-color: var(--day); }
+
+@keyframes rise-in { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
+@keyframes card-in { from { opacity: 0; transform: translateX(18px) scale(0.985); box-shadow: 0 0 0 var(--ink); } to { opacity: 1; transform: none; } }
+@keyframes card-in-left { from { opacity: 0; transform: translateX(-18px) scale(0.985); box-shadow: 0 0 0 var(--ink); } to { opacity: 1; transform: none; } }
+@keyframes sheet-in { from { opacity: 0; transform: translateY(24px); box-shadow: 0 0 0 var(--ink); } to { opacity: 1; transform: none; } }
+@keyframes frame-in { from { opacity: 0; border-width: 0; } to { opacity: 1; border-width: 7px; } }
+
+/* ---------- phones: the stop card is a sheet along the bottom and the schedule steps aside (the card says where you are) ---------- */
+@media (max-width: 640px), (max-height: 520px) {
+  :root { --edge: 14px; }
+  .home { left: var(--edge); right: var(--edge); width: auto; bottom: var(--edge); }
+  .home__title { font-size: 28px; }
+  .days { margin-top: auto; }
+  .day-row { padding: 11px 14px 11px 10px; grid-template-columns: 70px 1fr auto; }
+  .day-row__title { font-size: 17px; }
+  .schedule { display: none; }
+  .stop { left: var(--edge); right: var(--edge); top: auto; bottom: var(--edge); width: auto; max-height: min(52%, calc(100% - 90px)); padding: 13px 16px 15px; animation-name: sheet-in; }
+  .stop__title { font-size: 22px; }
+  .stop__about { font-size: 14px; }
+  .day-frame { border-width: 5px; }
+  @keyframes frame-in { from { opacity: 0; border-width: 0; } to { opacity: 1; border-width: 5px; } }
+}

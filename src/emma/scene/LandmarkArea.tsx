@@ -44,7 +44,8 @@ export function LandmarkArea({ landmark: l, world }: { landmark: Landmark; world
     }
   }, [l.id])
 
-  const hovered = useStore((s) => s.hoveredLandmark === l.id)
+  const touring = useStore((s) => !!s.day)
+  const hovered = useStore((s) => s.hoveredLandmark === l.id) && !touring
   const setHovered = useStore((s) => s.setHoveredLandmark)
   const flyTo = useStore((s) => s.flyTo)
 
@@ -81,6 +82,7 @@ export function LandmarkArea({ landmark: l, world }: { landmark: Landmark; world
 
   if (!rings.length) return null
   const onOver = (e: ThreeEvent<PointerEvent>) => {
+    if (touring) return
     e.stopPropagation()
     setHovered(l.id)
     document.body.style.cursor = 'pointer'
@@ -91,6 +93,7 @@ export function LandmarkArea({ landmark: l, world }: { landmark: Landmark; world
   }
   // a click flies to the area's landmark point, far enough back to take in a park
   const onClick = (e: ThreeEvent<MouseEvent>) => {
+    if (touring) return
     e.stopPropagation()
     flyTo(labelAt[0], labelAt[2], 30)
   }
@@ -106,7 +109,7 @@ export function LandmarkArea({ landmark: l, world }: { landmark: Landmark; world
         </>
       )}
       {/* same rule as the models' labels: from far away only the icons are named */}
-      {l.areaOnly && (tier !== 'far' || l.tags?.includes('icon')) && (
+      {l.areaOnly && !touring && (tier !== 'far' || l.tags?.includes('icon')) && (
         <Html position={labelAt} center zIndexRange={[19, 10]} style={{ pointerEvents: 'none' }}>
           <div className={'landmark-label' + (hovered ? ' is-hovered' : '')}>{l.name}</div>
         </Html>
