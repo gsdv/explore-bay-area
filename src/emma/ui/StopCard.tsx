@@ -30,7 +30,9 @@ export function StopCard() {
         <div className="stop__when">{timeRange(first.start, last.end)}</div>
         <p className="stop__about">{day.intro}</p>
         <div className="stop__nav">
-          <button className="btn btn--primary" onClick={() => goToStop(0)}>Start the day →</button>
+          <button className="btn btn--primary" onClick={() => goToStop(0)}>
+            <span className="btn__label">Start the day</span> <span className="btn__arrow" aria-hidden>→</span>
+          </button>
         </div>
       </section>
     )
@@ -66,10 +68,12 @@ export function StopCard() {
         </ul>
       ) : null}
       <div className="stop__nav">
-        <button className="btn" onClick={prevStop} disabled={step === 0}>← Back</button>
+        <button className="btn btn--icon" onClick={prevStop} disabled={step === 0} aria-label="Back" title="Back">
+          <span className="btn__arrow" aria-hidden>←</span>
+        </button>
         {next ? (
           <button className="btn btn--primary" onClick={nextStop}>
-            Next: {next.title} →
+            <span className="btn__label">Next: {next.title}</span> <span className="btn__arrow" aria-hidden>→</span>
           </button>
         ) : (
           <button className="btn btn--primary" onClick={closeDay}>End of the day ✓</button>
