@@ -59,6 +59,7 @@ const AREA_PARKS: Record<string, string[]> = {
   landsend: ['Lands End'],
   mttam: ['Mount Tamalpais State Park', 'Mount Tamalpais Watershed'],
   muirwoods: ['Muir Woods National Monument'],
+  angelisland: ['Angel Island State Park'],
 }
 const beachesGeo = osmtogeojson(await osm.fetchBeaches()) as GeoJSON.FeatureCollection
 // Pieces cut to a box [west, south, east, north] before merging. Mount Tamalpais is the State Park plus only the water district's land

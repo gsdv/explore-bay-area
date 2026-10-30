@@ -280,7 +280,7 @@ and `scene/LandmarkModel.tsx`. React has its own chunk (`manualChunks` in `vite.
   are `scenery`; one `hit` box over the whole block is the hover target and also sizes the pipeline's clearing (hit parts aren't
   `detail`). `street` stays the generic model for Clarion Alley.
   Mount Tamalpais (`tamalpais`) is a model and an area at once: the Gardner fire lookout (~5x) on a rocky crown sunk into East Peak, plus
-  an outline from `AREA_PARKS` (`LandmarkArea` serves `park`, `beach`, `tamalpais` and `forest`: Muir Woods is the same pattern, its redwood grove plus the National Monument outline). In OSM the State Park stops short of
+  an outline from `AREA_PARKS` (`LandmarkArea` serves `park`, `beach`, `tamalpais`, `forest` and `island`: Angel Island is its State Park outline; Muir Woods is the same pattern, its redwood grove plus the National Monument outline). In OSM the State Park stops short of
   East Peak, so the outline is the State Park merged with the water district's `Mount Tamalpais Watershed` cut by `AREA_CLIP` to a box
   ending ~1 km north of the summit (not the lakes country). `areas.json` keeps holes (`{ rings, holes }`): Muir Woods is two holes in
   the State Park; the merge's buffer fills holes, so uncovered ones are put back, and the drape drops triangles inside them. Skirts that try to meet
