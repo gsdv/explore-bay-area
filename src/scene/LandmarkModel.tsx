@@ -935,7 +935,8 @@ export function landmarkParts(l: Landmark, ground?: BridgeGround, terrain?: Terr
       // opening over the street and a narrower one over each sidewalk; a red and green painted frieze with the blue plaque; green
       // tiled roofs with upturned corners, the central one highest, two dragons chasing a gold pearl along its ridge and fish at
       // the ends; foo dogs out front; and red lanterns strung up the avenue behind (`scenery`, so the hover box stays on the
-      // gate). About 2.4x true size.
+      // gate). About 2.4x true size, far wider than Grant (12 m between the building fronts), so the landmark point is moved
+      // ~14 m south into Bush St, whose 19 m between the fronts holds the whole gate along its length; the lanterns keep to Grant.
       const STONE_ = '#cfcac0', TILE = '#3f8f6a', TILE_DARK = '#2c6b4e', RED_ = '#b33a2b', GOLD = '#d9b44a', BLUE = '#2f5f9e', LANTERN = '#d23b2a'
       const pw = 0.045, pz = 0.07, xc = 0.15, xs = 0.31 // pillar size; inner and outer pillar centres
       const p: Part[] = [
@@ -965,17 +966,17 @@ export function landmarkParts(l: Landmark, ground?: BridgeGround, terrain?: Terr
         p.push({ geo: 'sphere', pos: [sx * ((xc + xs) / 2 + 0.05), 0.33, 0], scale: [0.01, 0.018, 0.008], color: GOLD, detail: true })
       }
       p.push({ geo: 'sphere', pos: [0, 0.5, 0], scale: [0.013, 0.013, 0.013], color: GOLD, detail: true })
-      // foo dogs on plinths before the inner pillars
+      // foo dogs on plinths just before the inner pillars (any further out and they'd stand in the buildings across Bush)
       for (const sx of [-1, 1]) {
-        p.push(box(sx * (xc + 0.04), 0, 0.05, 0.1, 0.035, 0.035, STONE_, true))
-        p.push({ geo: 'sphere', pos: [sx * (xc + 0.04), 0.07, 0.1], scale: [0.016, 0.022, 0.018], color: '#b7b1a5', detail: true })
+        p.push(box(sx * (xc + 0.04), 0, 0.05, 0.07, 0.035, 0.035, STONE_, true))
+        p.push({ geo: 'sphere', pos: [sx * (xc + 0.04), 0.07, 0.07], scale: [0.016, 0.022, 0.018], color: '#b7b1a5', detail: true })
       }
-      // lanterns strung across Grant Avenue going uphill behind the gate
+      // lanterns strung across Grant Avenue going uphill behind the gate, no wider than the street
       const scenery = (q: Part): Part => ({ ...q, detail: true, scenery: true })
       const wires: number[][] = [], lamps: [number, number][] = []
-      for (let z = -0.25; z > -1.4; z -= 0.17) {
-        wires.push([0, z, 0.36, 0.004, 0.3, 0.304])
-        for (const x of [-0.12, -0.04, 0.04, 0.12]) lamps.push([x, z])
+      for (let z = -0.25; z > -1.5; z -= 0.17) {
+        wires.push([0, z, 0.1, 0.004, 0.3, 0.304])
+        for (const x of [-0.035, 0, 0.035]) lamps.push([x, z])
       }
       p.push(scenery(blocks(wires, '#4a4a4a')))
       for (const [x, z] of lamps) p.push(scenery({ geo: 'sphere', pos: [x, 0.28, z], scale: [0.014, 0.018, 0.014], color: LANTERN }))
