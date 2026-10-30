@@ -3,7 +3,7 @@
  * Everything here is a placeholder to be swapped for the real plans (dates, restaurants, reservations).
  *
  * Editing notes:
- * - `date` is ISO (YYYY-MM-DD); the weekday and "Oct 30" label are derived from it.
+ * - `date` is ISO (YYYY-MM-DD); the weekday and "Nov 6" label are derived from it.
  * - `start` / `end` are 24-hour "HH:MM" strings; the UI shows them as "9:00 – 10:30 am" and the length.
  * - `view` is the camera for that stop: distance in world units (1 = 100 m) and heading in radians
  *   (0 looks north, π/2 looks west, −π/2 looks east, π looks south).
@@ -43,7 +43,7 @@ export interface Day {
 export const days: Day[] = [
   {
     id: 'day1',
-    date: '2026-10-30',
+    date: '2026-11-06',
     title: 'The Postcard Day',
     intro: 'The San Francisco everyone pictures: the waterfront, the sea lions, the crooked street, and a walk out over the Golden Gate in the late-afternoon light.',
     color: '#f04a00',
@@ -110,7 +110,7 @@ export const days: Day[] = [
       },
       {
         id: 'ggb',
-        start: '15:45', end: '17:30',
+        start: '15:30', end: '17:00',
         kind: 'walk',
         title: 'Walk out on the Golden Gate Bridge',
         place: 'Golden Gate Bridge Welcome Center',
@@ -136,9 +136,9 @@ export const days: Day[] = [
   },
   {
     id: 'day2',
-    date: '2026-10-31',
+    date: '2026-11-07',
     title: 'Murals, Parks and the Ocean',
-    intro: 'A slower day across the middle of the city: the Mission for coffee, murals and burritos, Golden Gate Park in the afternoon, sunset on the cliffs at Lands End, then Halloween night.',
+    intro: 'A slower day across the middle of the city: the Mission for coffee, murals and burritos, Golden Gate Park in the afternoon, sunset on the cliffs at Lands End, then a night out.',
     color: '#2f6f9f',
     stops: [
       {
@@ -177,7 +177,7 @@ export const days: Day[] = [
       },
       {
         id: 'ggpark',
-        start: '14:00', end: '16:30',
+        start: '13:45', end: '15:45',
         kind: 'sight',
         title: 'Golden Gate Park',
         place: 'Music Concourse: de Young and the Academy of Sciences',
@@ -189,7 +189,7 @@ export const days: Day[] = [
       },
       {
         id: 'landsend',
-        start: '17:00', end: '18:15',
+        start: '16:00', end: '17:15',
         kind: 'view',
         title: 'Sunset at Lands End',
         place: 'Lands End and the Sutro Baths',
@@ -198,24 +198,24 @@ export const days: Day[] = [
         view: { dist: 14, yaw: 0.9 },
         getThere: 'Ten minutes north-west to the Lands End Lookout.',
         about: 'Cliffs at the mouth of the Golden Gate. Walk down to the ruins of the Sutro Baths, then along the Coastal Trail toward the bridge as the sun drops into the Pacific.',
-        tips: ['Sunset is around 6 pm at the end of October. It gets cold fast once the sun is down.'],
+        tips: ['Sunset is around 5 pm in early November. It gets cold fast once the sun is down.'],
       },
       {
-        id: 'halloween',
+        id: 'nightout',
         start: '20:00', end: '23:00',
         kind: 'night',
-        title: 'Halloween night out',
+        title: 'A night out',
         place: 'The Castro',
         lat: 37.7609, lng: -122.4350,
         view: { dist: 9, yaw: 0.3 },
         getThere: 'About 20 minutes back across the city.',
-        about: 'Placeholder: a costume party, a bar, or just walking the neighborhood. Plan costumes in advance.',
+        about: 'Placeholder: a bar, a show, or just walking the neighborhood.',
       },
     ],
   },
   {
     id: 'day3',
-    date: '2026-11-01',
+    date: '2026-11-08',
     title: 'North of the Bridge',
     intro: 'Over the Golden Gate into Marin: redwoods at Muir Woods, the summit of Mount Tamalpais, a late lunch in Sausalito, then back to the city for sunset on Twin Peaks and a farewell dinner.',
     color: '#3f7a4a',
@@ -257,7 +257,7 @@ export const days: Day[] = [
       },
       {
         id: 'sausalito',
-        start: '14:30', end: '16:00',
+        start: '14:15', end: '15:45',
         kind: 'food',
         title: 'Late lunch in Sausalito',
         place: 'Bridgeway, Sausalito',
@@ -269,7 +269,7 @@ export const days: Day[] = [
       },
       {
         id: 'twinpeaks',
-        start: '16:45', end: '17:45',
+        start: '16:15', end: '17:15',
         kind: 'view',
         title: 'Sunset on Twin Peaks',
         place: 'Twin Peaks',
@@ -295,7 +295,7 @@ export const days: Day[] = [
   },
 ]
 
-/** "Friday", "Oct 30" for a day's ISO date (read at noon so no timezone tips it into the day before) */
+/** "Friday", "Nov 6" for a day's ISO date (read at noon so no timezone tips it into the day before) */
 export function dayLabel(day: Day): { weekday: string; date: string } {
   const d = new Date(`${day.date}T12:00:00`)
   return {
