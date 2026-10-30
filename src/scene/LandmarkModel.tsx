@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import type { Landmark } from '../data/landmarks'
 import { project, UNIT, BUILDING_EXAGGERATION, elevationToY } from '../lib/geo'
 import * as TP from './twinPeaksData'
+import * as BH from './bernalData'
 import { sausalito, townGeometry } from './sausalito'
 
 export interface Part {
@@ -93,7 +94,7 @@ const shift = (p: Part, z: number): Part => ({ ...p, pos: [p.pos[0], p.pos[1], p
 
 /**
  * Returns primitive parts in landmark-local space (y up, origin at ground). Bridges take the ground profile from `bridgeGround`;
- * Twin Peaks, which brings its own hill, takes the drawn terrain round it so the hill can rise out of it.
+ * the real hills (Twin Peaks, Bernal Heights), which bring their own ground, take the drawn terrain round them to rise out of it.
  */
 export function landmarkParts(l: Landmark, ground?: BridgeGround, terrain?: Terrain): Part[] {
   switch (l.kind) {
@@ -401,6 +402,8 @@ export function landmarkParts(l: Landmark, ground?: BridgeGround, terrain?: Terr
     }
     case 'twinpeaks':
       return twinPeaks(terrain)
+    case 'bernal':
+      return bernal(terrain)
     case 'ballpark': {
       // Oracle Park. Local axes are the foul lines, which follow the SoMa grid: third base runs up King St (-z), first base
       // along 3rd St towards the cove (+x), home plate in the corner by Willie Mays Plaza. A quarter-circle of grass and
@@ -1924,7 +1927,7 @@ export function landmarkCables(l: Landmark, ground?: BridgeGround): number[] {
   return (l.id === 'baybridge' ? bayBridge(l, ground) : goldenGate(l, ground)).cables
 }
 
-// ---------------------------------------------------------------- Twin Peaks
+// ---------------------------------------------------------------- real hills (Twin Peaks, Bernal Heights)
 
 /** The drawn terrain round a landmark that brings its own ground: world y the model stands at, and of the ground at a local point. */
 export interface Terrain {
@@ -1932,10 +1935,21 @@ export interface Terrain {
   at: (x: number, z: number) => number
 }
 
+/** What scripts/hills.ts bakes for a hill (twinPeaksData.ts, bernalData.ts). */
+interface HillData {
+  GRID: { step: number; nx: number; nz: number; x0: number; z0: number; h0: number; hq: number; heights: string; inside: string }
+  DRIVE: number[][]
+  PROMENADE: number[][]
+  TRAILS: number[][]
+  STAIRS: number[][]
+  LOTS: number[][]
+  PEAKS: [number, number][]
+  VIEWPOINTS: [number, number][]
+}
+
 const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
-/** The baked hill (twinPeaksData.ts): metres above sea level and how far inside the natural area, per grid point. */
-function twinPeaksGrid() {
-  const { nx, nz, h0, hq, heights, inside } = TP.GRID
+/** A baked hill's grid: metres above sea level and how far inside the park, per point. */
+function hillGrid({ nx, nz, h0, hq, heights, inside }: HillData['GRID']) {
   const h = new Float32Array(nx * nz), w = new Float32Array(nx * nz)
   for (let k = 0; k < nx * nz; k++) {
     h[k] = h0 + (B64.indexOf(heights[2 * k]) * 64 + B64.indexOf(heights[2 * k + 1])) * hq
@@ -1952,38 +1966,41 @@ function noise2(x: number, z: number) {
   return (a + (b - a) * su) * (1 - sv) + (c + (d - c) * su) * sv
 }
 
+const HILL_ROAD = '#6f6a63'
 /**
- * Twin Peaks at true size, on the real ground: the heightmap (80 m pixels) melts the two summits into one blob ~25 m too
- * low, so the model is the hill itself, a 15 m grid of the USGS elevation over the natural area (scripts/twinpeaks.ts) with
- * the terrain's 1.6x exaggeration, rising out of the city's drawn ground at the area's edge and sinking back under it.
- * Faceted in dry gold grass, coyote-brush scrub lower down and on the cooler slopes, and the red-brown chert that breaks
- * out on both summits. On it, from OSM: the figure-eight of Twin Peaks Boulevard (the two-way road with its double yellow
- * line down the west side and round the south hairpin; the east side and the loop round the north knoll car-free since
- * 2020), the dirt trails and the timber stairs up Eureka (north) and Noe (south) peaks, and Christmas Tree Point's terrace
- * car park with its stone parapet and coin viewers facing downtown.
+ * A city hill at true size, on the real ground: the heightmap (80 m pixels) rounds it off and sinks its summit tens of
+ * metres, so the model is the hill itself, a 15 m grid of the USGS elevation over its park (scripts/hills.ts) with the
+ * terrain's 1.6x exaggeration, rising out of the city's drawn ground at the park's edge and sinking back under it. Faceted
+ * in dry gold grass, coyote-brush scrub lower down and on the foggy north and east slopes, and the red-brown chert that
+ * breaks out on the summits. On it, from OSM: the roads (asphalt, paler where they are closed to cars, a double yellow line
+ * if `centreLine`), the dirt trails, timber stairs and level car parks with a few cars. Returns the parts, the height of the
+ * hill's surface and of the city's ground round it (local y).
  */
-function twinPeaks(terrain?: Terrain): Part[] {
-  const { nx, nz, x0, z0, step } = TP.GRID
-  const { h, w } = twinPeaksGrid()
+function realHill(d: HillData, terrain?: Terrain, o: { centreLine?: boolean } = {}) {
+  const { nx, nz, x0, z0, step } = d.GRID
+  const { h, w } = hillGrid(d.GRID)
   const k0 = Math.round(-z0 / step) * nx + Math.round(-x0 / step)
   const origin = terrain?.origin ?? elevationToY(h[k0])
-  // the hill follows the real ground inside the area, never dips under the drawn terrain there, and sinks 12 m under it at the edge
+  // the hill follows the real ground inside the park, never dips under the drawn terrain there, and sinks 12 m under it at the edge
   const y = new Float32Array(nx * nz)
+  let top = -Infinity
   for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
     const k = j * nx + i, dem = elevationToY(h[k]) - origin
     const g = terrain ? terrain.at(x0 + i * step, z0 + j * step) - origin : dem
     const core = Math.max(dem, g + 0.015), under = g - 0.12
     y[k] = r4(under + (core - under) * w[k])
+    if (w[k] > 0.5) top = Math.max(top, h[k])
   }
-  // height of the hill's own triangles (each cell split along its north-east to south-west diagonal, as hillGeometry does)
+  // height of the hill's own triangles (each cell split along its north-east to south-west diagonal, as the hill geometry is)
   const surface = (x: number, z: number) => {
     const fi = (x - x0) / step, fj = (z - z0) / step
     const i = Math.min(nx - 2, Math.max(0, Math.floor(fi))), j = Math.min(nz - 2, Math.max(0, Math.floor(fj))), u = fi - i, v = fj - j
-    const a = y[j * nx + i], b = y[j * nx + i + 1], c = y[(j + 1) * nx + i], d = y[(j + 1) * nx + i + 1]
-    return u + v <= 1 ? a + (b - a) * u + (c - a) * v : d + (c - d) * (1 - u) + (b - d) * (1 - v)
+    const a = y[j * nx + i], b = y[j * nx + i + 1], c = y[(j + 1) * nx + i], e = y[(j + 1) * nx + i + 1]
+    return u + v <= 1 ? a + (b - a) * u + (c - a) * v : e + (c - e) * (1 - u) + (b - e) * (1 - v)
   }
+  const ground = (x: number, z: number) => (terrain ? terrain.at(x, z) - origin : surface(x, z))
 
-  // the patchwork, one colour per triangle
+  // the patchwork, one colour per triangle; heights are read against the summit
   const GRASS_A = '#dcc78f', GRASS_B = '#d0bb83', GRASS_C = '#c2c28a', SCRUB_A = '#a3aa70', SCRUB_B = '#8c9861', CHERT_A = '#b57b62', CHERT_B = '#9d6853', SKIRT = '#9a8f6b'
   const palette = [GRASS_A, GRASS_B, GRASS_C, SCRUB_A, SCRUB_B, CHERT_A, CHERT_B, SKIRT]
   const cls: number[] = []
@@ -1994,12 +2011,12 @@ function twinPeaks(terrain?: Terrain): Part[] {
     const cool = gz > 0.08 || gx < -0.08
     for (const tri of [0, 1]) {
       const cx = x0 + (i + (tri ? 0.67 : 0.33)) * step, cz = z0 + (j + (tri ? 0.67 : 0.33)) * step
-      const m = tri ? (h01 + h11 + h10) / 3 : (h00 + h01 + h10) / 3
+      const m = (tri ? (h01 + h11 + h10) / 3 : (h00 + h01 + h10) / 3) - top
       const n1 = noise2(cx / 0.45, cz / 0.45), n2 = noise2(cx / 0.2 + 7.3, cz / 0.2 - 3.1)
       let c: number
-      if ((m > 268 && (slope > 0.45 || n2 > 0.58)) || (slope > 0.8 && n2 > 0.72)) c = n2 > 0.7 ? 6 : 5
+      if ((m > -11 && (slope > 0.45 || n2 > 0.58)) || (slope > 0.8 && n2 > 0.72)) c = n2 > 0.7 ? 6 : 5
       else {
-        const scrub = n1 + (cool ? 0.2 : 0) + (m < 240 ? 0.16 : 0) - (m > 260 ? 0.3 : 0)
+        const scrub = n1 + (cool ? 0.2 : 0) + (m < -39 ? 0.16 : 0) - (m > -19 ? 0.3 : 0)
         c = scrub > 0.86 ? 4 : scrub > 0.7 ? 3 : cool ? 2 : n2 > 0.5 ? 0 : 1
       }
       cls.push(c)
@@ -2020,37 +2037,23 @@ function twinPeaks(terrain?: Terrain): Part[] {
     }
     return out
   }
-  const ROAD_ = '#6f6a63', PROM = '#8b867d', LINE = '#e6be45', TRAIL = '#dccaa2', STEP_ = '#8a6a4b', STONE_ = '#bcb29d', VIEWER = '#3f4a52'
-  p.push(
-    asDetail(fitted('ribbons', [0.055, 0.012, 0.04, ...packLines(TP.DRIVE.map((l) => drape(l)))], ROAD_)),
-    asDetail(fitted('ribbons', [0.0035, 0.0135, 0.004, ...packLines(TP.DRIVE.map((l) => drape(l)))], LINE)),
-    asDetail(fitted('ribbons', [0.05, 0.012, 0.04, ...packLines(TP.PROMENADE.map((l) => drape(l)))], PROM)),
-    asDetail(fitted('ribbons', [0.016, 0.01, 0.03, ...packLines(TP.TRAILS.map((l) => drape(l)))], TRAIL)),
-    asDetail(fitted('ribbons', [0.02, 0.013, 0.035, ...packLines(TP.STAIRS.map((l) => drape(l)))], STEP_)),
-  )
+  const PROM = '#8b867d', LINE = '#e6be45', TRAIL = '#dccaa2', STEP_ = '#8a6a4b'
+  const strip = (lines: number[][], args: number[], color: string) => lines.length && p.push(asDetail(fitted('ribbons', [...args, ...packLines(lines.map((l) => drape(l)))], color)))
+  strip(d.DRIVE, [0.055, 0.012, 0.04], HILL_ROAD)
+  if (o.centreLine) strip(d.DRIVE, [0.0035, 0.0135, 0.004], LINE)
+  strip(d.PROMENADE, [0.05, 0.012, 0.04], PROM)
+  strip(d.TRAILS, [0.016, 0.01, 0.03], TRAIL)
+  strip(d.STAIRS, [0.02, 0.013, 0.035], STEP_)
 
-  // Christmas Tree Point: the terrace (levelled in the bake), its parapet on the downtown side, coin viewers, a few cars
-  for (const ring of TP.LOTS) {
+  // car parks: level terraces (levelled in the bake) with a few cars nosed in round the edge, every ~10 m
+  for (const ring of d.LOTS) {
     const pts: [number, number][] = []
     for (let i = 0; i + 1 < ring.length; i += 2) pts.push([ring[i], ring[i + 1]])
     const level = pts.reduce((s, [x, z]) => s + surface(x, z), 0) / pts.length + 0.014
-    p.push(asDetail(fitted('pad', [0.06, ...pts.flatMap(([x, z]) => [r4(x), r4(level), r4(z)])], ROAD_)))
+    p.push(asDetail(fitted('pad', [0.06, ...pts.flatMap(([x, z]) => [r4(x), r4(level), r4(z)])], HILL_ROAD)))
     const area = pts.reduce((s, [x, z], i) => { const [x2, z2] = pts[(i + 1) % pts.length]; return s + x * z2 - x2 * z }, 0)
     // a ring with positive shoelace area has the outside on the right of travel, (dz, -dx)
     const out = area > 0 ? 1 : -1
-    const wall: [number, number, number][][] = []
-    let run: [number, number, number][] = []
-    pts.forEach(([x, z], i) => {
-      const [x2, z2] = pts[(i + 1) % pts.length], L = Math.hypot(x2 - x, z2 - z) || 1
-      const nxo = (out * (z2 - z)) / L
-      if (nxo > 0.35) {
-        if (!run.length) run.push([x, level, z])
-        run.push([x2, level, z2])
-      } else if (run.length) { wall.push(run); run = [] }
-    })
-    if (run.length) wall.push(run)
-    p.push(asDetail(fitted('ribbons', [0.008, 0.028, 0.06, ...packLines(wall.filter((r) => r.length > 1))], STONE_)))
-    // cars nosed in round the edge, every ~10 m
     const CARS = ['#c9463d', '#f3f1ea', '#2f6ea5', '#3b3b3b', '#d9d5cc', '#e0a43a', '#4f7a63']
     let along = 0, n = 0
     pts.forEach(([x, z], i) => {
@@ -2064,20 +2067,112 @@ function twinPeaks(terrain?: Terrain): Part[] {
       along = (along + L) % 0.1
     })
   }
-  for (const [vx, vz] of TP.VIEWPOINTS.slice(0, 2)) {
-    const yv = surface(vx, vz) + 0.014
-    p.push(columns([[vx - 0.02, vz], [vx + 0.02, vz]], yv - 0.02, yv + 0.03, 0.004, VIEWER))
-    p.push(asDetail(blocks([[vx - 0.02, vz, 0.014, 0.01, yv + 0.03, yv + 0.04], [vx + 0.02, vz, 0.014, 0.01, yv + 0.03, yv + 0.04]], VIEWER)))
-  }
 
-  // the chert breaking out on both summits (detail: their hulls would swell into blobs; the hill's outline runs over them)
-  for (const [sx, sz] of [TP.EUREKA, TP.NOE]) {
+  // the chert breaking out on the summits (detail: their hulls would swell into blobs; the hill's outline runs over them)
+  for (const [sx, sz] of d.PEAKS) {
     for (let k = 0; k < 4; k++) {
       const a = k * 2.1 + sx * 10, r = k ? 0.05 + 0.03 * hash2(k, sz * 10) : 0.08
       const x = sx + (k ? 0.07 * Math.cos(a) : 0), z = sz + (k ? 0.07 * Math.sin(a) : 0)
       p.push({ geo: 'sphere', pos: [r4(x), r4(surface(x, z) + r * 0.15), r4(z)], rot: [0, r4(a), 0], scale: [r4(r), r4(r * 0.5), r4(r * 0.75)], color: k % 2 ? CHERT_B : CHERT_A, args: [1, 6, 4], detail: true })
     }
   }
+  return { parts: p, surface, ground }
+}
+
+/**
+ * Twin Peaks, a real hill (above): the figure-eight of Twin Peaks Boulevard (the two-way road with its double yellow line
+ * down the west side and round the south hairpin; the east side and the loop round the north knoll car-free since 2020),
+ * the timber stairs up Eureka (north) and Noe (south) peaks, and Christmas Tree Point's terrace car park with its stone
+ * parapet and coin viewers facing downtown.
+ */
+function twinPeaks(terrain?: Terrain): Part[] {
+  const { parts: p, surface } = realHill(TP, terrain, { centreLine: true })
+  const STONE_ = '#bcb29d', VIEWER = '#3f4a52'
+  // the parapet along the terrace's downtown (east-facing) edges
+  for (const ring of TP.LOTS) {
+    const pts: [number, number][] = []
+    for (let i = 0; i + 1 < ring.length; i += 2) pts.push([ring[i], ring[i + 1]])
+    const level = pts.reduce((s, [x, z]) => s + surface(x, z), 0) / pts.length + 0.014
+    const area = pts.reduce((s, [x, z], i) => { const [x2, z2] = pts[(i + 1) % pts.length]; return s + x * z2 - x2 * z }, 0)
+    const out = area > 0 ? 1 : -1
+    const wall: [number, number, number][][] = []
+    let run: [number, number, number][] = []
+    pts.forEach(([x, z], i) => {
+      const [x2, z2] = pts[(i + 1) % pts.length], L = Math.hypot(x2 - x, z2 - z) || 1
+      if ((out * (z2 - z)) / L > 0.35) {
+        if (!run.length) run.push([x, level, z])
+        run.push([x2, level, z2])
+      } else if (run.length) { wall.push(run); run = [] }
+    })
+    if (run.length) wall.push(run)
+    p.push(asDetail(fitted('ribbons', [0.008, 0.028, 0.06, ...packLines(wall.filter((r) => r.length > 1))], STONE_)))
+  }
+  for (const [vx, vz] of TP.VIEWPOINTS.slice(0, 2)) {
+    const yv = surface(vx, vz) + 0.014
+    p.push(columns([[vx - 0.02, vz], [vx + 0.02, vz]], yv - 0.02, yv + 0.03, 0.004, VIEWER))
+    p.push(asDetail(blocks([[vx - 0.02, vz, 0.014, 0.01, yv + 0.03, yv + 0.04], [vx + 0.02, vz, 0.014, 0.01, yv + 0.03, yv + 0.04]], VIEWER)))
+  }
+  return p
+}
+
+/**
+ * Bernal Heights, a real hill (above): Bernal Heights Park's dome of dry grass with the chert of its west knoll, the loop of
+ * Bernal Heights Boulevard round it (closed to cars on the north and west, a paved promenade for the dog walkers, open along
+ * the south), the trail web and the stairs up from the streets. On the summit, read off the aerials since OSM maps neither:
+ * the fenced microwave relay station (DataSF's 4 m equipment building, whose survey footprint `covers` drops) with its
+ * 50 ft lattice tower, "Sutrito" to the neighbours, and the ring of Monterey cypress and eucalyptus round it, plus the
+ * clumps on the north slope, at the west end and along the loop.
+ */
+function bernal(terrain?: Terrain): Part[] {
+  const { parts: p, surface, ground } = realHill(BH, terrain)
+  const at = (x: number, z: number) => Math.max(surface(x, z), ground(x, z))
+  // the station: a paved yard, its chain-link fence, the equipment building
+  const CX = -0.83, CZ = 0.14, yc = surface(CX, CZ), YW = 0.5, YD = 0.36
+  const FENCE = '#9ea4a6', STEEL = '#8c959b', DISH = '#e8e8e3'
+  p.push(
+    asDetail(blocks([[CX, CZ, YW, YD, yc - 0.08, yc + 0.012]], '#b9b5ab')),
+    asDetail(blocks([[CX, CZ - YD / 2, YW, 0.004, yc, yc + 0.035], [CX, CZ + YD / 2, YW, 0.004, yc, yc + 0.035], [CX - YW / 2, CZ, 0.004, YD, yc, yc + 0.035], [CX + YW / 2, CZ, 0.004, YD, yc, yc + 0.035]], FENCE)),
+    blocks([[CX + 0.09, CZ + 0.04, 0.22, 0.14, yc - 0.04, yc + H(4.2)]], '#dcd8ce'),
+    asDetail(blocks([[CX + 0.09, CZ + 0.04, 0.225, 0.145, yc + H(4.2), yc + H(4.2) + 0.008]], '#a9a69e')),
+  )
+  // Sutrito: four legs leaning in, a ring every few metres, a platform, masts and two drum dishes
+  const TX = CX - 0.1, TZ = CZ - 0.05, ty = yc + 0.012, ht = H(16), b = 0.036, t = 0.014
+  const lean = Math.atan2(b - t, ht), leg = Math.hypot(b - t, ht)
+  for (const [sx, sz] of [[1, 1], [1, -1], [-1, 1], [-1, -1]])
+    p.push({ geo: 'box', pos: [r4(TX + (sx * (b + t)) / 2), r4(ty + ht / 2), r4(TZ + (sz * (b + t)) / 2)], rot: [r4(-sz * lean), 0, r4(sx * lean)], scale: [0.006, r4(leg), 0.006], color: STEEL, detail: true })
+  const rings: number[][] = []
+  for (let k = 1; k <= 5; k++) {
+    const yy = ty + (ht * k) / 5.2, hw = b + ((t - b) * (yy - ty)) / ht
+    rings.push([TX, TZ - hw, 2 * hw, 0.004, yy, yy + 0.005], [TX, TZ + hw, 2 * hw, 0.004, yy, yy + 0.005], [TX - hw, TZ, 0.004, 2 * hw, yy, yy + 0.005], [TX + hw, TZ, 0.004, 2 * hw, yy, yy + 0.005])
+  }
+  p.push(
+    asDetail(blocks(rings, STEEL)),
+    asDetail(blocks([[TX, TZ, 0.05, 0.05, ty + ht, ty + ht + 0.008]], STEEL)),
+    columns([[TX - 0.015, TZ - 0.015], [TX + 0.015, TZ + 0.012], [TX + 0.012, TZ - 0.016]], ty + ht, ty + ht + 0.09, 0.0025, STEEL),
+    { geo: 'cyl', pos: [r4(TX + t + 0.012), r4(ty + ht * 0.82), r4(TZ)], rot: [0, 0, Math.PI / 2], scale: [0.034, 0.012, 0.034], color: DISH, detail: true, args: [0.5, 0.5, 12] },
+    { geo: 'cyl', pos: [r4(TX - 0.006), r4(ty + ht * 0.68), r4(TZ - t - 0.012)], rot: [Math.PI / 2, 0, 0], scale: [0.03, 0.012, 0.03], color: DISH, detail: true, args: [0.5, 0.5, 12] },
+  )
+  // the trees: broad, flat-topped cypress and taller eucalyptus crowns
+  const TREES: [number, number][] = [
+    // round the station
+    [-1.19, -0.03], [-1.21, 0.21], [-1.1, 0.35], [-0.91, -0.14], [-0.72, -0.16], [-0.55, -0.08], [-0.42, 0.04], [-0.34, 0.18], [-0.46, 0.33],
+    // the north slope
+    [-0.95, -1.66], [-0.79, -1.49], [-0.62, -1.34], [-0.85, -1.28], [-0.43, -1.21], [-1.1, -1.47],
+    // the west end, along the loop's north-east side, and a few loners
+    [-2.61, 0.04], [-2.45, 0.3], [-2.32, 0.15], [-2.23, -0.17], [-2.36, -0.3], [-2.68, 0.26],
+    [0.7, -0.81], [0.87, -0.66], [1.1, -0.45], [1.45, -0.53], [2.51, -0.62], [2.87, -0.49], [3.25, -0.34],
+    [-1.47, -0.76], [0.18, 0.73], [-0.76, 0.84], [2.21, -0.26], [2.87, 0.07],
+  ]
+  const CROWNS = ['#4a6b3f', '#587a48', '#3f5e3a']
+  // a cypress is a dense, wind-cut mound from a few metres up; a eucalyptus a taller, narrower one on a pale trunk
+  TREES.forEach(([x, z], k) => {
+    const y0 = at(x, z), r = 0.07 + 0.03 * hash2(k, 3), tall = hash2(k, 7) > 0.65
+    const hc = H(tall ? 12 : 7), ry = tall ? H(7) : H(4.5), rx = tall ? r * 0.7 : r
+    p.push({ geo: 'cyl', pos: [x, r4(y0 + hc / 2 - 0.03), z], scale: [0.014, r4(hc + 0.06), 0.014], color: tall ? '#b8ab94' : '#6b5240', detail: true, args: [0.4, 0.5, 6] })
+    p.push({ geo: 'sphere', pos: [x, r4(y0 + hc), z], rot: [0, r4(k * 1.7), 0], scale: [r4(rx), r4(ry), r4(rx * 0.85)], color: CROWNS[k % 3], detail: true, args: [1, 7, 5] })
+    const a = k * 2.3
+    p.push({ geo: 'sphere', pos: [r4(x + rx * 0.5 * Math.cos(a)), r4(y0 + hc - ry * 0.25), r4(z + rx * 0.5 * Math.sin(a))], rot: [0, r4(a), 0], scale: [r4(rx * 0.7), r4(ry * 0.75), r4(rx * 0.6)], color: CROWNS[(k + 1) % 3], detail: true, args: [1, 6, 4] })
+  })
   return p
 }
 

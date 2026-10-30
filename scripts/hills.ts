@@ -1,13 +1,13 @@
 /**
- * Bakes the Twin Peaks model's ground into src/scene/twinPeaksData.ts (run once: `pnpm tsx scripts/twinpeaks.ts`; both
- * sources are cached in data-cache/, so a re-run is offline).
+ * Bakes the ground of the landmarks that are real hills (Twin Peaks, Bernal Heights) into src/scene/<name>Data.ts. Run once,
+ * `pnpm tsx scripts/hills.ts [id ...]`; both sources are cached in data-cache/, so a re-run is offline.
  *
- * The app's heightmap (≈77 m pixels) melts the two summits into one blob ~25 m too low, so the model brings its own hill:
- * AWS Terrain Tiles at zoom 15 (≈4 m pixels here, USGS 3DEP underneath) resampled to a 15 m grid over the Twin Peaks
- * Natural Area, with Twin Peaks Boulevard's bench cut into it. OSM gives the natural area's outline (how far the hill rises
- * out of the city's terrain), the figure-eight of the boulevard, the trails and stairs, Christmas Tree Point's car parks
- * and the two summits. Everything is written in the landmark's local frame (world units, x east, z south, origin at the
- * landmark's lat/lng in src/data/landmarks.ts); heights stay metres so the model can apply the terrain exaggeration.
+ * The app's heightmap (≈77 m pixels) rounds a city hill off and sinks its summit tens of metres, so these models bring their
+ * own: AWS Terrain Tiles at zoom 15 (≈4 m pixels here, USGS 3DEP underneath) resampled to a 15 m grid over the park, with the
+ * roads round it cut in as level benches. OSM gives the park's outline (how far the hill rises out of the city's terrain),
+ * the roads (open to cars or not), the trails and stairs, car parks and the summits. Everything is written in the landmark's
+ * local frame (world units, x east, z south, origin at its lat/lng in src/data/landmarks.ts); heights stay metres so the
+ * model can apply the terrain exaggeration. Re-run it if a landmark's lat/lng moves.
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -17,14 +17,66 @@ import { overpass } from './lib/overpass.ts'
 import { project, UNIT } from '../src/lib/geo.ts'
 import { landmarks } from '../src/data/landmarks.ts'
 
-const tp = landmarks.find((l) => l.id === 'twinpeaks')!
+type Way = { id: number; tags: Record<string, string>; pts: [number, number][] }
+interface Hill {
+  id: string
+  /** written to src/scene/<file>.ts */
+  file: string
+  name: string
+  /** the park's polygons */
+  area: (wy: Way) => boolean
+  /** the roads round it: their benches are cut in and their corridors join the outline */
+  roads: RegExp
+  /** named paths that are city stairways or trails beyond the park, left out */
+  skip?: RegExp
+  /** the grid's extent, metres [x0, x1, z0, z1] (default: the park's box plus 60 m) */
+  bounds?: [number, number, number, number]
+}
+const HILLS: Hill[] = [
+  {
+    id: 'twinpeaks', file: 'twinPeaksData', name: 'Twin Peaks Natural Area',
+    // two polygons that meet at the boulevard
+    area: (wy) => wy.tags.leisure === 'park' && /scrub/.test(wy.tags.natural ?? '') && wy.pts.length > 20,
+    roads: /^(Twin Peaks Boulevard|Christmas Tree Point Road)$/,
+    skip: /^(Fredela Lane|Sutro Tower Trail|Vista Lane)$/,
+    bounds: [-270, 330, -495, 480],
+  },
+  {
+    id: 'bernal', file: 'bernalData', name: 'Bernal Heights Park',
+    area: (wy) => wy.tags.leisure === 'park' && wy.tags.name === 'Bernal Heights Park',
+    roads: /^Bernal Heights Boulevard$/,
+  },
+]
+const only = process.argv.slice(2)
+for (const hill of HILLS.filter((h) => !only.length || only.includes(h.id))) await bake(hill)
+
+async function bake(hill: Hill) {
+const tp = landmarks.find((l) => l.id === hill.id)!
 const [ox, oz] = project(tp.lat, tp.lng)
 const local = (lat: number, lng: number): [number, number] => {
   const [x, z] = project(lat, lng)
   return [(x - ox) / UNIT, (z - oz) / UNIT] // metres
 }
-// the grid, metres in the local frame: the natural area plus a margin for the hill to sink back into the city's terrain
-const STEP = 15, X0 = -270, X1 = 330, Z0 = -495, Z1 = 480
+// local metres -> lat/lng, through a small linearisation about the origin
+const dLat = 1e-3, [mx, mz] = local(tp.lat + dLat, tp.lng + dLat)
+const toLatLng = (x: number, z: number): [number, number] => [tp.lat + (z / mz) * dLat, tp.lng + (x / mx) * dLat]
+
+// ---------------------------------------------------------------- OSM (the query reaches 700 m round the origin unless bounds say otherwise)
+const [qx0, qx1, qz0, qz1] = hill.bounds ?? [-700, 700, -700, 700]
+const [s, w] = toLatLng(qx0, qz1), [n, e] = toLatLng(qx1, qz0)
+const bb = `${s.toFixed(5)},${w.toFixed(5)},${n.toFixed(5)},${e.toFixed(5)}`
+const osm = await overpass(hill.id, `(way["highway"](${bb});way["amenity"="parking"](${bb});way["leisure"="park"](${bb});way["natural"](${bb});way["man_made"](${bb});node["man_made"](${bb});node["natural"="peak"](${bb});node["tourism"="viewpoint"](${bb}););out geom tags;`, 90)
+const ways: Way[] = osm.elements.filter((el: any) => el.type === 'way').map((el: any) => ({ id: el.id, tags: el.tags ?? {}, pts: el.geometry.map((g: any) => local(g.lat, g.lon)) }))
+const nodes = osm.elements.filter((el: any) => el.type === 'node')
+const area = ways.filter(hill.area)
+log(`${hill.name}: ${area.map((a) => a.id).join(', ')}`)
+
+// the grid, metres in the local frame: the park plus a margin for the hill to sink back into the city's terrain
+const STEP = 15
+const snap = (v: number, up: boolean) => (up ? Math.ceil(v / STEP) : Math.floor(v / STEP)) * STEP
+const all = area.flatMap((a) => a.pts)
+const [X0, X1, Z0, Z1] = hill.bounds ?? [snap(Math.min(...all.map((q) => q[0])) - 60, false), snap(Math.max(...all.map((q) => q[0])) + 60, true),
+  snap(Math.min(...all.map((q) => q[1])) - 60, false), snap(Math.max(...all.map((q) => q[1])) + 60, true)]
 const NX = Math.round((X1 - X0) / STEP) + 1, NZ = Math.round((Z1 - Z0) / STEP) + 1
 
 // ---------------------------------------------------------------- elevation
@@ -52,23 +104,10 @@ function demAt(lat: number, lng: number) {
   const ix = Math.floor(fx), iy = Math.floor(fy), tx = fx - ix, ty = fy - iy
   return (px(ix, iy) * (1 - tx) + px(ix + 1, iy) * tx) * (1 - ty) + (px(ix, iy + 1) * (1 - tx) + px(ix + 1, iy + 1) * tx) * ty
 }
-// local metres -> lat/lng, through the same small linearisation
-const dLat = 1e-3, [mx, mz] = local(tp.lat + dLat, tp.lng + dLat)
-const toLatLng = (x: number, z: number): [number, number] => [tp.lat + (z / mz) * dLat, tp.lng + (x / mx) * dLat]
 const elev = (x: number, z: number) => demAt(...toLatLng(x, z))
 
-// ---------------------------------------------------------------- OSM
-const [s, w] = toLatLng(X0, Z1), [n, e] = toLatLng(X1, Z0)
-const bb = `${s.toFixed(5)},${w.toFixed(5)},${n.toFixed(5)},${e.toFixed(5)}`
-const osm = await overpass('twinpeaks', `(way["highway"](${bb});way["amenity"="parking"](${bb});way["leisure"="park"](${bb});way["natural"](${bb});node["natural"="peak"](${bb});node["tourism"="viewpoint"](${bb}););out geom tags;`, 90)
-type Way = { id: number; tags: Record<string, string>; pts: [number, number][] }
-const ways: Way[] = osm.elements.filter((el: any) => el.type === 'way').map((el: any) => ({ id: el.id, tags: el.tags ?? {}, pts: el.geometry.map((g: any) => local(g.lat, g.lon)) }))
-const nodes = osm.elements.filter((el: any) => el.type === 'node')
-
-// the hill covers the natural area plus what it leaves out on top: the boulevard between its two polygons and Christmas
-// Tree Point's car park, then a 20 m closing smooths the outline
-const area = ways.filter((wy) => wy.tags.leisure === 'park' && /scrub/.test(wy.tags.natural ?? '') && wy.pts.length > 20)
-log('natural area pieces:', area.map((a) => a.id).join(', '))
+// the hill covers the park plus what it leaves out on top (the roads between its polygons, car parks), then a 20 m closing
+// smooths the outline
 const inRing = (r: [number, number][], x: number, z: number) => {
   let c = false
   for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
@@ -110,7 +149,7 @@ function edgeDistance(x: number, z: number) {
   return inside ? best : -best
 }
 const near = (pt: [number, number]) => edgeDistance(...pt) > -25
-const corridors = ways.filter((wy) => /^(Twin Peaks Boulevard|Christmas Tree Point Road)$/.test(wy.tags.name ?? ''))
+const corridors = ways.filter((wy) => hill.roads.test(wy.tags.name ?? ''))
   .flatMap((wy) => wy.pts.slice(1).map((b, k): [[number, number], [number, number]] => [wy.pts[k], b]))
   .filter(([a, b]) => near(a) && near(b))
 const carParks = ways.filter((wy) => wy.tags.amenity === 'parking' && wy.pts.some(near))
@@ -147,13 +186,17 @@ function onHill(pts: [number, number][]): [number, number][][] {
   return runs.filter((r) => r.length > 1)
 }
 const pick = (test: (wy: Way) => boolean, tol = 1) => ways.filter(test).flatMap((wy) => onHill(wy.pts)).map((r) => simplify(r, tol))
-// the figure-eight's east side has been car-free since 2020 (mapped as pedestrian, or as the promenade under construction)
-const boulevard = (wy: Way) => /^(Twin Peaks Boulevard|Christmas Tree Point Road)$/.test(wy.tags.name ?? '')
-const drive = pick((wy) => boulevard(wy) && wy.tags.motor_vehicle !== 'no')
-const walk = pick((wy) => boulevard(wy) && wy.tags.motor_vehicle === 'no' && wy.pts.length > 2)
-const isTrail = (wy: Way) => /^(footway|path|track)$/.test(wy.tags.highway) && !wy.tags.footway && !/^(Fredela Lane|Sutro Tower Trail)$/.test(wy.tags.name ?? '')
-const trails = pick((wy) => isTrail(wy) && wy.pts.filter((p) => edgeDistance(...p) > 0).length > wy.pts.length / 2, 0.8)
-const steps = pick((wy) => wy.tags.highway === 'steps' && !/Vista Lane/.test(wy.tags.name ?? '') && wy.pts.filter((p) => edgeDistance(...p) > 0).length > wy.pts.length / 2, 0.8)
+// the stretches closed to cars are mapped as pedestrian, or keep their road class with motor_vehicle=no (Twin Peaks' east
+// side, the promenade under construction) or =private (Bernal's loop)
+const road = (wy: Way) => hill.roads.test(wy.tags.name ?? '')
+const carFree = (wy: Way) => /^(no|private)$/.test(wy.tags.motor_vehicle ?? '')
+const drive = pick((wy) => road(wy) && !carFree(wy))
+const walk = pick((wy) => road(wy) && carFree(wy) && wy.pts.length > 2)
+const mostlyIn = (wy: Way) => wy.pts.filter((p) => edgeDistance(...p) > 0).length > wy.pts.length / 2
+const skipped = (wy: Way) => !!hill.skip?.test(wy.tags.name ?? '')
+const isTrail = (wy: Way) => /^(footway|path|track)$/.test(wy.tags.highway) && !wy.tags.footway && !skipped(wy)
+const trails = pick((wy) => isTrail(wy) && mostlyIn(wy), 0.8)
+const steps = pick((wy) => wy.tags.highway === 'steps' && !skipped(wy) && mostlyIn(wy), 0.8)
 /** a closed ring, simplified in two halves (its ends meet, which would collapse it) and left open */
 const simplifyRing = (pts: [number, number][], tol: number) => {
   const open = pts.slice(0, -1), mid = Math.floor(open.length / 2)
@@ -211,52 +254,53 @@ for (let j = 0; j < NZ; j++) for (let i = 0; i < NX; i++) {
 
 // ---------------------------------------------------------------- write
 const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
-const H0 = 100, HQ = 0.05 // heights: 2 characters each, metres = H0 + v * HQ
+// heights: 2 characters each, metres = H0 + v * HQ (a 204 m range from just under the grid's lowest point)
+const HQ = 0.05, H0 = 10 * Math.floor(Math.min(...heights) / 10) - 10
+if (Math.max(...heights) > H0 + 4095 * HQ) throw new Error(`${hill.id}: heights span more than ${4095 * HQ} m`)
 const hs = heights.map((h) => { const v = Math.max(0, Math.min(4095, Math.round((h - H0) / HQ))); return B64[v >> 6] + B64[v & 63] }).join('')
 const ws = weights.map((v) => B64[Math.round(v * 63)]).join('')
 const u = (m: number) => +(m * UNIT).toFixed(3)
 const flat = (line: [number, number][]) => line.flatMap(([x, z]) => [u(x), u(z)])
 const lines = (list: [number, number][][]) => `[\n${list.map((l) => `    [${flat(l).join(', ')}],`).join('\n')}\n  ]`
 const wrap = (str: string) => str.match(/.{1,110}/g)!.map((row) => `    '${row}'`).join(' +\n')
-const point = (tag: string, name: string) => {
-  const nd = nodes.find((nd: any) => nd.tags?.[tag.split('=')[0]] === tag.split('=')[1] && nd.tags?.name === name)
-  const [x, z] = local(nd.lat, nd.lon)
-  return `[${u(x)}, ${u(z)}]`
-}
-const views = nodes.filter((nd: any) => nd.tags?.tourism === 'viewpoint').map((nd: any) => { const [x, z] = local(nd.lat, nd.lon); return `[${u(x)}, ${u(z)}]` })
-const file = path.join(ROOT, 'src/scene/twinPeaksData.ts')
-fs.writeFileSync(file, `// Generated by scripts/twinpeaks.ts from AWS Terrain Tiles (z${Z}) and OpenStreetMap: don't edit by hand.
-// Local frame of the 'twinpeaks' landmark: world units (1 = 100 m), x east, z south, origin at its lat/lng.
+const spot = (nd: any) => { const [x, z] = local(nd.lat, nd.lon); return `[${u(x)}, ${u(z)}]` }
+const onHillNode = (nd: any) => { const [x, z] = local(nd.lat, nd.lon); return inArea(x, z) }
+const peaks = nodes.filter((nd: any) => nd.tags?.natural === 'peak' && onHillNode(nd))
+const views = nodes.filter((nd: any) => nd.tags?.tourism === 'viewpoint' && onHillNode(nd))
+const file = path.join(ROOT, `src/scene/${hill.file}.ts`)
+fs.writeFileSync(file, `// Generated by scripts/hills.ts from AWS Terrain Tiles (z${Z}) and OpenStreetMap: don't edit by hand.
+// Local frame of the '${hill.id}' landmark: world units (1 = 100 m), x east, z south, origin at its lat/lng.
 
-/** the hill: a ${NX} x ${NZ} grid every ${STEP} m from (x0, z0), row by row from the north; heights in metres, see \`twinPeaksGrid\` */
+/** the hill: a ${NX} x ${NZ} grid every ${STEP} m from (x0, z0), row by row from the north; heights in metres, see \`hillGrid\` */
 export const GRID = {
   step: ${u(STEP)}, nx: ${NX}, nz: ${NZ}, x0: ${u(X0)}, z0: ${u(Z0)}, h0: ${H0}, hq: ${HQ},
-  /** two base-64 digits per point: metres = h0 + value * hq; the boulevard's bench is already cut in */
+  /** two base-64 digits per point: metres = h0 + value * hq; the roads' benches are already cut in */
   heights:
 ${wrap(hs)},
-  /** one base-64 digit per point: how far the point is inside the natural area (0 outside, 63 deep inside) */
+  /** one base-64 digit per point: how far the point is inside the park (0 outside, 63 deep inside) */
   inside:
 ${wrap(ws)},
 }
 
-/** Twin Peaks Boulevard and Christmas Tree Point Road (open to cars), as x, z pairs */
+/** the roads open to cars, as x, z pairs */
 export const DRIVE: number[][] = ${lines(drive)}
 
-/** the boulevard's east side, closed to cars since 2020 */
+/** the stretches closed to cars */
 export const PROMENADE: number[][] = ${lines(walk)}
 
 export const TRAILS: number[][] = ${lines(trails)}
 
 export const STAIRS: number[][] = ${lines(steps)}
 
-/** Christmas Tree Point's car parks (rings, last point not repeated) */
+/** car parks (rings, last point not repeated) */
 export const LOTS: number[][] = ${lines(lots)}
 
-/** cypress and eucalyptus round the natural area (rings) */
+/** woods mapped on the hill (rings) */
 export const WOODS: number[][] = ${lines(woods)}
 
-export const EUREKA = ${point('natural=peak', 'Eureka Peak')}
-export const NOE = ${point('natural=peak', 'Noe Peak')}
-export const VIEWPOINTS: [number, number][] = [${views.join(', ')}]
+/** the summits: ${peaks.map((nd: any) => nd.tags.name).join(', ')} */
+export const PEAKS: [number, number][] = [${peaks.map(spot).join(', ')}]
+export const VIEWPOINTS: [number, number][] = [${views.map(spot).join(', ')}]
 `)
 log('wrote', path.relative(ROOT, file), (fs.statSync(file).size / 1e3).toFixed(1), 'kB')
+}
