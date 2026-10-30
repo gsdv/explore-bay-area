@@ -10,6 +10,18 @@ const STEP = 0.75
 export const BASE = -3
 const SIDE = '#c9b994'
 
+/** Height of the drawn ground at world x, z: between the grid's vertices its triangles cut below hilltops and fill valleys. */
+export function terrainHeightAt(world: World, x: number, z: number): number {
+  const nx = Math.ceil(BOX.width / STEP) + 1, nz = Math.ceil(BOX.depth / STEP) + 1
+  const fi = ((x - BOX.x0) / BOX.width) * (nx - 1), fj = ((z - BOX.z0) / BOX.depth) * (nz - 1)
+  const i = Math.min(nx - 2, Math.max(0, Math.floor(fi))), j = Math.min(nz - 2, Math.max(0, Math.floor(fj))), u = fi - i, v = fj - j
+  const at = (a: number, b: number) => world.heights.yAt(BOX.x0 + (a / (nx - 1)) * BOX.width, BOX.z0 + (b / (nz - 1)) * BOX.depth)
+  // each cell is split along the diagonal from its north-east to its south-west corner, as in the index buffer below
+  if (u + v <= 1) return at(i, j) + (at(i + 1, j) - at(i, j)) * u + (at(i, j + 1) - at(i, j)) * v
+  const d = at(i + 1, j + 1)
+  return d + (at(i, j + 1) - d) * (1 - u) + (at(i + 1, j) - d) * (1 - v)
+}
+
 /** The displaced terrain over the box, its uv in the regional map texture's space. */
 function terrainGeometry(world: World): THREE.BufferGeometry {
   const nx = Math.ceil(BOX.width / STEP) + 1, nz = Math.ceil(BOX.depth / STEP) + 1

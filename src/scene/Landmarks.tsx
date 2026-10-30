@@ -7,6 +7,7 @@ import { project } from '../lib/geo'
 import type { World } from '../lib/world'
 import { useStore } from '../store'
 import { landmarkParts, landmarkLines, landmarkCables, bridgeGround, partGeometry, type Part } from './LandmarkModel'
+import { terrainHeightAt } from './Terrain'
 import { hullMaterial, shimmer } from './hoverGlow'
 import { LandmarkArea } from './LandmarkArea'
 import { useZoomTier } from './viewStore'
@@ -33,7 +34,7 @@ const hullCache = new Map<string, THREE.BufferGeometry>()
 const hullGeoFor = (p: Part, by: number) => {
   if (p.geo === 'fluted') return geoFor({ ...p, geo: 'cyl', args: [0.5 * Number(p.args?.[0] ?? 1), 0.5, 24] })
   if (p.geo === 'ringwall') return geoFor({ ...p, geo: 'cyl', args: [0.5, 0.5, Number(p.args?.[0] ?? 8), 1, false, Math.PI / Number(p.args?.[0] ?? 8)] })
-  if (p.geo !== 'sector' && p.geo !== 'blocks') return geoFor(p)
+  if (!/^(sector|blocks|hill|ribbons|pad)$/.test(p.geo)) return geoFor(p)
   const key = by + JSON.stringify(p.args)
   if (!hullCache.has(key)) hullCache.set(key, partGeometry(p, by))
   return hullCache.get(key)!
@@ -71,7 +72,13 @@ function LandmarkObject({ landmark: l, world }: { landmark: Landmark; world: Wor
   const tier = useZoomTier()
   // bridges read the terrain so their decks run onto the shore instead of stopping over water
   const ground = useMemo(() => (l.kind === 'bridge' ? bridgeGround(l, (x, z) => world.heights.yAt(x, z)) : undefined), [l, world])
-  const parts = useMemo(() => landmarkParts(l, ground), [l, ground])
+  // Twin Peaks brings its own hill, which rises out of the ground exactly as it is drawn
+  const terrain = useMemo(() => {
+    if (l.kind !== 'twinpeaks') return undefined
+    const [x, z] = project(l.lat, l.lng)
+    return { origin: Math.max(0, world.heights.yAt(x, z)), at: (lx: number, lz: number) => terrainHeightAt(world, x + lx, z + lz) }
+  }, [l, world])
+  const parts = useMemo(() => landmarkParts(l, ground, terrain), [l, ground, terrain])
   const lines = useMemo(() => landmarkLines(l, ground), [l, ground])
   const cables = useMemo(() => landmarkCables(l, ground), [l, ground])
   const hits = useMemo(() => parts.filter((p) => p.hit), [parts])
@@ -110,8 +117,9 @@ function LandmarkObject({ landmark: l, world }: { landmark: Landmark; world: Wor
 
   useFrame((_, dt) => {
     if (!group.current) return
-    // bridges don't pop: scaled about one end, a kilometres-long deck would swing its far end off the shore
-    const target = hovered && l.kind !== 'bridge' ? 1.12 : 1
+    // bridges don't pop: scaled about one end, a kilometres-long deck would swing its far end off the shore (nor does Twin
+    // Peaks: its hill is the ground, and would lift its sunken edge out of the city's)
+    const target = hovered && l.kind !== 'bridge' && l.kind !== 'twinpeaks' ? 1.12 : 1
     scaleT.v += (target - scaleT.v) * Math.min(1, dt * 10)
     group.current.scale.setScalar(scaleT.v)
     group.current.position.y = pos.y + (scaleT.v - 1) * 1.5
@@ -158,7 +166,7 @@ function LandmarkObject({ landmark: l, world }: { landmark: Landmark; world: Wor
         <group key={i} position={p.pos} rotation={p.rot ?? [0, 0, 0]}>
           {!p.hullOnly && (
             <mesh geometry={geoFor(p)} scale={p.scale}>
-              <meshStandardMaterial color={p.color} roughness={0.85} metalness={0} flatShading />
+              <meshStandardMaterial color={p.color} roughness={0.85} metalness={0} flatShading vertexColors={p.geo === 'hill'} />
             </mesh>
           )}
           {hovered && !p.detail && (

@@ -1,9 +1,10 @@
 import * as THREE from 'three'
 import type { Landmark } from '../data/landmarks'
-import { project, UNIT, BUILDING_EXAGGERATION } from '../lib/geo'
+import { project, UNIT, BUILDING_EXAGGERATION, elevationToY } from '../lib/geo'
+import * as TP from './twinPeaksData'
 
 export interface Part {
-  geo: 'box' | 'cyl' | 'cone' | 'sphere' | 'ring' | 'stack' | 'fluted' | 'arcade' | 'arches' | 'ringwall' | 'archwall' | 'columns' | 'sector' | 'blocks' | 'strokes'
+  geo: 'box' | 'cyl' | 'cone' | 'sphere' | 'ring' | 'stack' | 'fluted' | 'arcade' | 'arches' | 'ringwall' | 'archwall' | 'columns' | 'sector' | 'blocks' | 'strokes' | 'hill' | 'ribbons' | 'pad'
   pos: [number, number, number]
   rot?: [number, number, number]
   scale: [number, number, number]
@@ -89,8 +90,11 @@ const tier = (z: number, y0: number, y1: number, rb: number, rt: number, color: 
   ({ geo: 'cyl', pos: [0, (y0 + y1) / 2, z], scale: [2 * rb, y1 - y0, 2 * rb], color, args: [r4(0.5 * rt / rb), 0.5, n] })
 const shift = (p: Part, z: number): Part => ({ ...p, pos: [p.pos[0], p.pos[1], p.pos[2] + z] })
 
-/** Returns primitive parts in landmark-local space (y up, origin at ground). Bridges take the ground profile from `bridgeGround`. */
-export function landmarkParts(l: Landmark, ground?: BridgeGround): Part[] {
+/**
+ * Returns primitive parts in landmark-local space (y up, origin at ground). Bridges take the ground profile from `bridgeGround`;
+ * Twin Peaks, which brings its own hill, takes the drawn terrain round it so the hill can rise out of it.
+ */
+export function landmarkParts(l: Landmark, ground?: BridgeGround, terrain?: Terrain): Part[] {
   switch (l.kind) {
     case 'bridge':
       return (l.id === 'baybridge' ? bayBridge(l, ground) : goldenGate(l, ground)).parts
@@ -394,33 +398,8 @@ export function landmarkParts(l: Landmark, ground?: BridgeGround): Part[] {
         p.push({ geo: 'sphere', pos: [x, y, z], scale: [r, r * 0.35, r * 1.3], color: SCRUB, detail: true, args: [1, 8, 6] })
       return p
     }
-    case 'twinpeaks': {
-      // Twin Peaks: the heightmap (80 m pixels) melts the two summits into one ridge, so the model rebuilds them on the
-      // ridge's own high points: two low-poly grassy cones with the figure-eight of Twin Peaks Boulevard as a ledge round
-      // each, joined at the saddle, the Christmas Tree Point overlook on the downtown (+x) side and a summit marker.
-      const GRASS_ = '#a6bb7f', CROWN = '#b3c28a', ROAD = '#efe9dc', DZ = 1.05
-      const p: Part[] = []
-      for (const z of [-DZ, DZ]) {
-        p.push(
-          // a long gentle skirt, so the cone melts into the real slope instead of standing on it like a wall
-          tier(z, -0.9, -0.06, 1.5, 0.97, GRASS_, 14),
-          asDetail(sector(z, -0.06, -0.04, 0.8, 0.95, [[-Math.PI, Math.PI]], ROAD)),
-          tier(z, -0.06, 0.3, 0.82, 0.36, CROWN),
-          tier(z, 0.3, 0.42, 0.36, 0.12, CROWN),
-        )
-      }
-      p.push(
-        box(0, -0.06, -0.04, 0, 0.22, 0.4, ROAD, true),
-        // overlook: a paved shelf with a parapet and three viewers
-        box(1.0, -0.4, -0.035, -DZ, 0.3, 0.5, '#d9d3c4', true),
-        box(1.14, -0.035, 0.0, -DZ, 0.02, 0.5, '#bdb6a5', true),
-        columns([[1.1, -DZ - 0.15], [1.1, -DZ], [1.1, -DZ + 0.15]], -0.035, 0.03, 0.01, '#4a4a4a'),
-        // summit marker, as on the other peaks
-        box(0, 0.42, 0.85, -DZ, 0.035, 0.035, '#4a4a4a', true),
-        box(0.1, 0.72, 0.84, -DZ, 0.2, 0.015, ORANGE, true),
-      )
-      return p
-    }
+    case 'twinpeaks':
+      return twinPeaks(terrain)
     case 'ballpark': {
       // Oracle Park. Local axes are the foul lines, which follow the SoMa grid: third base runs up King St (-z), first base
       // along 3rd St towards the cove (+x), home plate in the corner by Willie Mays Plaza. A quarter-circle of grass and
@@ -1799,7 +1778,273 @@ export function landmarkCables(l: Landmark, ground?: BridgeGround): number[] {
   return (l.id === 'baybridge' ? bayBridge(l, ground) : goldenGate(l, ground)).cables
 }
 
-/** `grow` (sectors and blocks only) returns the part's hover hull: the same shape offset outwards by that much in plan, in the part's own unit frame. */
+// ---------------------------------------------------------------- Twin Peaks
+
+/** The drawn terrain round a landmark that brings its own ground: world y the model stands at, and of the ground at a local point. */
+export interface Terrain {
+  origin: number
+  at: (x: number, z: number) => number
+}
+
+const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+/** The baked hill (twinPeaksData.ts): metres above sea level and how far inside the natural area, per grid point. */
+function twinPeaksGrid() {
+  const { nx, nz, h0, hq, heights, inside } = TP.GRID
+  const h = new Float32Array(nx * nz), w = new Float32Array(nx * nz)
+  for (let k = 0; k < nx * nz; k++) {
+    h[k] = h0 + (B64.indexOf(heights[2 * k]) * 64 + B64.indexOf(heights[2 * k + 1])) * hq
+    w[k] = B64.indexOf(inside[k]) / 63
+  }
+  return { h, w }
+}
+
+// a smooth value noise for the hill's patchwork (deterministic, so the pipeline and the app agree)
+const hash2 = (i: number, j: number) => { const v = Math.sin(i * 127.1 + j * 311.7) * 43758.5453; return v - Math.floor(v) }
+function noise2(x: number, z: number) {
+  const i = Math.floor(x), j = Math.floor(z), u = x - i, v = z - j, su = u * u * (3 - 2 * u), sv = v * v * (3 - 2 * v)
+  const a = hash2(i, j), b = hash2(i + 1, j), c = hash2(i, j + 1), d = hash2(i + 1, j + 1)
+  return (a + (b - a) * su) * (1 - sv) + (c + (d - c) * su) * sv
+}
+
+/**
+ * Twin Peaks at true size, on the real ground: the heightmap (80 m pixels) melts the two summits into one blob ~25 m too
+ * low, so the model is the hill itself, a 15 m grid of the USGS elevation over the natural area (scripts/twinpeaks.ts) with
+ * the terrain's 1.6x exaggeration, rising out of the city's drawn ground at the area's edge and sinking back under it.
+ * Faceted in dry gold grass, coyote-brush scrub lower down and on the cooler slopes, and the red-brown chert that breaks
+ * out on both summits. On it, from OSM: the figure-eight of Twin Peaks Boulevard (the two-way road with its double yellow
+ * line down the west side and round the south hairpin; the east side and the loop round the north knoll car-free since
+ * 2020), the dirt trails and the timber stairs up Eureka (north) and Noe (south) peaks, and Christmas Tree Point's terrace
+ * car park with its stone parapet and coin viewers facing downtown.
+ */
+function twinPeaks(terrain?: Terrain): Part[] {
+  const { nx, nz, x0, z0, step } = TP.GRID
+  const { h, w } = twinPeaksGrid()
+  const k0 = Math.round(-z0 / step) * nx + Math.round(-x0 / step)
+  const origin = terrain?.origin ?? elevationToY(h[k0])
+  // the hill follows the real ground inside the area, never dips under the drawn terrain there, and sinks 12 m under it at the edge
+  const y = new Float32Array(nx * nz)
+  for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
+    const k = j * nx + i, dem = elevationToY(h[k]) - origin
+    const g = terrain ? terrain.at(x0 + i * step, z0 + j * step) - origin : dem
+    const core = Math.max(dem, g + 0.015), under = g - 0.12
+    y[k] = r4(under + (core - under) * w[k])
+  }
+  // height of the hill's own triangles (each cell split along its north-east to south-west diagonal, as hillGeometry does)
+  const surface = (x: number, z: number) => {
+    const fi = (x - x0) / step, fj = (z - z0) / step
+    const i = Math.min(nx - 2, Math.max(0, Math.floor(fi))), j = Math.min(nz - 2, Math.max(0, Math.floor(fj))), u = fi - i, v = fj - j
+    const a = y[j * nx + i], b = y[j * nx + i + 1], c = y[(j + 1) * nx + i], d = y[(j + 1) * nx + i + 1]
+    return u + v <= 1 ? a + (b - a) * u + (c - a) * v : d + (c - d) * (1 - u) + (b - d) * (1 - v)
+  }
+
+  // the patchwork, one colour per triangle
+  const GRASS_A = '#dcc78f', GRASS_B = '#d0bb83', GRASS_C = '#c2c28a', SCRUB_A = '#a3aa70', SCRUB_B = '#8c9861', CHERT_A = '#b57b62', CHERT_B = '#9d6853', SKIRT = '#9a8f6b'
+  const palette = [GRASS_A, GRASS_B, GRASS_C, SCRUB_A, SCRUB_B, CHERT_A, CHERT_B, SKIRT]
+  const cls: number[] = []
+  for (let j = 0; j + 1 < nz; j++) for (let i = 0; i + 1 < nx; i++) {
+    const k = j * nx + i, h00 = h[k], h10 = h[k + 1], h01 = h[k + nx], h11 = h[k + nx + 1]
+    const gx = (h10 + h11 - h00 - h01) / 30, gz = (h01 + h11 - h00 - h10) / 30, slope = Math.hypot(gx, gz)
+    // north- and east-facing slopes get the fog and keep their scrub; the west face is wind-cropped grass
+    const cool = gz > 0.08 || gx < -0.08
+    for (const tri of [0, 1]) {
+      const cx = x0 + (i + (tri ? 0.67 : 0.33)) * step, cz = z0 + (j + (tri ? 0.67 : 0.33)) * step
+      const m = tri ? (h01 + h11 + h10) / 3 : (h00 + h01 + h10) / 3
+      const n1 = noise2(cx / 0.45, cz / 0.45), n2 = noise2(cx / 0.2 + 7.3, cz / 0.2 - 3.1)
+      let c: number
+      if ((m > 268 && (slope > 0.45 || n2 > 0.58)) || (slope > 0.8 && n2 > 0.72)) c = n2 > 0.7 ? 6 : 5
+      else {
+        const scrub = n1 + (cool ? 0.2 : 0) + (m < 240 ? 0.16 : 0) - (m > 260 ? 0.3 : 0)
+        c = scrub > 0.86 ? 4 : scrub > 0.7 ? 3 : cool ? 2 : n2 > 0.5 ? 0 : 1
+      }
+      cls.push(c)
+    }
+  }
+  const p: Part[] = [fitted('hill', [nx, nz, x0, z0, step, palette.length, ...palette.map((c) => parseInt(c.slice(1), 16)), ...y, ...cls], '#ffffff')]
+
+  // lines draped on the hill: every few metres so they follow its facets
+  const drape = (flat: number[], lift = 0): [number, number, number][] => {
+    const out: [number, number, number][] = []
+    for (let i = 0; i + 3 < flat.length; i += 2) {
+      const ax = flat[i], az = flat[i + 1], bx = flat[i + 2], bz = flat[i + 3]
+      const n = Math.max(1, Math.ceil(Math.hypot(bx - ax, bz - az) / 0.04))
+      for (let s = i ? 1 : 0; s <= n; s++) {
+        const x = ax + ((bx - ax) * s) / n, z = az + ((bz - az) * s) / n
+        out.push([r4(x), r4(surface(x, z) + lift), r4(z)])
+      }
+    }
+    return out
+  }
+  const ROAD_ = '#6f6a63', PROM = '#8b867d', LINE = '#e6be45', TRAIL = '#dccaa2', STEP_ = '#8a6a4b', STONE_ = '#bcb29d', VIEWER = '#3f4a52'
+  p.push(
+    asDetail(fitted('ribbons', [0.055, 0.012, 0.04, ...packLines(TP.DRIVE.map((l) => drape(l)))], ROAD_)),
+    asDetail(fitted('ribbons', [0.0035, 0.0135, 0.004, ...packLines(TP.DRIVE.map((l) => drape(l)))], LINE)),
+    asDetail(fitted('ribbons', [0.05, 0.012, 0.04, ...packLines(TP.PROMENADE.map((l) => drape(l)))], PROM)),
+    asDetail(fitted('ribbons', [0.016, 0.01, 0.03, ...packLines(TP.TRAILS.map((l) => drape(l)))], TRAIL)),
+    asDetail(fitted('ribbons', [0.02, 0.013, 0.035, ...packLines(TP.STAIRS.map((l) => drape(l)))], STEP_)),
+  )
+
+  // Christmas Tree Point: the terrace (levelled in the bake), its parapet on the downtown side, coin viewers, a few cars
+  for (const ring of TP.LOTS) {
+    const pts: [number, number][] = []
+    for (let i = 0; i + 1 < ring.length; i += 2) pts.push([ring[i], ring[i + 1]])
+    const level = pts.reduce((s, [x, z]) => s + surface(x, z), 0) / pts.length + 0.014
+    p.push(asDetail(fitted('pad', [0.06, ...pts.flatMap(([x, z]) => [r4(x), r4(level), r4(z)])], ROAD_)))
+    const area = pts.reduce((s, [x, z], i) => { const [x2, z2] = pts[(i + 1) % pts.length]; return s + x * z2 - x2 * z }, 0)
+    // a ring with positive shoelace area has the outside on the right of travel, (dz, -dx)
+    const out = area > 0 ? 1 : -1
+    const wall: [number, number, number][][] = []
+    let run: [number, number, number][] = []
+    pts.forEach(([x, z], i) => {
+      const [x2, z2] = pts[(i + 1) % pts.length], L = Math.hypot(x2 - x, z2 - z) || 1
+      const nxo = (out * (z2 - z)) / L
+      if (nxo > 0.35) {
+        if (!run.length) run.push([x, level, z])
+        run.push([x2, level, z2])
+      } else if (run.length) { wall.push(run); run = [] }
+    })
+    if (run.length) wall.push(run)
+    p.push(asDetail(fitted('ribbons', [0.008, 0.028, 0.06, ...packLines(wall.filter((r) => r.length > 1))], STONE_)))
+    // cars nosed in round the edge, every ~10 m
+    const CARS = ['#c9463d', '#f3f1ea', '#2f6ea5', '#3b3b3b', '#d9d5cc', '#e0a43a', '#4f7a63']
+    let along = 0, n = 0
+    pts.forEach(([x, z], i) => {
+      const [x2, z2] = pts[(i + 1) % pts.length], L = Math.hypot(x2 - x, z2 - z)
+      for (let s = (0.1 - along) % 0.1; s < L; s += 0.1) {
+        if (hash2(i, n) < 0.35) { n++; continue }
+        const t = s / L, ix = (-out * (z2 - z)) / L, iz = (out * (x2 - x)) / L
+        const cx = x + (x2 - x) * t + ix * 0.045, cz = z + (z2 - z) * t + iz * 0.045
+        p.push({ geo: 'box', pos: [r4(cx), r4(level + 0.012), r4(cz)], rot: [0, r4(Math.atan2(-(z2 - z), x2 - x) + Math.PI / 2), 0], scale: [0.045, 0.02, 0.022], color: CARS[n++ % CARS.length], detail: true })
+      }
+      along = (along + L) % 0.1
+    })
+  }
+  for (const [vx, vz] of TP.VIEWPOINTS.slice(0, 2)) {
+    const yv = surface(vx, vz) + 0.014
+    p.push(columns([[vx - 0.02, vz], [vx + 0.02, vz]], yv - 0.02, yv + 0.03, 0.004, VIEWER))
+    p.push(asDetail(blocks([[vx - 0.02, vz, 0.014, 0.01, yv + 0.03, yv + 0.04], [vx + 0.02, vz, 0.014, 0.01, yv + 0.03, yv + 0.04]], VIEWER)))
+  }
+
+  // the chert breaking out on both summits (detail: their hulls would swell into blobs; the hill's outline runs over them)
+  for (const [sx, sz] of [TP.EUREKA, TP.NOE]) {
+    for (let k = 0; k < 4; k++) {
+      const a = k * 2.1 + sx * 10, r = k ? 0.05 + 0.03 * hash2(k, sz * 10) : 0.08
+      const x = sx + (k ? 0.07 * Math.cos(a) : 0), z = sz + (k ? 0.07 * Math.sin(a) : 0)
+      p.push({ geo: 'sphere', pos: [r4(x), r4(surface(x, z) + r * 0.15), r4(z)], rot: [0, r4(a), 0], scale: [r4(r), r4(r * 0.5), r4(r * 0.75)], color: k % 2 ? CHERT_B : CHERT_A, args: [1, 6, 4], detail: true })
+    }
+  }
+  return p
+}
+
+/** polylines of [x, y, z] points as one args run: count, then the points */
+const packLines = (lines: [number, number, number][][]) => lines.flatMap((l) => [l.length, ...l.flat()])
+const unpackLines = (a: number[], from: number) => {
+  const out: [number, number, number][][] = []
+  for (let i = from; i < a.length; ) {
+    const n = a[i++]
+    out.push(Array.from({ length: n }, (_, k) => [a[i + 3 * k], a[i + 3 * k + 1], a[i + 3 * k + 2]] as [number, number, number]))
+    i += 3 * n
+  }
+  return out
+}
+
+/**
+ * Model-space triangles (and optional per-vertex colours) for the parts that carry their own coordinates in args: the hill
+ * (a height grid), ribbons (draped lines) and pads (draped rings). `grow` raises the top and lowers the bottom (the hull).
+ */
+function freeform(geo: Part['geo'], a: number[], grow: number): { pos: number[]; col?: number[] } {
+  const pos: number[] = []
+  const quad = (p0: number[], p1: number[], p2: number[], p3: number[]) => pos.push(...p0, ...p1, ...p2, ...p1, ...p3, ...p2)
+  if (geo === 'hill') {
+    // [nx, nz, x0, z0, step, palette size, ...palette (0xrrggbb), ...heights (row by row from the north), ...colour per triangle]
+    const [nx, nz, x0, z0, step, np] = a, ys = 6 + np, cs = ys + nx * nz
+    const pal = a.slice(6, ys).map((c) => new THREE.Color(c))
+    const col: number[] = []
+    const v = (i: number, j: number) => [x0 + i * step, a[ys + j * nx + i] + grow, z0 + j * step]
+    const paint = (c: THREE.Color, n: number) => { for (let k = 0; k < n; k++) col.push(c.r, c.g, c.b) }
+    let t = cs
+    for (let j = 0; j + 1 < nz; j++) for (let i = 0; i + 1 < nx; i++) {
+      pos.push(...v(i, j), ...v(i, j + 1), ...v(i + 1, j))
+      paint(pal[a[t++]], 3)
+      pos.push(...v(i, j + 1), ...v(i + 1, j + 1), ...v(i + 1, j))
+      paint(pal[a[t++]], 3)
+    }
+    // walls round the edge, down below the lowest point, so the hull is a closed shell
+    let lo = Infinity
+    for (let k = 0; k < nx * nz; k++) lo = Math.min(lo, a[ys + k])
+    const b = (q: number[]) => [q[0], lo - 0.05 - grow, q[2]]
+    const n0 = pos.length
+    for (let i = 0; i + 1 < nx; i++) {
+      quad(b(v(i, 0)), v(i, 0), b(v(i + 1, 0)), v(i + 1, 0))
+      quad(b(v(i + 1, nz - 1)), v(i + 1, nz - 1), b(v(i, nz - 1)), v(i, nz - 1))
+    }
+    for (let j = 0; j + 1 < nz; j++) {
+      quad(b(v(nx - 1, j)), v(nx - 1, j), b(v(nx - 1, j + 1)), v(nx - 1, j + 1))
+      quad(b(v(0, j + 1)), v(0, j + 1), b(v(0, j)), v(0, j))
+    }
+    paint(pal[np - 1], (pos.length - n0) / 3)
+    return { pos, col }
+  }
+  if (geo === 'ribbons') {
+    // [half width, lift, thickness, ...lines]: a flat strip `lift` above each line, with sides `thickness` deep
+    const [hw, lift, thick] = a
+    for (const line of unpackLines(a, 3)) {
+      const edge = line.map((q, i) => {
+        const pa = line[Math.max(0, i - 1)], pb = line[Math.min(line.length - 1, i + 1)]
+        const dx = pb[0] - pa[0], dz = pb[2] - pa[2], L = Math.hypot(dx, dz) || 1
+        const top = q[1] + lift + grow, bot = q[1] + lift - thick - grow
+        const L_ = (s: number, y: number) => [q[0] + (dz / L) * (hw + grow) * s, y, q[2] - (dx / L) * (hw + grow) * s]
+        return { l: L_(1, top), r: L_(-1, top), lb: L_(1, bot), rb: L_(-1, bot) }
+      })
+      for (let i = 0; i + 1 < edge.length; i++) {
+        const e0 = edge[i], e1 = edge[i + 1]
+        quad(e0.l, e0.r, e1.l, e1.r)
+        quad(e1.rb, e1.r, e0.rb, e0.r)
+        quad(e0.lb, e0.l, e1.lb, e1.l)
+      }
+    }
+    return { pos }
+  }
+  // pad: [thickness, ...ring x, y, z]: the ring triangulated as a flat top, with sides `thickness` deep
+  const thick = a[0], ring = unpackLines([(a.length - 1) / 3, ...a.slice(1)], 0)[0]
+  const tris = THREE.ShapeUtils.triangulateShape(ring.map(([x, , z]) => new THREE.Vector2(x, z)), [])
+  const top = (q: number[]) => [q[0], q[1] + grow, q[2]], bot = (q: number[]) => [q[0], q[1] - thick - grow, q[2]]
+  // seen from above (x right, north up) a front face runs anticlockwise, i.e. negative shoelace area in x-z
+  const cross = (p0: number[], p1: number[], p2: number[]) => (p1[0] - p0[0]) * (p2[2] - p0[2]) - (p1[2] - p0[2]) * (p2[0] - p0[0])
+  for (const [i, j, k] of tris) {
+    const [qi, qj, qk] = [ring[i], ring[j], ring[k]]
+    if (cross(qi, qj, qk) < 0) pos.push(...top(qi), ...top(qj), ...top(qk))
+    else pos.push(...top(qi), ...top(qk), ...top(qj))
+  }
+  const area = ring.reduce((sum, q, i) => { const q2 = ring[(i + 1) % ring.length]; return sum + q[0] * q2[2] - q2[0] * q[2] }, 0)
+  for (let i = 0; i < ring.length; i++) {
+    const q0 = ring[i], q1 = ring[(i + 1) % ring.length]
+    if (area > 0) quad(bot(q0), top(q0), bot(q1), top(q1))
+    else quad(bot(q1), top(q1), bot(q0), top(q0))
+  }
+  return { pos }
+}
+function freeformBox(geo: Part['geo'], a: number[]) {
+  const { pos } = freeform(geo, a, 0)
+  const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity]
+  for (let i = 0; i < pos.length; i++) { lo[i % 3] = Math.min(lo[i % 3], pos[i]); hi[i % 3] = Math.max(hi[i % 3], pos[i]) }
+  return { c: lo.map((v, i) => (v + hi[i]) / 2), s: lo.map((v, i) => Math.max(1e-3, hi[i] - v)) }
+}
+/** a freeform part placed on its own bounds (like `blocks`), so pos/scale stay true for the hover box */
+function fitted(geo: 'hill' | 'ribbons' | 'pad', args: number[], color: string): Part {
+  const { c, s } = freeformBox(geo, args)
+  return { geo, pos: [r4(c[0]), r4(c[1]), r4(c[2])], scale: [r4(s[0]), r4(s[1]), r4(s[2])], color, args }
+}
+/** The same in the unit box of the ungrown part (a grown hull is scaled up by 2 * grow when drawn), with vertex colours if any. */
+function freeformGeometry(geo: Part['geo'], a: number[], grow: number): THREE.BufferGeometry {
+  const { c, s } = freeformBox(geo, a)
+  const { pos, col } = freeform(geo, a, grow)
+  for (let i = 0; i < pos.length; i++) pos[i] = (pos[i] - c[i % 3]) / (s[i % 3] + 2 * grow)
+  const g = fromPositions(pos)
+  if (col) g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3))
+  return g
+}
+
+/** `grow` (sectors, blocks and the freeform parts only) returns the part's hover hull: the same shape offset outwards by that much, in the part's own unit frame. */
 export function partGeometry(p: Part, grow = 0): THREE.BufferGeometry {
   const a = (p.args ?? []) as number[]
   switch (p.geo) {
@@ -1818,6 +2063,7 @@ export function partGeometry(p: Part, grow = 0): THREE.BufferGeometry {
     case 'sector': return sectorGeometry(a, grow)
     case 'blocks': return blocksGeometry(a, grow)
     case 'strokes': return strokesGeometry(a)
+    case 'hill': case 'ribbons': case 'pad': return freeformGeometry(p.geo, a, grow)
   }
 }
 

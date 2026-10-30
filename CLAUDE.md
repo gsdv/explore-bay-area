@@ -252,8 +252,12 @@ and `scene/LandmarkModel.tsx`. React has its own chunk (`manualChunks` in `vite.
   opening (its triumphal arch). SF's footprint survey has nothing at the Legion, so its size and axis (bearing -40, parallel to
   Legion of Honor Drive) are read off the roads and the aerials rather than measured.
   Kinds with one landmark and a model of their own: `alcatraz` (brings its own rock in three terraces, a bit bigger than the heightmap's
-  80 m-pixel bump, at sea level), `twinpeaks` (two low-poly cones with the figure-eight road as a ledge, placed on the heightmap's own
-  high points; give hills a long gentle skirt or they read as bunkers), `ballpark` (Oracle Park; local axes are the foul lines = the SoMa
+  80 m-pixel bump, at sea level), `twinpeaks` (the real hill at true size: a 15 m grid of
+  USGS elevation over the natural area, baked with OSM's figure-eight, trails, stairs and Christmas Tree Point's car parks into
+  `src/scene/twinPeaksData.ts` by `scripts/twinpeaks.ts`; drawn by the freeform `hill` (per-triangle vertex colours), `ribbons`
+  and `pad` parts. It rises out of the ground exactly as drawn: `landmarkParts` takes a `terrain` sampler for it, each page's
+  `terrainHeightAt` (its grid's own triangles, not the heightmap), and it sinks 12 m under it at the area's edge. It is not in
+  `STANDS_IN_TOWN`, so it clears no houses, and it doesn't pop on hover), `ballpark` (Oracle Park; local axes are the foul lines = the SoMa
   grid, home plate by 3rd & King), `arena` (Chase Center, on its OSM footprint), `museum` (the Exploratorium's Pier 15, on its OSM
   footprint) and `cityhall` (sized and turned from DataSF's footprint, 124 x 83 m on bearing -9 with +x the Polk St front; OSM maps it
   as a relation, which the downtown `way` query never returns, so nothing else stands on its block; block 1.2x in plan, drum and dome

@@ -9,6 +9,17 @@ const GRID = 512
 
 const cache = new WeakMap<World, THREE.BufferGeometry>()
 
+/** Height of the drawn ground at world x, z: between the grid's vertices its triangles cut below hilltops and fill valleys. */
+export function terrainHeightAt(world: World, x: number, z: number): number {
+  const n = GRID, fi = (x / WORLD.width + 0.5) * (n - 1), fj = (z / WORLD.depth + 0.5) * (n - 1)
+  const i = Math.min(n - 2, Math.max(0, Math.floor(fi))), j = Math.min(n - 2, Math.max(0, Math.floor(fj))), u = fi - i, v = fj - j
+  const at = (a: number, b: number) => world.heights.yAt((a / (n - 1) - 0.5) * WORLD.width, (b / (n - 1) - 0.5) * WORLD.depth)
+  // each cell is split along the diagonal from its north-east to its south-west corner, as in the index buffer below
+  if (u + v <= 1) return at(i, j) + (at(i + 1, j) - at(i, j)) * u + (at(i, j + 1) - at(i, j)) * v
+  const d = at(i + 1, j + 1)
+  return d + (at(i, j + 1) - d) * (1 - u) + (at(i + 1, j) - d) * (1 - v)
+}
+
 /** The displaced terrain grid, built once per world and shared by every layer that drapes over the ground. */
 export function useTerrainGeometry(world: World): THREE.BufferGeometry {
   return useMemo(() => {
