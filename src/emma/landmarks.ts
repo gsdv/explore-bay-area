@@ -4,12 +4,17 @@
  * the ground, popping up on hover). Put any footprint they replace into account here too: the Monadnock stands on a lot
  * the baked downtown buildings leave empty, so it needs no clearing.
  */
+import type { ComponentType } from 'react'
 import type { Landmark } from '../data/landmarks'
 import type { Part } from '../scene/LandmarkModel'
 import { monadnockParts } from './scene/monadnock'
+import { NotionLogo, NOTION_LOGO_HEIGHT } from './scene/NotionLogo'
 
 export interface EmmaLandmark extends Landmark {
   parts: () => Part[]
+  /** something animated riding over the model, drawn inside its group from the model's top (`height` is how far it reaches
+   *  above that: the label and the card's fly-to clear it) */
+  topper?: { Node: ComponentType<{ top: number }>; height: number }
 }
 
 export const emmaLandmarks: EmmaLandmark[] = [
@@ -26,5 +31,6 @@ export const emmaLandmarks: EmmaLandmark[] = [
     tip: 'Come by after dark, when the arched doorway on Market lights up the lobby\'s painted vault. The Palace Hotel\'s glass-roofed Garden Court is next door.',
     tags: ['culture'],
     parts: monadnockParts,
+    topper: { Node: NotionLogo, height: NOTION_LOGO_HEIGHT },
   },
 ]

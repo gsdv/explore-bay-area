@@ -120,6 +120,7 @@ function LandmarkObject({ landmark: l, world }: { landmark: Landmark | EmmaLandm
   })
 
   const top = Math.max(...parts.filter((p) => !p.scenery && !p.hullOnly && !p.hit).map((p) => p.pos[1] + p.scale[1] / 2))
+  const topper = 'parts' in l ? l.topper : undefined
   const onOver = (e: ThreeEvent<PointerEvent>) => {
     if (touring) return
     e.stopPropagation()
@@ -136,11 +137,11 @@ function LandmarkObject({ landmark: l, world }: { landmark: Landmark | EmmaLandm
     if (touring) return
     e.stopPropagation()
     const [x, z] = project(l.kind === 'bridge' ? (l.lat + l.lat2!) / 2 : l.lat, l.kind === 'bridge' ? (l.lng + l.lng2!) / 2 : l.lng)
-    select({ landmark: l, x, z, dist: l.kind === 'bridge' ? 32 : 12, height: top })
+    select({ landmark: l, x, z, dist: l.kind === 'bridge' ? 32 : 12, height: top + (topper?.height ?? 0) })
   }
 
   const showLabel = !touring && (tier !== 'far' || l.tags?.includes('icon'))
-  const labelHeight = top + 0.6
+  const labelHeight = top + (topper?.height ?? 0) + 0.6
 
   return (
     <group ref={group} position={pos} rotation-y={rotY} onPointerOver={onOver} onPointerOut={onOut} onClick={onClick}>
@@ -166,6 +167,7 @@ function LandmarkObject({ landmark: l, world }: { landmark: Landmark | EmmaLandm
           )}
         </group>
       ))}
+      {topper && <topper.Node top={top} />}
       {lines.length > 0 && (
         <Line points={lines} segments color={parts[0].color} lineWidth={hovered ? 2.4 : 1.3} raycast={() => null} />
       )}
