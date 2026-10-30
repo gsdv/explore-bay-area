@@ -1,6 +1,6 @@
 export type LandmarkKind =
   | 'bridge' | 'tower' | 'pyramid' | 'ferry' | 'coit' | 'sutro' | 'rotunda' | 'stadium' | 'arena'
-  | 'peak' | 'park' | 'beach' | 'houses' | 'island' | 'campanile' | 'museum' | 'wharf' | 'street' | 'gate' | 'forest' | 'town' | 'campus' | 'legion' | 'lombard' | 'tamalpais' | 'diablo' | 'alcatraz' | 'twinpeaks' | 'bernal' | 'ballpark' | 'cityhall' | 'ghirardelli' | 'cathedral' | 'mission' | 'conservatory' | 'deyoung' | 'transit'
+  | 'peak' | 'park' | 'beach' | 'houses' | 'island' | 'campanile' | 'museum' | 'wharf' | 'clarion' | 'gate' | 'forest' | 'town' | 'campus' | 'legion' | 'lombard' | 'tamalpais' | 'diablo' | 'alcatraz' | 'twinpeaks' | 'bernal' | 'ballpark' | 'cityhall' | 'ghirardelli' | 'cathedral' | 'mission' | 'conservatory' | 'deyoung' | 'transit'
 
 export interface Landmark {
   id: string
@@ -71,5 +71,5 @@ export const landmarks: Landmark[] = [
   { id: 'levis', name: 'Levi\'s Stadium', kind: 'stadium', modelType: 'structure', lat: 37.4033, lng: -121.9694, area: 'Santa Clara', blurb: 'Home of the 49ers, next to the NVIDIA and Intel campuses.', tags: ['culture'] },
   { id: 'mavericks', name: 'Mavericks (Half Moon Bay)', kind: 'beach', modelType: 'land', lat: 37.4956, lng: -122.4979, area: 'Coastside', blurb: 'One of the biggest surf breaks in the world, firing on winter swells. Pillar Point harbour has the fish tacos.', tags: ['nature'] },
   { id: 'mtdiablo', name: 'Mount Diablo', kind: 'diablo', modelType: 'land', lat: 37.88175, lng: -121.91418, area: 'East Bay', blurb: 'At 3,849 feet, the East Bay\'s summit. On a clear winter day the view stretches from Lassen to Half Dome.', tags: ['hike', 'view'] },
-  { id: 'missionmurals', name: 'Mission Murals (Clarion Alley)', kind: 'street', modelType: 'structure', lat: 37.7628, lng: -122.4200, area: 'Mission', blurb: 'Hundreds of murals across the Mission; Clarion Alley and Balmy Alley are the dense ones.', tags: ['culture'] },
+  { id: 'missionmurals', name: 'Clarion Alley', kind: 'clarion', modelType: 'structure', lat: 37.762983, lng: -122.420626, bearing: -4.33, area: 'Mission', blurb: 'Hundreds of murals across the Mission; Clarion Alley and Balmy Alley are the dense ones.', tags: ['culture'] },
 ]

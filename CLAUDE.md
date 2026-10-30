@@ -309,7 +309,10 @@ and `scene/LandmarkModel.tsx`. React has its own chunk (`manualChunks` in `vite.
   Lombard Street (`lombard`) follows the real switchbacks (OSM way 402111597 in its frame) at 1.8x in plan, with the hill's slope baked
   in (-0.36 per unit east) and lifted 15 m because the terrain mesh (~150 m vertices) runs above the heightmap there. Its lining houses
   are `scenery`; one `hit` box over the whole block is the hover target and also sizes the pipeline's clearing (hit parts aren't
-  `detail`). `street` stays the generic model for Clarion Alley.
+  `detail`). Clarion Alley (`clarion`) is the whole block between 17th and Sycamore, Mission to Valencia: the survey's fitted boxes
+  baked into `CLARION_BLOCK` (alley frame, bearing -4.33), cut back so the 4 m alley is 16 m wide, every alley face and fence a
+  seeded patchwork of murals (boxes grouped by colour, one mesh each), painted paving, poles with wires (`landmarkLines`). The
+  buildings are `scenery`; one `hit` box over the block is the hover target and sizes the clearing.
   Mount Tamalpais (`tamalpais`) is a model and an area at once: the Gardner fire lookout (~5x) on a rocky crown sunk into East Peak, plus
   an outline from `AREA_PARKS` (`LandmarkArea` serves `park`, `beach`, `tamalpais`, `diablo`, `forest` and `island`: Angel Island is its State Park outline; Muir Woods is the same pattern, its redwood grove plus the National Monument outline). In OSM the State Park stops short of
   East Peak, so the outline is the State Park merged with the water district's `Mount Tamalpais Watershed` cut by `AREA_CLIP` to a box

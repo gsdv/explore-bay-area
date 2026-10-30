@@ -960,13 +960,8 @@ export function landmarkParts(l: Landmark, ground?: BridgeGround, terrain?: Terr
       p.push({ geo: 'box', pos: [0, 0, 0], scale: [X1 - X0 + 1.0, 1.1, 2 * (bedW / 2 + 0.29)], color: '#000', hit: true })
       return p
     }
-    case 'street':
-      return [
-        { geo: 'box', pos: [0, 0.05, 0], rot: [0, 0, 0.18], scale: [0.9, 0.1, 0.5], color: '#f7f4ee' },
-        { geo: 'box', pos: [-0.3, 0.16, -0.14], scale: [0.14, 0.14, 0.14], color: '#d96c9a' },
-        { geo: 'box', pos: [0.05, 0.22, 0.12], scale: [0.14, 0.14, 0.14], color: '#7f8ed0' },
-        { geo: 'box', pos: [0.32, 0.27, -0.1], scale: [0.14, 0.14, 0.14], color: '#e6a94f' },
-      ]
+    case 'clarion':
+      return clarionAlley().parts
     case 'gate': {
       // The Dragon Gate at Grant and Bush, facing south (+z) down Grant Avenue: four grey stone pillars making a wide central
       // opening over the street and a narrower one over each sidewalk; a red and green painted frieze with the blue plaque; green
@@ -1959,6 +1954,211 @@ const TRANSIT_CENTER = [
   1.595, -0.252, 1.687, -0.233,
 ]
 
+/**
+ * Clarion Alley (the Clarion Alley Mural Project, since 1992): one block of alley between Mission and Valencia, midway from
+ * 17th St to Sycamore St, with every wall, fence and garage door down it painted. The model is the whole block, its buildings
+ * the fitted boxes of DataSF's footprint survey (`CLARION_BLOCK`), since the pipeline's clearing takes the survey's own; the
+ * alley is 4 m between the walls, widened to 16 m here by cutting the buildings back from it, or the murals would be a seam.
+ * Each stretch of wall is a patchwork of murals side by side (a ground colour each and one big flat motif: a sun, a face,
+ * rainbow bands, a flower, checks or stripes, and painted garage doors), the gaps between buildings are painted fences, the
+ * paving has painted rings, a rainbow and a spiral of words, and wooden poles carry the wires overhead (`landmarkLines`).
+ */
+function clarionAlley(): { parts: Part[]; lines: number[] } {
+  const AW = 0.08, X0 = -0.86, X1 = 0.91, SUNK = -0.06, FLOOR = 0.012, FENCE = H(3.2)
+  const POLE = '#5b4a3a', PAVE = '#aaa499', FENCE_WOOD = '#cdbfa6', ROOF = '#aca698', INK = '#24304a', CHALK = '#f6f1e6'
+  const WALLS = ['#e9dcc4', '#d8d2c6', '#ead2c4', '#d6dccb', '#f0e6cf', '#cfd6dc', '#e2d4c0']
+  const MURAL = ['#e4572e', '#f3a712', '#2a9d8f', '#2e5eaa', '#d1495b', '#7b4fa0', '#f2d24b', '#5aa05a', '#f28fad', '#86c5e0', INK, CHALK]
+  const SKIN = ['#8a5a3c', '#c68b59', '#e3b48c', '#5c3a28']
+  let seed = 23
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
+  const pick = <T,>(a: T[]) => a[Math.floor(rnd() * a.length)]
+  // every painted box, grouped by colour: one mesh each
+  const paint = new Map<string, number[][]>()
+  const put = (c: string, b: number[]) => { const l = paint.get(c); if (l) l.push(b); else paint.set(c, [b]) }
+  const scenery = (q: Part): Part => ({ ...q, detail: true, scenery: true })
+
+  // the block's buildings, cut back to the widened alley; those that front it keep their face for the murals
+  const walls: number[][][] = WALLS.map(() => []), roofs: number[][] = [], kit: number[][] = []
+  const fronts: Record<-1 | 1, [number, number, number][]> = { [-1]: [], [1]: [] }
+  const solid: number[][] = []
+  CLARION_BLOCK.forEach(([x0, x1, z0, z1, m], i) => {
+    const side = z0 + z1 < 0 ? -1 : 1
+    let a = side < 0 ? z0 : Math.max(z0, AW), b = side < 0 ? Math.min(z1, -AW) : z1
+    if (b - a < 0.025) return
+    // a few metres back from the new wall line still fronts the alley: bring it up to the line
+    const front = side < 0 ? b > -AW - 0.03 : a < AW + 0.03
+    if (front) side < 0 ? (b = -AW) : (a = AW)
+    const top = H(m), x = (x0 + x1) / 2, z = (a + b) / 2, w = x1 - x0 - 0.004, l = b - a
+    walls[(i * 5) % WALLS.length].push([x, z, w, l, SUNK, top])
+    roofs.push([x, z, w + 0.004, l + 0.004, top, top + 0.01])
+    if (w * l > 0.02) kit.push([x + (((i * 7) % 5) - 2) * w * 0.12, z, Math.min(0.04, w * 0.3), Math.min(0.035, l * 0.3), top + 0.01, top + 0.03])
+    solid.push([x0, x1, a, b])
+    if (front) fronts[side].push([x0, x1, top])
+  })
+
+  const p: Part[] = []
+  // wooden poles down the north side, each with a crossarm (first part: its colour is the wires')
+  const poles = [-0.7, -0.27, 0.15, 0.57], yPole = H(10.5), zPole = -AW + 0.012
+  p.push(asDetail(blocks([
+    ...poles.map((x) => [x, zPole, 0.008, 0.008, SUNK, yPole]),
+    ...poles.map((x) => [x, zPole, 0.006, 0.05, yPole - 0.012, yPole - 0.005]),
+  ], POLE)))
+  walls.forEach((list, i) => list.length && p.push(scenery(blocks(list, WALLS[i]))))
+  p.push(scenery(blocks(roofs, ROOF)), scenery(blocks(kit, '#c3bdb0')))
+
+  // one face of the alley: a wall (or fence) face at z = side * AW, painted on its alley side; `layer` stands a box that much
+  // further proud of the face, so motifs sit on their ground colour without z-fighting
+  const muralWall = (side: -1 | 1, x0: number, x1: number, top: number, doors: boolean) => {
+    const zIn = side * (AW + 0.004)
+    const face = (c: string, xa: number, xb: number, ya: number, yb: number, layer: number) => {
+      const zOut = side * (AW - 0.0022 * layer)
+      put(c, [(xa + xb) / 2, (zIn + zOut) / 2, xb - xa, Math.abs(zIn - zOut), ya, yb])
+    }
+    // a round motif as rows of boxes, the way a stencil would cut it
+    const disc = (c: string, cx: number, cy: number, r: number, layer: number, rows = 7) => {
+      for (let i = 0; i < rows; i++) {
+        const y = cy - r + ((i + 0.5) * 2 * r) / rows, hw = Math.sqrt(Math.max(0, r * r - (y - cy) ** 2))
+        face(c, cx - hw, cx + hw, y - r / rows, y + r / rows, layer)
+      }
+    }
+    const yTop = top - 0.006
+    for (let x = x0; x1 - x > 0.03; ) {
+      let w = 0.07 + rnd() * 0.11
+      if (x1 - (x + w) < 0.05) w = x1 - x
+      const a = x + 0.0015, b = x + w - 0.0015, cx = (a + b) / 2, hh = yTop - 0.004
+      const ground = pick(MURAL), other = () => { let c = pick(MURAL); while (c === ground) c = pick(MURAL); return c }
+      face(ground, a, b, 0.004, yTop, 1)
+      const motif = Math.floor(rnd() * 6), k = Math.min(w, hh)
+      if (motif === 0) {
+        // a sun with four rays
+        const r = k * 0.3, cy = 0.004 + hh * 0.6, c = other()
+        face(c, cx - r * 1.5, cx + r * 1.5, cy - r * 0.12, cy + r * 0.12, 2)
+        face(c, cx - r * 0.12, cx + r * 0.12, Math.max(0.006, cy - r * 1.5), Math.min(yTop, cy + r * 1.5), 2)
+        disc(c, cx, cy, r, 3)
+        disc(other(), cx, cy, r * 0.55, 4, 5)
+      } else if (motif === 1) {
+        // a big portrait: hair, face, eyes and mouth
+        const r = Math.min(w * 0.4, hh * 0.32), cy = 0.004 + hh * 0.52
+        disc(pick([INK, '#5c3a28', '#7b4fa0', '#e4572e']), cx, cy + r * 0.18, r * 1.18, 2)
+        disc(pick(SKIN), cx, cy, r, 3)
+        for (const s of [-1, 1]) face(INK, cx + s * r * 0.36 - r * 0.11, cx + s * r * 0.36 + r * 0.11, cy + r * 0.12, cy + r * 0.32, 4)
+        face('#c0392b', cx - r * 0.3, cx + r * 0.3, cy - r * 0.5, cy - r * 0.36, 4)
+      } else if (motif === 2) {
+        // rainbow bands
+        const n = 4 + Math.floor(rnd() * 3), from = Math.floor(rnd() * 8), y0 = 0.004 + hh * 0.12, y1 = yTop - hh * 0.12
+        for (let j = 0; j < n; j++) face(MURAL[(from + j) % 9], a, b, y0 + ((y1 - y0) * j) / n, y0 + ((y1 - y0) * (j + 1)) / n, 2)
+      } else if (motif === 3) {
+        // a flower: six petals round a heart, on a stem
+        const r = k * 0.11, cy = 0.004 + hh * 0.62, c = other()
+        face('#5aa05a', cx - r * 0.2, cx + r * 0.2, 0.004, cy, 2)
+        for (let j = 0; j < 6; j++) disc(c, cx + Math.cos((j * Math.PI) / 3) * r * 1.5, cy + Math.sin((j * Math.PI) / 3) * r * 1.5, r, 3, 5)
+        disc(pick(['#f2d24b', '#f3a712', INK]), cx, cy, r * 0.9, 4, 5)
+      } else if (motif === 4) {
+        // checks
+        const n = Math.max(3, Math.round(w / 0.016)), cw = (b - a) / n, rows = Math.max(2, Math.round((hh * 0.5) / cw)), y0 = 0.004 + hh * 0.25, c = other()
+        for (let r = 0; r < rows; r++) for (let j = r % 2; j < n; j += 2) face(c, a + j * cw, a + (j + 1) * cw, y0 + r * cw, y0 + (r + 1) * cw, 2)
+      } else {
+        // stripes, and a band of colour across them
+        const n = Math.max(3, Math.round(w / 0.014)), sw = (b - a) / n, c = other()
+        for (let j = 0; j < n; j += 2) face(c, a + j * sw, a + (j + 1) * sw, 0.004, yTop, 2)
+        face(other(), a, b, 0.004 + hh * 0.4, 0.004 + hh * 0.58, 3)
+      }
+      // painted roll-up doors at the foot of the buildings
+      if (doors && hh > 0.08 && w > 0.06 && rnd() < 0.5) {
+        const dw = Math.min(w * 0.55, 0.045), dx = cx + (rnd() - 0.5) * (w - dw) * 0.6, c = other()
+        face(c, dx - dw / 2, dx + dw / 2, 0.004, H(2.8), 5)
+        for (let j = 1; j < 4; j++) face(INK, dx - dw / 2, dx + dw / 2, (H(2.8) * j) / 4 - 0.0012, (H(2.8) * j) / 4 + 0.0012, 6)
+      }
+      x += w
+    }
+  }
+  // each side: the building fronts in order, painted fences across the gaps
+  const fences: number[][] = []
+  const faceTop: Record<-1 | 1, [number, number, number][]> = { [-1]: [], [1]: [] }
+  for (const side of [-1, 1] as const) {
+    let at = X0
+    const fence = (a: number, b: number) => {
+      if (b - a < 0.01) return
+      fences.push([(a + b) / 2, side * (AW + 0.008), b - a, 0.016, SUNK, FENCE])
+      muralWall(side, a, b, FENCE, false)
+      faceTop[side].push([a, b, FENCE])
+    }
+    for (const [x0, x1, top] of fronts[side].sort((u, v) => u[0] - v[0])) {
+      const a = Math.max(x0, at)
+      if (x1 - a < 0.01) continue
+      fence(at, a)
+      muralWall(side, a, x1, top, true)
+      faceTop[side].push([a, x1, top])
+      at = x1
+    }
+    fence(at, X1)
+  }
+  p.push(asDetail(blocks(fences, FENCE_WOOD)))
+
+  // the paving: painted rings near Valencia, a rainbow across the middle, a spiral of words near Mission, chalk everywhere
+  p.push(box((X0 + X1) / 2, SUNK, FLOOR, 0, X1 - X0, 2 * AW + 0.004, PAVE, true))
+  const ground = (c: string, x: number, z: number, w: number, l: number, layer: number) => put(c, [x, z, w, l, FLOOR, FLOOR + 0.0015 * layer])
+  const ring = (c: string, cx: number, r: number, layer: number, rows = 9) => {
+    for (let i = 0; i < rows; i++) {
+      const z = -r + ((i + 0.5) * 2 * r) / rows, hw = Math.sqrt(Math.max(0, r * r - z * z))
+      ground(c, cx, z, 2 * hw, (2 * r) / rows + 0.0005, layer)
+    }
+  }
+  ring('#e4572e', -0.52, 0.054, 1), ring('#f2d24b', -0.52, 0.042, 2), ring('#2a9d8f', -0.52, 0.026, 3), ring('#f2d24b', -0.52, 0.011, 4, 5)
+  MURAL.slice(0, 9).forEach((c, j) => ground(c, -0.06 + j * 0.017, 0, 0.017, 2 * AW - 0.012, 1))
+  for (let t = 0.6; t < Math.PI * 2 * 4.2; t += 0.008 / (0.004 + 0.0011 * t)) {
+    const r = 0.004 + 0.0017 * t
+    ground(CHALK, 0.6 + Math.cos(t) * r, Math.sin(t) * r, 0.005, 0.0035, 1)
+  }
+  for (let x = 0.3; x < 0.85; x += 0.009) ground(CHALK, x, -0.035 + 0.012 * Math.sin(x * 40), 0.005, 0.0035, 1)
+  for (let i = 0; i < 60; i++) ground(pick(MURAL.slice(0, 9)), X0 + 0.04 + rnd() * (X1 - X0 - 0.08), (rnd() - 0.5) * (2 * AW - 0.02), 0.004 + rnd() * 0.01, 0.003 + rnd() * 0.005, 1)
+
+  for (const [c, list] of paint) p.push(asDetail(blocks(list, c)))
+
+  // trees in the yards behind the fences, leaning over them; palms towards Valencia
+  const free = (x: number, z: number) => !solid.some(([x0, x1, z0, z1]) => x > x0 - 0.015 && x < x1 + 0.015 && z > z0 - 0.015 && z < z1 + 0.015)
+  const trees: [number, number][] = [], palms: [number, number][] = []
+  for (let x = X0 + 0.08; x < X1 - 0.08; x += 0.025) for (const side of [-1, 1]) {
+    const z = side * (AW + 0.03)
+    if (!free(x, z) || [...trees, ...palms].some(([tx, tz]) => Math.abs(tx - x) < 0.14 && tz * side > 0)) continue
+    ;(x < -0.3 ? palms : trees).push([x, z])
+  }
+  p.push(asDetail(blocks([...trees.map(([x, z]) => [x, z, 0.008, 0.008, SUNK, H(6)]), ...palms.map(([x, z]) => [x, z, 0.006, 0.006, SUNK, H(12)])], '#7a6248')))
+  for (const [x, z] of trees) p.push({ geo: 'sphere', pos: [x, H(7.5), z], scale: [0.045, 0.04, 0.045], color: '#5f9a4f', detail: true, args: [1, 8, 6] })
+  for (const [x, z] of palms) p.push({ geo: 'sphere', pos: [x, H(12), z], scale: [0.03, 0.012, 0.03], color: '#6a9a4c', detail: true, args: [1, 8, 4] })
+
+  // the whole block is the hover target, and sizes the pipeline's clearing
+  p.push({ geo: 'box', pos: [(X0 + X1) / 2, 0.12, 0], scale: [X1 - X0, 0.36, 0.68], color: '#000', hit: true })
+
+  // wires: three strung pole to pole down the alley, and a drop from each pole across to the wall opposite
+  const lines: number[] = []
+  const xs = [X0 + 0.02, ...poles, X1 - 0.02]
+  for (let i = 0; i < xs.length - 1; i++) for (const dz of [-0.022, 0, 0.022]) {
+    const ya = poles.includes(xs[i]) ? yPole - 0.008 : yPole - 0.03, yb = poles.includes(xs[i + 1]) ? yPole - 0.008 : yPole - 0.03
+    hang(lines, [xs[i], ya, zPole + dz], [xs[i + 1], yb, zPole + dz], 0.018, 12)
+  }
+  for (const x of poles) {
+    const top = faceTop[1].find(([a, b]) => x + 0.04 > a && x + 0.04 < b)?.[2] ?? FENCE
+    hang(lines, [x, yPole - 0.008, zPole + 0.022], [x + 0.04, Math.max(FENCE, top - 0.02), AW - 0.002], 0.01, 8)
+  }
+  return { parts: p, lines }
+}
+
+/**
+ * The block round Clarion Alley in DataSF's footprint survey, each footprint's fitted box as [x0, x1, z0, z1, height in m] in
+ * the model's frame: +x along the alley towards Mission St, +z towards Sycamore St, z = 0 midway between its walls.
+ */
+const CLARION_BLOCK = [
+  [-0.334, -0.243, -0.344, -0.103, 12.1], [0.438, 0.605, -0.343, -0.043, 12], [-0.833, -0.346, -0.337, -0.024, 15.7], [0.191, 0.359, -0.334, -0.099, 11.5],
+  [0.606, 0.883, -0.331, -0.114, 6.2], [0.358, 0.439, -0.328, -0.021, 9.3], [-0.242, 0.039, -0.327, -0.026, 5.8], [0.038, 0.187, -0.327, -0.09, 15.5],
+  [0.521, 0.895, -0.117, -0.019, 10.3], [0.186, 0.26, 0.019, 0.119, 4], [-0.448, -0.301, 0.02, 0.331, 8.2], [0.34, 0.417, 0.02, 0.34, 8.6],
+  [0.493, 0.569, 0.02, 0.14, 5.5], [0.696, 0.896, 0.02, 0.093, 7.7], [0.567, 0.637, 0.022, 0.324, 6.3], [-0.828, -0.525, 0.023, 0.321, 6.3],
+  [-0.285, -0.217, 0.029, 0.086, 2.7], [0.059, 0.178, 0.03, 0.127, 3.6], [-0.129, -0.05, 0.087, 0.334, 11.5], [0.025, 0.106, 0.09, 0.319, 6.8],
+  [0.64, 0.888, 0.092, 0.233, 11.9], [-0.527, -0.446, 0.096, 0.331, 12.6], [0.101, 0.177, 0.129, 0.334, 10.2], [-0.207, -0.128, 0.131, 0.338, 12.2],
+  [-0.051, 0.025, 0.132, 0.331, 8.9], [-0.286, -0.206, 0.133, 0.339, 12.2], [0.245, 0.342, 0.152, 0.326, 7.9], [-0.366, -0.286, 0.154, 0.34, 11.8],
+  [0.416, 0.498, 0.154, 0.323, 6.8], [0.176, 0.259, 0.171, 0.331, 8.7], [0.7, 0.887, 0.243, 0.323, 4.7],
+]
+
 /** Ground profile under a bridge: how far the deck must run past each endpoint to reach the shore, and the terrain height along the axis. */
 export interface BridgeGround {
   /** deck extension past the start (lat/lng) and end (lat2/lng2) endpoints, world units */
@@ -2288,6 +2488,7 @@ export function landmarkLines(l: Landmark, ground?: BridgeGround): number[] {
   if (l.kind === 'cathedral') return graceCathedral().lines
   if (l.kind === 'conservatory') return conservatory().lines
   if (l.kind === 'transit') return salesforcePark().lines
+  if (l.kind === 'clarion') return clarionAlley().lines
   if (l.kind !== 'bridge') return []
   return (l.id === 'baybridge' ? bayBridge(l, ground) : goldenGate(l, ground)).lines
 }
