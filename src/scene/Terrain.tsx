@@ -4,6 +4,7 @@ import * as THREE from 'three'
 import { DETAIL_AREAS, WORLD, toUV } from '../lib/geo'
 import type { World } from '../lib/world'
 import { useCity } from './useCity'
+import { OCCLUDER_LAYER } from './HoverOutline'
 
 const GRID = 512
 
@@ -114,5 +115,6 @@ export function Terrain({ world }: { world: World }) {
       if (inset.on.value < 1 && inset.map.value !== world.mapTexture) inset.on.value = Math.min(1, inset.on.value + Math.min(dt, 0.05) / 0.6)
     }
   })
-  return <mesh geometry={geometry} material={material} raycast={() => null} receiveShadow />
+  // on the hover outline's occluder layer: a landmark's base sunk into the ground isn't part of its silhouette
+  return <mesh geometry={geometry} material={material} raycast={() => null} receiveShadow onUpdate={(m) => m.layers.enable(OCCLUDER_LAYER)} />
 }

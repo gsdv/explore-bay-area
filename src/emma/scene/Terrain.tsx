@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import { toUV, worldToUV } from '../../lib/geo'
 import { BOX } from '../region'
 import type { World } from '../world'
+import { OCCLUDER_LAYER } from './HoverOutline'
 
 /** grid spacing in world units: about the heightmap's own pixel (≈80 m), so no detail is lost or invented */
 const STEP = 0.75
@@ -115,7 +116,8 @@ export function Terrain({ world }: { world: World }) {
   const material = useMemo(() => groundMaterial(world), [world])
   return (
     <group>
-      <mesh geometry={geometry} material={material} raycast={() => null} receiveShadow />
+      {/* on the hover outline's occluder layer: a landmark's base sunk into the ground isn't part of its silhouette */}
+      <mesh geometry={geometry} material={material} raycast={() => null} receiveShadow onUpdate={(m) => m.layers.enable(OCCLUDER_LAYER)} />
       <mesh geometry={sides} raycast={() => null}>
         <meshStandardMaterial color={SIDE} roughness={1} metalness={0} side={THREE.DoubleSide} />
       </mesh>

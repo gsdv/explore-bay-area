@@ -9,13 +9,17 @@ import { LAVA_GLSL, shimmer } from './hoverGlow'
  * single tower, but a complex of parts showed each part's hull through the gaps, and the invisible hull-only boxes stood
  * as orange walls round the whole huddle.)
  *
- * Each frame something is hovered: (1) the landmark's meshes, on their own layer, are drawn into `seed` with their depth;
+ * Each frame something is hovered: (1) the landmark's meshes, on their own layer, are drawn into `seed` with their depth,
+ * behind the terrain's depth (OCCLUDER_LAYER), so a hill's or a building's base sunk into the ground doesn't count as edge;
  * (2) a jump flood spreads, to every pixel within reach, the offset to the nearest silhouette pixel (offsets are integers,
  * stored +1024 in half floats, 0 = none yet); (3) a full-screen quad, drawn last in the main pass, paints the pixels between
  * 0.5 and RIM px from the silhouette at the depth of that nearest silhouette pixel, so the scene's depth test hides the rim
- * wherever a building stands in front of the model, and the lava blobs sit at the world point that depth gives.
+ * wherever a building stands in front of the model, and the lava blobs sit at the world point that depth gives. The rim is
+ * pulled LIFT rim-widths (in metres at that depth) toward the camera first: a hill sunk into the terrain (Bernal, Twin Peaks)
+ * ends flush with the ground, and without the pull the ground and the houses at its foot covered its sides.
  */
 export const OUTLINE_LAYER = 5
+export const OCCLUDER_LAYER = 6
 export const hoverOutline: { target: THREE.Object3D | null; blob: number } = { target: null, blob: 1.75 }
 
 /** Puts a landmark's meshes on the outline layer (or takes them off). Thin lines (Line2) are left out: they aren't meshes
@@ -29,6 +33,7 @@ export function markOutline(root: THREE.Object3D, on: boolean) {
 }
 
 const RIM = 6 // CSS px
+const LIFT = 4
 
 const fullScreen = /* glsl */ `void main() { gl_Position = vec4(position.xy, 0.0, 1.0); }`
 
@@ -37,6 +42,8 @@ const seedMaterial = new THREE.ShaderMaterial({
   fragmentShader: /* glsl */ `void main() { gl_FragColor = vec4(1024.0, 1024.0, 0.0, 1.0); }`,
   side: THREE.DoubleSide,
 })
+
+const depthOnly = new THREE.MeshBasicMaterial({ colorWrite: false })
 
 const floodMaterial = new THREE.ShaderMaterial({
   uniforms: { uSrc: { value: null }, uStep: { value: 1 }, uRes: { value: new THREE.Vector2() } },
@@ -83,6 +90,9 @@ export function HoverOutline() {
         uRim: { value: RIM },
         uBlob: { value: 1 },
         uBase: { value: new THREE.Color('#f04a00') },
+        uLift: { value: LIFT },
+        uPx: { value: 0 },
+        uProj: { value: new THREE.Matrix4() },
         uInvProj: { value: new THREE.Matrix4() },
         uCamWorld: { value: new THREE.Matrix4() },
       },
@@ -96,6 +106,9 @@ export function HoverOutline() {
         uniform float uTime;
         uniform vec3 uBase;
         uniform vec3 uHot;
+        uniform float uLift;
+        uniform float uPx;
+        uniform mat4 uProj;
         uniform mat4 uInvProj;
         uniform mat4 uCamWorld;
         ${LAVA_GLSL}
@@ -107,9 +120,13 @@ export function HoverOutline() {
           float d = length(off);
           if (d < 0.5 || d > uRim + 0.5) discard;
           float z = texture2D(uDepth, (p + off) / uRes).r;
-          gl_FragDepth = z;
           vec4 view = uInvProj * vec4(p / uRes * 2.0 - 1.0, z * 2.0 - 1.0, 1.0);
-          vec3 world = (uCamWorld * vec4(view.xyz / view.w, 1.0)).xyz;
+          view.xyz /= view.w;
+          vec3 world = (uCamWorld * vec4(view.xyz, 1.0)).xyz;
+          // uPx: a pixel's size at unit distance, so this is LIFT rim-widths in world units at the edge's depth
+          float lift = uLift * uRim * uPx * -view.z;
+          vec4 clip = uProj * vec4(view.xyz * max(0.0, 1.0 - lift / length(view.xyz)), 1.0);
+          gl_FragDepth = clip.z / clip.w * 0.5 + 0.5;
           gl_FragColor = vec4(mix(uBase, uHot, lavaBlobs(world * uBlob, uTime) * 0.85), 1.0 - smoothstep(uRim - 1.0, uRim + 0.5, d));
           #include <colorspace_fragment>
         }`,
@@ -145,14 +162,20 @@ export function HoverOutline() {
     const prev = { rt: gl.getRenderTarget(), alpha: gl.getClearAlpha(), layers: camera.layers.mask, bg: scene.background, override: scene.overrideMaterial }
     gl.getClearColor(clear)
     camera.updateMatrixWorld()
-    // (1) the silhouette, alone on its layer
+    // (1) the silhouette, alone on its layer but behind the ground
     gl.setClearColor(0x000000, 0)
     scene.background = null
-    scene.overrideMaterial = seedMaterial
-    camera.layers.set(OUTLINE_LAYER)
     gl.setRenderTarget(targets.seed)
     gl.clear(true, true, false)
+    const autoClear = gl.autoClear
+    gl.autoClear = false
+    scene.overrideMaterial = depthOnly
+    camera.layers.set(OCCLUDER_LAYER)
     gl.render(scene, camera)
+    scene.overrideMaterial = seedMaterial
+    camera.layers.set(OUTLINE_LAYER)
+    gl.render(scene, camera)
+    gl.autoClear = autoClear
     camera.layers.mask = prev.layers
     scene.overrideMaterial = prev.override
     scene.background = prev.bg
@@ -179,6 +202,8 @@ export function HoverOutline() {
     u.uRes.value.set(w, h)
     u.uRim.value = RIM * gl.getPixelRatio()
     u.uBlob.value = 1 / hoverOutline.blob
+    u.uPx.value = 2 / (camera.projectionMatrix.elements[5] * h)
+    u.uProj.value.copy(camera.projectionMatrix)
     u.uInvProj.value.copy(camera.projectionMatrixInverse)
     u.uCamWorld.value.copy(camera.matrixWorld)
   })
