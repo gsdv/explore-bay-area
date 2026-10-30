@@ -11,8 +11,17 @@ import { hullMaterial, shimmer } from './hoverGlow'
 import { LandmarkArea } from './LandmarkArea'
 import { useZoomTier } from './viewStore'
 
-const OUTLINE = hullMaterial({})
-const GLOW = hullMaterial({ color: '#ff7a33', transparent: true, opacity: 0.34, depthWrite: false })
+// the shimmer's bands are spaced by the landmark's size (a quarter of its largest extent, 20-175 m), so a small
+// building gets a few thin bands rather than one band as big as itself; one outline/glow pair per spacing
+const hullPairs = new Map<number, { outline: THREE.Material; glow: THREE.Material }>()
+const hullPairFor = (size: number) => {
+  const stripe = Math.round(Math.min(1.75, Math.max(0.2, size / 4)) * 20) / 20
+  if (!hullPairs.has(stripe)) hullPairs.set(stripe, {
+    outline: hullMaterial({}, stripe),
+    glow: hullMaterial({ color: '#ff7a33', transparent: true, opacity: 0.34, depthWrite: false }, stripe),
+  })
+  return hullPairs.get(stripe)!
+}
 const geoCache = new Map<string, THREE.BufferGeometry>()
 const geoFor = (p: Part) => {
   const key = p.geo + JSON.stringify(p.args ?? [])
@@ -87,6 +96,7 @@ function LandmarkObject({ landmark: l, world }: { landmark: Landmark; world: Wor
     const pad = 0.12
     return { center: [(minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2] as [number, number, number], size: [maxX - minX + pad, maxY - minY + pad, maxZ - minZ + pad] as [number, number, number] }
   }, [parts])
+  const hull = useMemo(() => hullPairFor(Math.max(...bounds.size)), [bounds])
   const { pos, rotY, scaleT } = useMemo(() => {
     const [x, z] = project(l.lat, l.lng)
     let rotY = 0
@@ -157,8 +167,8 @@ function LandmarkObject({ landmark: l, world }: { landmark: Landmark; world: Wor
           )}
           {hovered && !p.detail && (
             <>
-              <mesh geometry={hullGeoFor(p, HULL)} material={OUTLINE} scale={grown(p, HULL)} raycast={() => null} />
-              <mesh geometry={hullGeoFor(p, HALO)} material={GLOW} scale={grown(p, HALO)} raycast={() => null} />
+              <mesh geometry={hullGeoFor(p, HULL)} material={hull.outline} scale={grown(p, HULL)} raycast={() => null} />
+              <mesh geometry={hullGeoFor(p, HALO)} material={hull.glow} scale={grown(p, HALO)} raycast={() => null} />
             </>
           )}
         </group>
