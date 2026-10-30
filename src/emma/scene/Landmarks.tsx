@@ -64,7 +64,7 @@ function LandmarkObject({ landmark: l, world }: { landmark: Landmark; world: Wor
   const touring = useStore((s) => !!s.day)
   const hovered = useStore((s) => s.hoveredLandmark === l.id) && !touring
   const setHovered = useStore((s) => s.setHoveredLandmark)
-  const flyTo = useStore((s) => s.flyTo)
+  const select = useStore((s) => s.select)
   const tier = useZoomTier()
   // bridges read the terrain so their decks run onto the shore instead of stopping over water
   const ground = useMemo(() => (l.kind === 'bridge' ? bridgeGround(l, (x, z) => world.heights.yAt(x, z)) : undefined), [l, world])
@@ -124,12 +124,13 @@ function LandmarkObject({ landmark: l, world }: { landmark: Landmark; world: Wor
     setHovered(null)
     document.body.style.cursor = ''
   }
-  // a click flies to the landmark, backed off until all of it is in frame (a bridge's middle is half a span from its origin)
+  // a click opens the landmark's card; its "Fly there" backs off until all of the model is in frame (a bridge's middle is
+  // half a span from its origin)
   const onClick = (e: ThreeEvent<MouseEvent>) => {
     if (touring) return
     e.stopPropagation()
     const [x, z] = project(l.kind === 'bridge' ? (l.lat + l.lat2!) / 2 : l.lat, l.kind === 'bridge' ? (l.lng + l.lng2!) / 2 : l.lng)
-    flyTo(x, z, l.kind === 'bridge' ? 32 : 12, false, { height: top })
+    select({ landmark: l, x, z, dist: l.kind === 'bridge' ? 32 : 12, height: top })
   }
 
   const showLabel = !touring && (tier !== 'far' || l.tags?.includes('icon'))

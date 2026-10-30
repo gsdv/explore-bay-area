@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { project } from '../lib/geo'
 import type { Day } from './days'
+import type { Landmark } from '../data/landmarks'
 
 export interface FlyTarget {
   x: number
@@ -18,14 +19,26 @@ export interface FlyTarget {
   nonce: number
 }
 
+/** a clicked landmark, and where its card's "Fly there" goes (the scene knows the model's height and a bridge's middle) */
+export interface Selection {
+  landmark: Landmark
+  x: number
+  z: number
+  dist: number
+  height?: number
+}
+
 interface State {
   hoveredLandmark: string | null
+  /** the landmark whose card is open (home screen only; a day's tour clears it) */
+  selected: Selection | null
   fly: FlyTarget | null
   /** the day being toured, or null on the day list */
   day: Day | null
   /** null = the day's overview (not started); otherwise the current stop index */
   step: number | null
   setHoveredLandmark: (id: string | null) => void
+  select: (s: Selection | null) => void
   flyTo: (x: number, z: number, distance?: number, instant?: boolean, extra?: { yaw?: number; duration?: number; height?: number }) => void
   /** enter a day and fly to an overview of its route */
   openDay: (day: Day) => void
@@ -37,13 +50,15 @@ interface State {
 
 export const useStore = create<State>((set, get) => ({
   hoveredLandmark: null,
+  selected: null,
   fly: null,
   day: null,
   step: null,
   setHoveredLandmark: (id) => set({ hoveredLandmark: id }),
+  select: (selected) => set({ selected }),
   flyTo: (x, z, distance, instant, extra) => set({ fly: { x, z, distance, instant, ...extra, nonce: Math.random() } }),
   openDay: (day) => {
-    set({ day, step: null, hoveredLandmark: null })
+    set({ day, step: null, hoveredLandmark: null, selected: null })
     // centred on the middle of the route's extent, not the average stop: a day of six stops downtown and one at the bridge
     // would otherwise sit off to one side
     const xs = day.stops.map((s) => project(s.lat, s.lng))

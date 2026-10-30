@@ -113,6 +113,27 @@ li:last-child .slot__dot::before { bottom: calc(100% - 8px); }
 .btn__arrow { flex: none; font-size: 16px; line-height: 1; }
 .btn--icon { padding: 5px 13px; }
 
+/* ---------- a landmark's card (home screen): the main page's detail card ---------- */
+.card { position: absolute; top: var(--edge); right: var(--edge); width: min(360px, calc(100% - 2 * var(--edge))); max-height: calc(100% - 2 * var(--edge)); overflow: auto; z-index: 120; background: var(--paper); border: 1.5px solid var(--ink); box-shadow: var(--shadow); padding: 18px 20px 20px; animation: card-in 0.32s var(--ease) both; }
+.card > * { animation: rise-in 0.36s var(--ease) both; }
+.card > :nth-child(2) { animation-delay: 0.05s; }
+.card > :nth-child(3) { animation-delay: 0.09s; }
+.card > :nth-child(4) { animation-delay: 0.13s; }
+.card > :nth-child(5) { animation-delay: 0.17s; }
+.card > :nth-child(6) { animation-delay: 0.2s; }
+.card > :nth-child(7) { animation-delay: 0.23s; }
+.card .eyebrow { color: var(--ink-3); }
+.card__close { position: absolute; top: 8px; right: 12px; font-size: 22px; line-height: 1; color: var(--ink-3); }
+.card__close:hover { color: var(--ink); }
+.card__title { font-family: var(--serif); font-size: 28px; font-weight: 600; line-height: 1.05; margin: 6px 0 12px; letter-spacing: -0.01em; padding-right: 20px; }
+.card__blurb { font-size: 14px; line-height: 1.5; margin: 0 0 14px; }
+.card__tip { font-size: 13px; line-height: 1.5; margin: 0 0 14px; padding: 10px 12px; background: var(--paper-2); border-left: 3px solid var(--orange); }
+.card__tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.card__tags span { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; border: 1px solid var(--ink); padding: 2px 6px; }
+.card__fly { margin-top: 10px; font-family: var(--mono); font-size: 12px; letter-spacing: 0.04em; border-bottom: 1.5px solid var(--ink); }
+.card__fly:hover { color: var(--orange); border-color: var(--orange); }
+.card__fly-arrow { font-size: 15px; line-height: 1; }
+
 @keyframes rise-in { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
 @keyframes card-in { from { opacity: 0; transform: translateX(18px) scale(0.985); box-shadow: 0 0 0 var(--ink); } to { opacity: 1; transform: none; } }
 @keyframes card-in-left { from { opacity: 0; transform: translateX(-18px) scale(0.985); box-shadow: 0 0 0 var(--ink); } to { opacity: 1; transform: none; } }
@@ -130,6 +151,9 @@ li:last-child .slot__dot::before { bottom: calc(100% - 8px); }
   .schedule { display: none; }
   .stop { left: var(--edge); right: var(--edge); top: auto; bottom: var(--edge); width: auto; max-height: min(52%, calc(100% - 90px)); padding: 13px 16px 15px; animation-name: sheet-in; }
   .stop__title { font-size: 22px; }
+  .card { left: var(--edge); right: var(--edge); top: auto; bottom: var(--edge); width: auto; max-height: min(52%, calc(100% - 90px)); padding: 14px 16px 16px; animation-name: sheet-in; }
+  .card__title { font-size: 23px; margin: 4px 0 10px; }
+  .card__close { top: 4px; right: 4px; width: 36px; height: 36px; }
   .stop__about { font-size: 14px; }
   .day-frame { border-width: 5px; }
   @keyframes frame-in { from { opacity: 0; border-width: 0; } to { opacity: 1; border-width: 5px; } }

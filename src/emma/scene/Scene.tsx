@@ -7,15 +7,18 @@ import { Buildings } from './Buildings'
 import { Landmarks } from './Landmarks'
 import { DayRoute } from './DayRoute'
 import { CameraRig } from './CameraRig'
+import { useStore } from '../store'
 
 export const SKY = '#dbe6ee'
 
 export function Scene({ world }: { world: World }) {
+  const select = useStore((s) => s.select)
   return (
     <Canvas
       dpr={[1, 1.75]}
       camera={{ fov: 42, near: 0.5, far: 2500 }}
       gl={{ antialias: true, powerPreference: 'high-performance', toneMapping: THREE.NoToneMapping }}
+      onPointerMissed={() => select(null)}
       style={{ background: SKY }}
     >
       <color attach="background" args={[SKY]} />

@@ -47,7 +47,7 @@ export function LandmarkArea({ landmark: l, world }: { landmark: Landmark; world
   const touring = useStore((s) => !!s.day)
   const hovered = useStore((s) => s.hoveredLandmark === l.id) && !touring
   const setHovered = useStore((s) => s.setHoveredLandmark)
-  const flyTo = useStore((s) => s.flyTo)
+  const select = useStore((s) => s.select)
 
   const { ground, outline, glow } = useMemo(() => {
     const yAt = (x: number, z: number) => Math.max(0, world.heights.yAt(x, z))
@@ -91,11 +91,11 @@ export function LandmarkArea({ landmark: l, world }: { landmark: Landmark; world
     setHovered(null)
     document.body.style.cursor = ''
   }
-  // a click flies to the area's landmark point, far enough back to take in a park
+  // a click opens the landmark's card; its "Fly there" goes to the area's landmark point, far enough back to take in a park
   const onClick = (e: ThreeEvent<MouseEvent>) => {
     if (touring) return
     e.stopPropagation()
-    flyTo(labelAt[0], labelAt[2], 30)
+    select({ landmark: l, x: labelAt[0], z: labelAt[2], dist: 30 })
   }
   return (
     <group>

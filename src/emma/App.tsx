@@ -6,6 +6,7 @@ import { DayList } from './ui/DayList'
 import { Schedule } from './ui/Schedule'
 import { StopCard } from './ui/StopCard'
 import { DayFrame } from './ui/DayFrame'
+import { LandmarkCard } from './ui/LandmarkCard'
 
 export default function App() {
   const [world, setWorld] = useState<World | null>(null)
@@ -23,6 +24,7 @@ export default function App() {
           <Schedule />
           <StopCard />
           <DayFrame />
+          <LandmarkCard />
         </>
       ) : (
         <div className="emma-loading">{error ? `Could not load the map: ${error}` : 'Unfolding the city…'}</div>
