@@ -281,7 +281,7 @@ const contains = (ring: { lat: number; lon: number }[], lat: number, lng: number
 // Landmark models that stand among buildings are toy-scale, far bigger than the real thing, so the survey's houses would
 // poke through them: clear each model's ground rectangle (in its own bearing), measured from the same parts list the app draws.
 // (not Twin Peaks: its hill is true to size and stops where the houses start; its `covers` take Christmas Tree Point's survey)
-const STANDS_IN_TOWN = /^(coit|sutro|rotunda|houses|wharf|gate|museum|street|ferry|tower|pyramid|stadium|arena|campanile|campus|legion|ballpark|lombard|cityhall|ghirardelli|cathedral)$/
+const STANDS_IN_TOWN = /^(coit|sutro|rotunda|houses|wharf|gate|museum|street|ferry|tower|pyramid|stadium|arena|campanile|campus|legion|ballpark|lombard|cityhall|ghirardelli|cathedral|mission)$/
 const clearings = landmarks
   .filter((l) => STANDS_IN_TOWN.test(l.kind))
   .map((l) => {

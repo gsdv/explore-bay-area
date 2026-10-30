@@ -987,6 +987,8 @@ export function landmarkParts(l: Landmark, ground?: BridgeGround, terrain?: Terr
       return ghirardelli().parts
     case 'cathedral':
       return graceCathedral().parts
+    case 'mission':
+      return missionDolores().parts
   }
 }
 
@@ -1436,6 +1438,137 @@ function graceCathedral(): { parts: Part[]; lines: number[] } {
     }
   }
   return { parts: p, lines }
+}
+
+/**
+ * Mission Dolores: the 1791 adobe chapel of Mission San Francisco de Asís and the 1918 Basilica beside it, on their DataSF
+ * footprints at 1.1x (origin between them, bearing -4 for the Basilica; the older Mission sits another 4 degrees round, off the
+ * street grid). Both fronts face Dolores Street (+x). The Mission: thick whitewashed walls under a low, deep-eaved tile gable,
+ * four columns round the arched door, the dark wooden balcony across the front, the engaged columns and three bell niches above
+ * it and a wooden cross on the gable. The Basilica: a cream body under a tile roof, the round apse, the red-tile dome over the
+ * crossing, and the Churrigueresque front: two plain towers rising into ornate belfries with turquoise cupolas, the carved
+ * frontispiece between them with its big arched window, three portals and the steps. South of the Mission, the cemetery garden
+ * behind its adobe wall (`scenery`): headstones, roses, trees and the Ohlone tule hut.
+ */
+function missionDolores(): { parts: Part[]; lines: number[] } {
+  const ADOBE = '#f6f3ec', TILE = '#9d4c34', WOOD = '#4a3426', CREAM = '#efe6d2', RELIEF = '#e1d3b5', RED = '#b45a3c', TURQUOISE = '#5aa89e',
+    LAWN = '#8bb070', STONE = '#a7a49c', LEAF = '#5f8f4c', ROSE = '#d86f7f', TULE = '#8a6b45'
+  const S = 1.1, s = (v: number) => v * S, d = asDetail, SUNK = -0.08
+  const p: Part[] = []
+
+  // --- the Basilica (true local metres / 100 before the 1.1x)
+  const zM = s(-0.082), xB0 = s(-0.264), xF0 = s(0.204), xF = s(0.321), zB0 = s(-0.221), zB1 = s(0.057)
+  const yBody = H(14), yRoofB = H(18)
+  p.push(
+    box((xB0 + xF0) / 2, SUNK, yBody, (zB0 + zB1) / 2, xF0 - xB0, zB1 - zB0, CREAM),
+    blocks([[(xB0 + xF0) / 2, (zB0 + zB1) / 2, xF0 - xB0 + 0.012, zB1 - zB0 + 0.012, yBody - 0.004, yRoofB]], TILE, { gabled: 'x' }),
+    d(box((xB0 + xF0) / 2, yBody - 0.01, yBody + 0.004, (zB0 + zB1) / 2, xF0 - xB0 + 0.008, zB1 - zB0 + 0.008, RELIEF)),
+    d(box(s(-0.2385), SUNK, H(9), s(0.0875), s(0.101), s(0.061), CREAM)),
+    d(box(s(-0.2385), H(9), H(9) + 0.008, s(0.0875), s(0.101) + 0.006, s(0.061) + 0.006, TILE)),
+    wallOpenings((xB0 + xF0) / 2, (zB0 + zB1) / 2, H(5), yBody - H(2.5), xF0 - xB0 - 0.06, zB1 - zB0, 6, 0.026),
+    at(prism(0, SUNK, yBody, s(0.056), 10, CREAM), s(-0.264), zM),
+    at(tier(0, yBody - 0.004, H(17), s(0.056) + 0.008, 0.004, TILE, 10), s(-0.264), zM),
+  )
+  // the dome over the crossing: an octagonal drum with windows, the red-tile dome, a little lantern and a cross
+  const xD = s(-0.17), rD = s(0.06), yD0 = yRoofB - 0.03, yD1 = H(22.5), hDome = H(7)
+  p.push(
+    at(prism(0, yD0, yD1, rD, 8, CREAM), xD, zM),
+    { ...at(drumOpenings(yD0 + 0.03, yD1 - 0.02, rD * Math.cos(Math.PI / 8), 0.02), xD, zM) },
+    d(at(prism(0, yD1 - 0.006, yD1 + 0.008, rD + 0.008, 8, RELIEF), xD, zM)),
+    { geo: 'sphere', pos: [xD, yD1 + 0.008, zM], scale: [rD - 0.004, hDome, rD - 0.004], color: RED, args: [1, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2] },
+    d(at(drum(yD1 + hDome, yD1 + hDome + 0.04, 0.012, 0.012, CREAM), xD, zM)),
+    d(box(xD, yD1 + hDome + 0.04, yD1 + hDome + 0.09, zM, 0.005, 0.005, WOOD)),
+    d(box(xD, yD1 + hDome + 0.07, yD1 + hDome + 0.077, zM, 0.005, 0.026, WOOD)),
+  )
+  // the front: the block behind the towers, two towers with ornate belfries, the carved frontispiece, portals and steps
+  const yFront = H(16), xT0 = s(0.241), tw = s(0.08), towers = [s(-0.164), s(0.001)]
+  p.push(box((xF0 + xF) / 2, SUNK, yFront, (s(-0.204) + s(0.041)) / 2, xF - xF0, s(0.245), CREAM))
+  const yShaft = H(22), yBelfry = H(29), yLantern = H(32), hCup = H(3.5)
+  for (const tz of towers) {
+    const tx = (xT0 + xF) / 2
+    p.push(
+      box(tx, SUNK, yShaft, tz, tw, tw, CREAM),
+      d(box(tx, yShaft - 0.012, yShaft + 0.006, tz, tw + 0.01, tw + 0.01, RELIEF)),
+      wallOpenings(tx, tz, yShaft - H(7), yShaft - H(5), 0.03, tw, 2, 0.006, { axis: 1, sides: 1, flat: true }),
+      wallOpenings(tx, tz, H(9), H(11.5), 0.02, tw, 1, 0.012, { axis: 1, sides: 1, flat: true }),
+      // belfry: an octagon with an arched opening each side, a carved cornice, a smaller stage, the tiled cupola and the cross
+      at(prism(0, yShaft + 0.006, yBelfry, s(0.034), 8, CREAM), tx, tz),
+      { ...at(drumOpenings(yShaft + 0.03, yBelfry - 0.02, s(0.034) * Math.cos(Math.PI / 8), 0.016), tx, tz) },
+      d(at(prism(0, yBelfry - 0.008, yBelfry + 0.008, s(0.039), 8, RELIEF), tx, tz)),
+      at(prism(0, yBelfry + 0.008, yLantern, s(0.026), 8, CREAM), tx, tz),
+      { ...at(drumOpenings(yBelfry + 0.02, yLantern - 0.012, s(0.026) * Math.cos(Math.PI / 8), 0.01), tx, tz) },
+      { geo: 'sphere', pos: [tx, yLantern, tz], scale: [s(0.027), hCup, s(0.027)], color: TURQUOISE, detail: true, args: [1, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2] },
+      d(box(tx, yLantern + hCup - 0.005, yLantern + hCup + 0.05, tz, 0.004, 0.004, WOOD)),
+      d(box(tx, yLantern + hCup + 0.03, yLantern + hCup + 0.036, tz, 0.004, 0.02, WOOD)),
+      // the finials round the belfry and the shaft's top
+      d(blocks([-1, 1].flatMap((a) => [-1, 1].map((b) => [tx + a * (tw / 2 - 0.006), tz + b * (tw / 2 - 0.006), 0.01, 0.01, yShaft + 0.006, yShaft + 0.04])), RELIEF, { pyramid: true })),
+    )
+  }
+  // the frontispiece between the towers: carved and stepped, twisted columns round the big arched window, a crest on top
+  const zc = s(-0.0815), fw = s(0.085), yFr = H(21)
+  p.push(
+    d(box(xF + 0.004, SUNK, yFr, zc, 0.012, fw, RELIEF)),
+    d(blocks([[xF + 0.004, zc, 0.012, fw * 0.7, yFr, yFr + H(2.5)], [xF + 0.004, zc, 0.012, fw * 0.36, yFr + H(2.5), yFr + H(4.5)]], RELIEF)),
+    d(blocks([[xF + 0.004, zc, 0.014, fw * 0.36, yFr + H(4.5), yFr + H(6)]], RELIEF, { gabled: 'x' })),
+    wallOpenings(xF + 0.004, zc, H(10), H(17), 0.03, 0.012, 1, 0.028, { axis: 1, sides: 1 }),
+    columns([-1, 1].flatMap((a) => [[xF + 0.016, zc + a * 0.026], [xF + 0.016, zc + a * 0.036]] as [number, number][]), H(9.5), H(18), 0.0045, CREAM),
+    d(blocks([-1, 1].map((a) => [xF + 0.016, zc + a * 0.031, 0.012, 0.02, H(18), H(19)]), CREAM)),
+    d(blocks([-1, 0, 1].map((a) => [xF + 0.01, zc + a * 0.034, 0.008, 0.008, yFr + H(2.5), yFr + H(4.2)]), RELIEF, { pyramid: true })),
+    // three portals: the main one in the frontispiece, one at each tower's foot, all with dark doors in carved frames
+    wallOpenings(xF + 0.01, zc, H(0.5), H(8), 0.04, 0.012, 1, 0.034, { axis: 1, sides: 1 }),
+    ...towers.map((tz) => wallOpenings((xT0 + xF) / 2, tz, H(0.5), H(6), 0.03, tw + 0.004, 1, 0.024, { axis: 1, sides: 1 })),
+    ...towers.map((tz) => d(blocks([[xF + 0.003, tz, 0.006, 0.042, H(6), H(9.5)]], RELIEF, { gabled: 'x' }))),
+  )
+  const steps: number[][] = []
+  for (let i = 0; i < 4; i++) steps.push([xF + 0.012 + i * 0.012 + 0.006, (s(-0.204) + s(0.041)) / 2, 0.014, s(0.245), SUNK, H(1.6) - (H(1.6) * i) / 4])
+  p.push(d(blocks(steps, CREAM)))
+
+  // --- the Mission, built along its own axis and turned onto the footprint
+  const mc: [number, number] = [s(0.085), s(0.135)], th = 0.0696, c = Math.cos(th), sn = Math.sin(th)
+  const place = (q: Part): Part => ({ ...q, pos: [mc[0] + q.pos[0] * c + q.pos[2] * sn, q.pos[1], mc[1] - q.pos[0] * sn + q.pos[2] * c], rot: [0, (q.rot?.[1] ?? 0) + th, 0] })
+  const L = s(0.43), Wm = s(0.1), yWall = H(6.5), yRidge = H(10), uF = L / 2 // walls; the front is at +u
+  const mission: Part[] = [
+    box(0, SUNK, yWall, 0, L, Wm, ADOBE),
+    blocks([[0.012, 0, L + 0.04, Wm + 0.03, yWall - 0.004, yRidge]], TILE, { gabled: 'x' }),
+    // the white gable under the deep eave, a little behind the roof's front edge
+    d(blocks([[0, 0, L + 0.004, Wm, yWall - 0.004, yRidge - 0.008]], ADOBE, { gabled: 'x' })),
+    // the dark underside of the eaves at the front
+    d(box(uF + 0.016, yWall - 0.006, yWall, 0, 0.032, Wm + 0.03, WOOD)),
+    // ground storey: plinths, four columns, the arched door
+    d(blocks([-1, 1].map((a) => [uF + 0.006, a * 0.033, 0.014, 0.034, SUNK, H(1)]), ADOBE)),
+    columns([-0.042, -0.024, 0.024, 0.042].map((v) => [uF + 0.007, v] as [number, number]), H(1), H(4.2), 0.0055, ADOBE),
+    wallOpenings(0, 0, H(0.6), H(3.9), 0.03, L + 0.002, 1, 0.022, { axis: 1, sides: 1 }),
+    // the balcony: a wooden floor and rail right across, on posts
+    d(box(uF + 0.012, H(4.2), H(4.5), 0, 0.026, Wm + 0.004, WOOD)),
+    d(box(uF + 0.024, H(5.3), H(5.5), 0, 0.003, Wm + 0.004, WOOD)),
+    d(blocks(Array.from({ length: 9 }, (_, i) => [uF + 0.024, -Wm / 2 + 0.002 + ((Wm - 0.004) * i) / 8, 0.003, 0.003, H(4.5), H(5.3)]), WOOD)),
+    // upper storey: engaged columns and the three bell niches between them, with the bells
+    columns([-0.044, -0.03, -0.01, 0.01, 0.03, 0.044].map((v) => [uF + 0.002, v] as [number, number]), H(4.5), H(7.4), 0.004, ADOBE),
+    wallOpenings(0, 0, H(5.6), H(7.2), 0.072, L + 0.002, 3, 0.011, { axis: 1, sides: 1 }),
+    ...[-0.02, 0, 0.02].map((v): Part => ({ geo: 'sphere', pos: [uF - 0.002, H(6.1), v], scale: [0.006, 0.008, 0.006], color: '#7a6a4a', detail: true, args: [1, 8, 6] })),
+    // the wooden cross on the gable
+    d(box(uF + 0.008, yRidge - 0.004, yRidge + H(1.8), 0, 0.004, 0.004, WOOD)),
+    d(box(uF + 0.008, yRidge + H(1.1), yRidge + H(1.3), 0, 0.004, 0.018, WOOD)),
+    // the long side walls: a few small deep windows
+    wallOpenings(-0.02, 0, H(2.5), H(4.2), L - 0.12, Wm, 4, 0.01, { flat: true }),
+  ]
+  p.push(...mission.map(place))
+
+  // --- the cemetery garden south of the Mission, behind its adobe wall (true size, outside the hover box)
+  const sc = (q: Part): Part => ({ ...q, detail: true, scenery: true })
+  const gx0 = -0.16, gx1 = 0.03, gz0 = 0.25, gz1 = 0.36
+  p.push(
+    sc(box((gx0 + gx1) / 2, SUNK, 0.006, (gz0 + gz1) / 2, gx1 - gx0, gz1 - gz0, LAWN)),
+    sc(blocks([[(gx0 + gx1) / 2, gz1, gx1 - gx0, 0.006, SUNK, H(1.8)], [gx0, (gz0 + gz1) / 2, 0.006, gz1 - gz0, SUNK, H(1.8)], [gx1, (gz0 + gz1) / 2, 0.006, gz1 - gz0, SUNK, H(1.8)]], ADOBE)),
+    sc(blocks(Array.from({ length: 24 }, (_, i) => [gx0 + 0.03 + (i % 8) * 0.024, gz0 + 0.03 + Math.floor(i / 8) * 0.03 + (i % 2) * 0.005, 0.008, 0.004, 0, H(0.9)]), STONE)),
+    sc(blocks(Array.from({ length: 7 }, (_, i) => [gx0 + 0.03 + i * 0.026, gz1 - 0.014, 0.012, 0.008, 0, H(0.6)]), ROSE)),
+    sc(at(tier(0, 0, H(3), 0.016, 0.002, TULE, 9), gx0 + 0.03, gz1 - 0.035)),
+  )
+  for (const [x, z] of [[gx0 + 0.02, gz0 + 0.01], [gx1 - 0.03, gz0 + 0.06], [gx0 + 0.11, gz1 - 0.03]]) {
+    p.push(sc(at(drum(0, H(2.5), 0.004, 0.004, WOOD), x, z)))
+    p.push(sc({ geo: 'sphere', pos: [x, H(2.5) + 0.03, z], scale: [0.03, 0.034, 0.03], color: LEAF, args: [1, 8, 6] }))
+  }
+  return { parts: p, lines: [] }
 }
 
 /** Ground profile under a bridge: how far the deck must run past each endpoint to reach the shore, and the terrain height along the axis. */
