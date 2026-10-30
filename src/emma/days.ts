@@ -47,7 +47,7 @@ export const days: Day[] = [
     id: 'day1',
     date: '2026-11-06',
     title: 'City Tour',
-    intro: 'Two offices downtown, then the classic waterfront: the Ferry Building, the sea lions, Ghirardelli and the crooked street, and dinner in the Marina.',
+    intro: 'Check out the offices, then explore the waterfront: the Ferry Building, the sea lions, Ghirardelli, Lombard St, and dinner in the Marina.',
     color: '#f04a00',
     stops: [
       {
@@ -84,7 +84,7 @@ export const days: Day[] = [
         lat: 37.789109, lng: -122.39688,
         landmark: 'salesforcepark',
         view: { dist: 6, yaw: 0, at: [37.78956, -122.39779] },
-        about: 'A garden four storeys up, on the roof of the bus station. Walk the loop between the towers, past the fountain, and look straight up at Salesforce Tower next door.',
+        about: 'A garden four stories up. Walk the loop between the towers, past the fountain, and look straight up at Salesforce Tower next door.',
       },
       {
         id: 'ferry',
@@ -121,7 +121,7 @@ export const days: Day[] = [
         lat: 37.81001, lng: -122.41039,
         landmark: 'pier39',
         view: { dist: 10, yaw: 0.25 },
-        about: 'Say hi to the sea lions on the docks beside Pier 39, with Alcatraz across the water, then wander west past the crab stands and the old arcade games of the Musée Mécanique.',
+        about: 'See the sea lions on the docks beside Pier 39, with Alcatraz across the water. Then go west to see the crab stands and the World War II submarine USS Pampanito.',
       },
       {
         id: 'ghirardelli',
@@ -133,7 +133,7 @@ export const days: Day[] = [
         lat: 37.805873, lng: -122.422954,
         landmark: 'ghirardelli',
         view: { dist: 6, yaw: Math.PI },
-        about: 'The old chocolate factory, now shops round a brick plaza. Share a hot fudge sundae under the clock tower, then look out over Aquatic Park and the tall ships at Hyde Street Pier.',
+        about: 'The old chocolate factory, now shops round a brick plaza. Share a hot fudge sundae under the clock tower, then look out over Aquatic Park.',
       },
       {
         id: 'lombard',
