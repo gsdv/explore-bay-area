@@ -7,6 +7,7 @@ import { project } from '../../lib/geo'
 import { landmarkParts, landmarkLines, landmarkCables, bridgeGround, partGeometry, type Part } from '../../scene/LandmarkModel'
 import type { World } from '../world'
 import { inBox } from '../region'
+import { emmaLandmarks, type EmmaLandmark } from '../landmarks'
 import { useStore } from '../store'
 import { hullMaterial, shimmer } from './hoverGlow'
 import { LandmarkArea } from './LandmarkArea'
@@ -43,8 +44,8 @@ const hullGeoFor = (p: Part, by: number) => {
   return hullCache.get(key)!
 }
 
-/** the landmarks that stand in Emma's box */
-const HERE = landmarks.filter((l) => inBox(...project(l.lat, l.lng)))
+/** the landmarks that stand in Emma's box, plus the ones only her page has (they bring their own parts) */
+const HERE: (Landmark | EmmaLandmark)[] = [...landmarks, ...emmaLandmarks].filter((l) => inBox(...project(l.lat, l.lng)))
 
 export function Landmarks({ world }: { world: World }) {
   useFrame(({ clock }) => {
@@ -67,7 +68,7 @@ const HULL = 0.09
 const HALO = 0.16
 const grown = (p: Part, by: number): [number, number, number] => [p.scale[0] + by * 2, p.scale[1] + by * 2, p.scale[2] + by * 2]
 
-function LandmarkObject({ landmark: l, world }: { landmark: Landmark; world: World }) {
+function LandmarkObject({ landmark: l, world }: { landmark: Landmark | EmmaLandmark; world: World }) {
   const group = useRef<THREE.Group>(null)
   // while a day is open its pins name the places: landmarks keep their models but drop labels, hover and clicks
   const touring = useStore((s) => !!s.day)
@@ -77,7 +78,7 @@ function LandmarkObject({ landmark: l, world }: { landmark: Landmark; world: Wor
   const tier = useZoomTier()
   // bridges read the terrain so their decks run onto the shore instead of stopping over water
   const ground = useMemo(() => (l.kind === 'bridge' ? bridgeGround(l, (x, z) => world.heights.yAt(x, z)) : undefined), [l, world])
-  const parts = useMemo(() => landmarkParts(l, ground), [l, ground])
+  const parts = useMemo(() => ('parts' in l ? l.parts() : landmarkParts(l, ground)), [l, ground])
   const lines = useMemo(() => landmarkLines(l, ground), [l, ground])
   const cables = useMemo(() => landmarkCables(l, ground), [l, ground])
   const hits = useMemo(() => parts.filter((p) => p.hit), [parts])
