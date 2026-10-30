@@ -3,7 +3,7 @@ import type { Landmark } from '../data/landmarks'
 import { project, UNIT, BUILDING_EXAGGERATION } from '../lib/geo'
 
 export interface Part {
-  geo: 'box' | 'cyl' | 'cone' | 'sphere' | 'ring' | 'stack' | 'fluted' | 'arcade' | 'arches' | 'ringwall' | 'archwall' | 'columns' | 'sector' | 'blocks'
+  geo: 'box' | 'cyl' | 'cone' | 'sphere' | 'ring' | 'stack' | 'fluted' | 'arcade' | 'arches' | 'ringwall' | 'archwall' | 'columns' | 'sector' | 'blocks' | 'strokes'
   pos: [number, number, number]
   rot?: [number, number, number]
   scale: [number, number, number]
@@ -1007,6 +1007,8 @@ export function landmarkParts(l: Landmark, ground?: BridgeGround): Part[] {
       }))
     case 'cityhall':
       return cityHall().parts
+    case 'ghirardelli':
+      return ghirardelli().parts
   }
 }
 
@@ -1134,6 +1136,190 @@ function cityHall(): { parts: Part[]; lines: number[] } {
     for (let i = 0; i < 10; i++) seg(lines, onDome(a, (i / 10) * 0.95), onDome(a, ((i + 1) / 10) * 0.95))
   }
   for (const t of [0.04, 0.9]) for (let k = 0; k < 32; k++) seg(lines, onDome((k / 32) * Math.PI * 2, t), onDome(((k + 1) / 32) * Math.PI * 2, t))
+  return { parts: p, lines }
+}
+
+/**
+ * Ghirardelli Square: the chocolate factory's red-brick ring round its terraced plaza, on the block between North Point St
+ * (+z, uphill) and Beach St (-z, by the bay), Larkin (+x) and Polk (-x), bearing -9. Every building is its OSM outline at true
+ * size (origin mid-block): along North Point the Chocolate and Cocoa buildings (five storeys) and the lower Mustard building,
+ * the 1916 Clock Tower building on the Larkin corner with its Blois-style tower (white stone quoins, four clocks, corner
+ * turrets, a steep slate roof with dormers), the Apartment and Carousel buildings down Larkin (the glass octagon on its
+ * corner), Wurster's tile-roofed, glazed building along Beach, the Power House and the skewed 1860s Woolen Mill on Polk. In the
+ * middle, brick paving over the one-storey Plaza and Infill buildings, trees and Ruth Asawa's mermaid fountain. On the roofs
+ * of Cocoa and Mustard, facing the bay, the white GHIRARDELLI letters (`strokes`) on their steel lattice (`landmarkLines`).
+ * The ground falls ~11 m to Beach St, so each building stands on its own slice of the slope.
+ */
+function ghirardelli(): { parts: Part[]; lines: number[] } {
+  const BRICK = '#a9553f', BRICK2 = '#b9684d', DARK = '#91483a', TRIM = '#efe8da', ROOF = '#8f8a83', TILE = '#b5573a', COPPER = '#7fa596',
+    GLASS = '#86a2ab', PAVING = '#b9705a', SLATE = '#5c6570', LEAF = '#6c9a55', SIGN = '#f6f3ea', STEEL = '#8d9396', BRONZE = '#5b5040', WATER = '#74add0'
+  const K = 0.2 // ground rise per unit towards North Point
+  const d0 = asDetail
+  const g = (z: number) => K * z
+  /** a building on the slope: [x0, x1, z0 (north), z1, height in m] -> its box, standing below the downhill edge, measured from its middle */
+  const top = (z0: number, z1: number, h: number) => g((z0 + z1) / 2) + H(h)
+  const foot = (z0: number) => g(z0) - 0.12
+  const bld = (x0: number, x1: number, z0: number, z1: number, h: number, color: string) =>
+    box((x0 + x1) / 2, foot(z0), top(z0, z1, h), (z0 + z1) / 2, x1 - x0, z1 - z0, color, true)
+  /** windows on the faces of a building: `faces` from n, s, e, w; rows of square-headed openings from its mid-ground to the eaves */
+  const windows = (x0: number, x1: number, z0: number, z1: number, h: number, rows: number, faces: string, from = g((z0 + z1) / 2) + 0.03): Part[] => {
+    const y1 = top(z0, z1, h) - 0.03, out: Part[] = []
+    const ns = faces.includes('n') && faces.includes('s') ? 0 : faces.includes('n') ? -1 : faces.includes('s') ? 1 : null
+    const ew = faces.includes('e') && faces.includes('w') ? 0 : faces.includes('w') ? -1 : faces.includes('e') ? 1 : null
+    if (ns !== null) out.push(wallOpenings((x0 + x1) / 2, (z0 + z1) / 2, from, y1, x1 - x0 - 0.03, z1 - z0, Math.max(1, Math.floor((x1 - x0) / 0.042)), 0.018, { rows, sides: ns, flat: true }))
+    if (ew !== null) out.push(wallOpenings((x0 + x1) / 2, (z0 + z1) / 2, from, y1, z1 - z0 - 0.03, x1 - x0, Math.max(1, Math.floor((z1 - z0) / 0.042)), 0.018, { rows, axis: 1, sides: ew, flat: true }))
+    return out
+  }
+  // a white cornice band round the eaves, and the tar roof inside it
+  const cornice = (x0: number, x1: number, z0: number, z1: number, h: number) => blocks([
+    [(x0 + x1) / 2, (z0 + z1) / 2, x1 - x0 + 0.012, z1 - z0 + 0.012, top(z0, z1, h) - 0.012, top(z0, z1, h) + 0.006],
+  ], TRIM, { detail: true })
+  const roof = (x0: number, x1: number, z0: number, z1: number, h: number) =>
+    box((x0 + x1) / 2, top(z0, z1, h) + 0.006, top(z0, z1, h) + 0.008, (z0 + z1) / 2, x1 - x0 - 0.008, z1 - z0 - 0.008, ROOF, true)
+  const eaves = (x0: number, x1: number, z0: number, z1: number, h: number) => [cornice(x0, x1, z0, z1, h), roof(x0, x1, z0, z1, h)]
+  const ring = (x0: number, x1: number, z0: number, z1: number, h: number, extra = 0): Part =>
+    ({ ...box((x0 + x1) / 2, foot(z0), top(z0, z1, h) + extra, (z0 + z1) / 2, x1 - x0, z1 - z0, STEEL), hullOnly: true })
+
+  // the tower and the sign set the hover outline's skyline; the rest of the ring is a few plain boxes. The first part's colour
+  // is the line colour (Landmarks.tsx): the sign's lattice
+  const TX = 0.545, TZ = 0.37, TW = 0.11, yRoofCT = top(0.165, 0.425, 16)
+  const yShaft = g(TZ) + H(27), yRoof = g(TZ) + H(36)
+  const p: Part[] = [
+    ring(-0.623, 0.6, 0.088, 0.428, 22),
+    ring(-0.631, -0.17, -0.408, 0.088, 12),
+    ring(-0.184, 0.479, -0.427, -0.184, 10, 0.05),
+    ring(0.456, 0.631, -0.304, 0.049, 12),
+    { ...box(TX, yRoofCT, yRoof, TZ, TW, TW, STEEL), hullOnly: true },
+  ]
+
+  // along North Point: Chocolate, Cocoa (its lower north wing carries half the sign), Mustard, the Clock Tower building
+  p.push(
+    bld(-0.623, -0.463, 0.088, 0.428, 22, DARK), ...eaves(-0.623, -0.463, 0.088, 0.428, 22),
+    ...windows(-0.623, -0.463, 0.088, 0.428, 22, 5, 'nsw'),
+    bld(-0.464, 0, 0.21, 0.426, 22, BRICK), ...eaves(-0.464, 0, 0.21, 0.426, 22),
+    ...windows(-0.464, 0, 0.21, 0.426, 22, 5, 's'),
+    ...windows(-0.464, 0, 0.21, 0.426, 22, 2, 'n', top(0.13, 0.21, 13) + 0.02),
+    bld(-0.43, 0, 0.13, 0.21, 13, BRICK), ...eaves(-0.43, 0, 0.13, 0.21, 13),
+    ...windows(-0.43, 0, 0.13, 0.21, 13, 3, 'n'),
+    bld(0, 0.4, 0.222, 0.424, 13, BRICK2), ...eaves(0, 0.4, 0.222, 0.424, 13),
+    ...windows(0, 0.4, 0.222, 0.424, 13, 3, 'ns'),
+    bld(0.399, 0.6, 0.165, 0.425, 16, BRICK2), ...eaves(0.399, 0.6, 0.165, 0.425, 16),
+    ...windows(0.399, 0.6, 0.165, 0.425, 16, 4, 'nsew'),
+    // the strip of shops in front of the Clock Tower building
+    bld(0.424, 0.504, 0.127, 0.166, 4, BRICK2),
+  )
+  // down Larkin: the Apartment building, then the Carousel building with its glass octagon and copper cap
+  p.push(
+    bld(0.456, 0.631, -0.086, 0.049, 12, BRICK), ...eaves(0.456, 0.631, -0.086, 0.049, 12),
+    ...windows(0.456, 0.631, -0.086, 0.049, 12, 3, 'ew'),
+    bld(0.456, 0.631, -0.304, -0.086, 9, BRICK2), ...eaves(0.456, 0.631, -0.304, -0.086, 9),
+    ...windows(0.456, 0.631, -0.304, -0.086, 9, 2, 'new'),
+  )
+  const yOct = top(-0.304, -0.086, 9)
+  p.push(
+    d0(at(prism(0, yOct, yOct + H(5), 0.075, 8, GLASS), 0.5, -0.24)),
+    d0(at(prism(0, yOct + H(5), yOct + H(5) + 0.012, 0.082, 8, TRIM), 0.5, -0.24)),
+    d0(at({ ...tier(0, yOct + H(5) + 0.012, yOct + H(5) + 0.06, 0.082, 0.01, COPPER, 8), args: [r4(0.01 / 0.082 / 2), 0.5, 8, 1, false, Math.PI / 8] }, 0.5, -0.24)),
+  )
+  // along Beach: Wurster's building, brick below a glazed storey under a hipped tile roof; the Power House on the Polk corner
+  const yW = top(-0.427, -0.184, 10)
+  p.push(
+    bld(-0.184, 0.479, -0.427, -0.184, 7, BRICK),
+    ...windows(-0.184, 0.479, -0.427, -0.184, 7, 1, 'n', g(-0.3) - 0.05),
+    d0(box(0.15, yW - H(3), yW, -0.3, 0.64, 0.22, GLASS)),
+    d0(blocks([[0.15, -0.3, 0.68, 0.26, yW, yW + 0.05]], TILE, { gabled: 'x' })),
+    d0(blocks([[-0.16, -0.3, 0.06, 0.26, yW, yW + 0.05], [0.46, -0.3, 0.06, 0.26, yW, yW + 0.05]], TILE, { pyramid: true })),
+    bld(-0.631, -0.258, -0.408, -0.326, 10, BRICK), ...eaves(-0.631, -0.258, -0.408, -0.326, 10),
+    ...windows(-0.631, -0.258, -0.408, -0.326, 10, 2, 'nw'),
+    bld(-0.631, -0.344, -0.326, -0.19, 10, BRICK),
+    // the brick link between the Chocolate building and the Woolen Mill, on Polk
+    bld(-0.629, -0.466, -0.082, 0.089, 9, DARK), ...windows(-0.629, -0.466, -0.082, 0.089, 9, 2, 'w'),
+  )
+  // the Woolen Mill (1861) is older than the street grid and sits skewed across the west side of the square
+  const wm = { x: -0.399, z: -0.11, len: 0.433, d: 0.16, rot: 0.24 }, yWm = g(wm.z) + H(12)
+  const turn = (q: Part): Part => ({ ...q, pos: [wm.x, q.pos[1], wm.z], rot: [0, wm.rot, 0] })
+  p.push(
+    turn(box(0, foot(-0.24), yWm, 0, wm.len, wm.d, BRICK, true)),
+    turn(box(0, yWm - 0.012, yWm + 0.006, 0, wm.len + 0.012, wm.d + 0.012, TRIM, true)),
+    turn(box(0, yWm + 0.006, yWm + 0.008, 0, wm.len - 0.008, wm.d - 0.008, ROOF, true)),
+    turn(wallOpenings(0, 0, g(wm.z) + 0.03, yWm - 0.03, wm.len - 0.04, wm.d, 10, 0.018, { rows: 3, flat: true })),
+  )
+
+  // the plaza: brick paving on two terraces over the one-storey Plaza and Infill buildings, the fountain, and trees
+  const yUp = 0.04, yLow = yUp - H(4)
+  p.push(
+    d0(box(-0.04, foot(-0.19), yLow, -0.115, 0.85, 0.15, PAVING)),
+    d0(box(0.02, foot(-0.04), yUp, 0.105, 0.92, 0.29, PAVING)),
+    d0(box(0.075, yLow - 0.05, yUp, -0.13, 0.37, 0.176, BRICK2)),
+    d0(box(0.075, yUp, yUp + 0.008, -0.13, 0.37, 0.176, PAVING)),
+    wallOpenings(0.075, -0.13, yLow + 0.012, yUp - 0.012, 0.34, 0.176, 8, 0.022, { sides: -1, flat: true }),
+    // Andrea: a round basin with the bronze mermaids on a rock in the middle
+    d0(at(drum(yUp, yUp + 0.018, 0.045, 0.045, TRIM), 0.2, 0.04)),
+    d0(at(drum(yUp + 0.018, yUp + 0.02, 0.038, 0.038, WATER), 0.2, 0.04)),
+    d0(at(drum(yUp + 0.02, yUp + 0.045, 0.012, 0.008, BRONZE), 0.2, 0.04)),
+    { geo: 'sphere', pos: [0.2, yUp + 0.05, 0.04], scale: [0.01, 0.012, 0.01], color: BRONZE, detail: true, args: [1, 8, 6] },
+  )
+  const trees: [number, number, number][] = [[-0.3, 0.09, yUp], [-0.14, 0.11, yUp], [0.32, 0.03, yUp], [0.36, 0.2, yUp], [-0.3, -0.12, yLow], [-0.05, -0.12, yLow], [0.4, -0.12, yLow]]
+  for (const [x, z, y] of trees) {
+    p.push(d0(at(drum(y, y + 0.04, 0.006, 0.006, '#6b5a48'), x, z)))
+    p.push({ geo: 'sphere', pos: [x, y + 0.065, z], scale: [0.035, 0.032, 0.035], color: LEAF, detail: true, args: [1, 8, 6] })
+  }
+
+  // the clock tower: brick shaft with white quoins, a clock on each face, a white cornice with corner turrets, a steep slate
+  // roof with a dormer each side, and a spike. Plan ~1.2x true
+  p.push(
+    d0(box(TX, yRoofCT - 0.05, yShaft, TZ, TW, TW, BRICK2)),
+    d0(blocks([-1, 1].flatMap((sx) => [-1, 1].map((sz) => [TX + sx * (TW / 2 - 0.004), TZ + sz * (TW / 2 - 0.004), 0.016, 0.016, yRoofCT, yShaft])), TRIM)),
+    d0(box(TX, yShaft - 0.09, yShaft - 0.08, TZ, TW + 0.008, TW + 0.008, TRIM)),
+    d0(box(TX, yShaft, yShaft + 0.022, TZ, TW + 0.016, TW + 0.016, TRIM)),
+    d0(blocks([-1, 1].flatMap((sx) => [-1, 1].map((sz) => [TX + sx * (TW / 2 + 0.002), TZ + sz * (TW / 2 + 0.002), 0.026, 0.026, yShaft + 0.022, yShaft + 0.07])), TRIM)),
+    d0(blocks([-1, 1].flatMap((sx) => [-1, 1].map((sz) => [TX + sx * (TW / 2 + 0.002), TZ + sz * (TW / 2 + 0.002), 0.03, 0.03, yShaft + 0.07, yShaft + 0.11])), SLATE, { pyramid: true })),
+    d0(blocks([[TX, TZ, TW - 0.01, TW - 0.01, yShaft + 0.022, yRoof]], SLATE, { pyramid: true })),
+    d0(blocks([[TX, TZ, 0.05, TW - 0.004, yShaft + 0.035, yShaft + 0.07], [TX, TZ, TW - 0.004, 0.05, yShaft + 0.035, yShaft + 0.07]], TRIM)),
+    d0(blocks([[TX, TZ, 0.056, TW + 0.002, yShaft + 0.07, yShaft + 0.1]], SLATE, { gabled: true })),
+    d0(blocks([[TX, TZ, TW + 0.002, 0.056, yShaft + 0.07, yShaft + 0.1]], SLATE, { gabled: 'x' })),
+    d0(box(TX, yRoof - 0.01, yRoof + 0.07, TZ, 0.006, 0.006, SHADE)),
+    wallOpenings(TX, TZ, yRoofCT + 0.02, yShaft - 0.13, 0.05, TW, 1, 0.03, {}),
+    wallOpenings(TX, TZ, yRoofCT + 0.02, yShaft - 0.13, 0.05, TW, 1, 0.03, { axis: 1 }),
+    wallOpenings(TX, TZ, yShaft + 0.04, yShaft + 0.065, 0.03, TW + 0.006, 1, 0.016, {}),
+    wallOpenings(TX, TZ, yShaft + 0.04, yShaft + 0.065, 0.03, TW + 0.006, 1, 0.016, { axis: 1 }),
+  )
+  const yClock = yShaft - 0.035
+  const hand = (len: number, deg: number, axis: 0 | 1): Part => {
+    const a = (deg * Math.PI) / 180, u = (-Math.sin(a) * len) / 2, v = (Math.cos(a) * len) / 2
+    return axis
+      ? { geo: 'box', pos: [TX, yClock + v, TZ - u], rot: [a, 0, 0], scale: [TW + 0.014, len, 0.005], color: SHADE, detail: true }
+      : { geo: 'box', pos: [TX + u, yClock + v, TZ], rot: [0, 0, a], scale: [0.005, len, TW + 0.014], color: SHADE, detail: true }
+  }
+  for (const axis of [0, 1] as const) {
+    const rot: [number, number, number] = axis ? [0, 0, Math.PI / 2] : [Math.PI / 2, 0, 0]
+    p.push({ geo: 'cyl', pos: [TX, yClock, TZ], rot, scale: [0.07, TW + 0.006, 0.07], color: TRIM, args: [0.5, 0.5, 20], detail: true })
+    p.push({ geo: 'cyl', pos: [TX, yClock, TZ], rot, scale: [0.056, TW + 0.01, 0.056], color: '#f7f1df', args: [0.5, 0.5, 20], detail: true })
+    p.push(hand(0.024, -60, axis), hand(0.018, 60, axis))
+  }
+
+  // the sign: GHIRARDELLI in white letters along the line where Cocoa meets Mustard, facing the bay, on a steel lattice that
+  // stands on both roofs (Cocoa's high, Mustard's low)
+  const ZS = 0.27, yBase = 0.52, em = 0.105
+  const roofAt = (x: number) => (x < 0 ? top(0.21, 0.426, 22) : top(0.222, 0.424, 13))
+  const text = signText('Ghirardelli', em, -0.1, yBase)
+  p.push(strokes(text.segs, 0.02, 0.012, ZS - 0.006, SIGN))
+  const lines: number[] = []
+  const posts = Math.round((text.x1 - text.x0) / 0.036)
+  for (const z of [ZS, ZS + 0.025]) {
+    for (let i = 0; i <= posts; i++) {
+      const x = text.x0 + ((text.x1 - text.x0) * i) / posts
+      seg(lines, [x, roofAt(x), z], [x, yBase + 0.02, z])
+      if (z === ZS) seg(lines, [x, yBase, ZS], [x, yBase, ZS + 0.025])
+      if (i === posts) break
+      // cross-braced panels from the top rail down to the roof under this bay
+      const xb = text.x0 + ((text.x1 - text.x0) * (i + 1)) / posts, w = xb - x, low = Math.max(roofAt(x), roofAt(xb))
+      for (let y = yBase; y - w > low - 1e-6; y -= w) { seg(lines, [x, y, z], [xb, y - w, z]); seg(lines, [xb, y, z], [x, y - w, z]) }
+    }
+    seg(lines, [text.x0, yBase, z], [text.x1, yBase, z])
+    seg(lines, [text.x0, yBase + 0.02, z], [text.x1, yBase + 0.02, z])
+  }
+  p.push({ ...box((text.x0 + text.x1) / 2, top(0.222, 0.424, 13), yBase + em * 1.05, ZS + 0.01, text.x1 - text.x0, 0.03, STEEL), hullOnly: true })
   return { parts: p, lines }
 }
 
@@ -1462,6 +1648,7 @@ function bayBridge(l: Landmark, ground?: BridgeGround): BridgeModel {
 /** Suspenders, bracing and trusses as line segments [x,y,z,x,y,z,...] in landmark-local space (bridges, and City Hall's gilded dome ribs). */
 export function landmarkLines(l: Landmark, ground?: BridgeGround): number[] {
   if (l.kind === 'cityhall') return cityHall().lines
+  if (l.kind === 'ghirardelli') return ghirardelli().lines
   if (l.kind !== 'bridge') return []
   return (l.id === 'baybridge' ? bayBridge(l, ground) : goldenGate(l, ground)).lines
 }
@@ -1490,6 +1677,7 @@ export function partGeometry(p: Part, grow = 0): THREE.BufferGeometry {
     case 'columns': return columnsGeometry(a)
     case 'sector': return sectorGeometry(a, grow)
     case 'blocks': return blocksGeometry(a, grow)
+    case 'strokes': return strokesGeometry(a)
   }
 }
 
@@ -1709,6 +1897,67 @@ function blocksGeometry(a: number[], grow: number): THREE.BufferGeometry {
     quad(v(x0, y1, z0), v(x0, y1, z1), v(x1, y1, z0), v(x1, y1, z1))
   }
   return fromPositions(pos)
+}
+
+/**
+ * Lettering: thick straight strokes standing in the x-y plane, `depth` deep, as one part (always `detail`). Segments are
+ * [x0, y0, x1, y1] in model units; the part is normalised to their bounds like `blocks`.
+ */
+const strokes = (segs: number[][], thick: number, depth: number, z: number, color: string): Part => {
+  const xs = segs.flatMap((s) => [s[0], s[2]]), ys = segs.flatMap((s) => [s[1], s[3]])
+  const x0 = Math.min(...xs) - thick, x1 = Math.max(...xs) + thick, y0 = Math.min(...ys) - thick, y1 = Math.max(...ys) + thick
+  const c = [(x0 + x1) / 2, (y0 + y1) / 2], s = [x1 - x0, y1 - y0]
+  return { geo: 'strokes', pos: [c[0], c[1], z], scale: [s[0], s[1], depth], color, detail: true, args: [r4(c[0]), r4(c[1]), r4(s[0]), r4(s[1]), r4(thick), ...segs.flat().map(r4)] }
+}
+function strokesGeometry(a: number[]): THREE.BufferGeometry {
+  const [cx, cy, sx, sy, t] = a
+  const pos: number[] = []
+  const quad = (p0: number[], p1: number[], p2: number[], p3: number[]) => pos.push(...p0, ...p1, ...p2, ...p1, ...p3, ...p2)
+  for (let i = 5; i + 3 < a.length; i += 4) {
+    const [xa, ya, xb, yb] = a.slice(i, i + 4)
+    const len = Math.hypot(xb - xa, yb - ya) || 1e-6, ux = (xb - xa) / len, uy = (yb - ya) / len
+    // a box in the stroke's own frame (along, across, depth), which is right-handed like x, y, z, so the faces keep their winding
+    const v = (u: number, n: number, d: number) => [((xa + xb) / 2 + u * ux - n * uy - cx) / sx, ((ya + yb) / 2 + u * uy + n * ux - cy) / sy, d]
+    const u0 = -len / 2 - t / 2, u1 = len / 2 + t / 2, n0 = -t / 2, n1 = t / 2, d0 = -0.5, d1 = 0.5
+    quad(v(u1, n0, d0), v(u1, n1, d0), v(u1, n0, d1), v(u1, n1, d1))
+    quad(v(u0, n0, d1), v(u0, n1, d1), v(u0, n0, d0), v(u0, n1, d0))
+    quad(v(u1, n0, d1), v(u1, n1, d1), v(u0, n0, d1), v(u0, n1, d1))
+    quad(v(u0, n0, d0), v(u0, n1, d0), v(u1, n0, d0), v(u1, n1, d0))
+    quad(v(u0, n1, d0), v(u0, n1, d1), v(u1, n1, d0), v(u1, n1, d1))
+    quad(v(u0, n0, d0), v(u1, n0, d0), v(u0, n0, d1), v(u1, n0, d1))
+  }
+  return fromPositions(pos)
+}
+
+/** A stroke font for the few letters a sign needs: polylines in em units (baseline 0, cap height 1, x-height 0.62) and an advance. */
+const arc = (cx: number, cy: number, rx: number, ry: number, a0: number, a1: number, n: number): [number, number][] =>
+  Array.from({ length: n + 1 }, (_, i) => { const a = ((a0 + ((a1 - a0) * i) / n) * Math.PI) / 180; return [cx + rx * Math.cos(a), cy + ry * Math.sin(a)] })
+const GLYPHS: Record<string, { w: number; lines: [number, number][][] }> = {
+  G: { w: 0.86, lines: [[...arc(0.43, 0.5, 0.43, 0.5, 48, 340, 14), [0.84, 0.42], [0.52, 0.42]]] },
+  h: { w: 0.52, lines: [[[0, 0], [0, 1]], [[0, 0.36], ...arc(0.26, 0.38, 0.26, 0.24, 165, 0, 6), [0.52, 0]]] },
+  i: { w: 0, lines: [[[0, 0], [0, 0.62]], [[0, 0.8], [0, 0.9]]] },
+  r: { w: 0.34, lines: [[[0, 0], [0, 0.62]], arc(0.26, 0.36, 0.26, 0.26, 170, 70, 5)] },
+  a: { w: 0.48, lines: [arc(0.24, 0.2, 0.24, 0.2, 0, 360, 12), [[0.48, 0], ...arc(0.24, 0.4, 0.24, 0.22, 0, 150, 5)]] },
+  d: { w: 0.5, lines: [arc(0.25, 0.31, 0.25, 0.31, 0, 360, 14), [[0.5, 0], [0.5, 1]]] },
+  e: { w: 0.5, lines: [[[0, 0.31], [0.5, 0.31], ...arc(0.25, 0.31, 0.25, 0.31, 0, 320, 12)]] },
+  l: { w: 0, lines: [[[0, 0], [0, 1]]] },
+}
+/** Lay `text` out as stroke segments centred on x = cx, baseline y, reading correctly from -z (so it runs towards -x). */
+function signText(text: string, em: number, cx: number, y: number) {
+  const gap = 0.24, placed: [number, number][][] = []
+  let pen = 0
+  for (const ch of text) {
+    const gl = GLYPHS[ch]
+    for (const line of gl.lines) placed.push(line.map(([u, v]) => [pen + u, v]))
+    pen += gl.w + gap
+  }
+  const width = (pen - gap) * em
+  const segs: number[][] = []
+  for (const line of placed) for (let i = 0; i + 1 < line.length; i++) {
+    const [ua, va] = line[i], [ub, vb] = line[i + 1]
+    segs.push([cx + width / 2 - ua * em, y + va * em, cx + width / 2 - ub * em, y + vb * em])
+  }
+  return { segs, x0: cx - width / 2, x1: cx + width / 2 }
 }
 
 /** An opening's outline, anticlockwise in (u, v): a rectangle from v0 up, closed by a semicircular head of height `rise` under v1. */
