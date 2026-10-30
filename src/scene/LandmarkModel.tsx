@@ -2,9 +2,10 @@ import * as THREE from 'three'
 import type { Landmark } from '../data/landmarks'
 import { project, UNIT, BUILDING_EXAGGERATION, elevationToY } from '../lib/geo'
 import * as TP from './twinPeaksData'
+import { sausalito, townGeometry } from './sausalito'
 
 export interface Part {
-  geo: 'box' | 'cyl' | 'cone' | 'sphere' | 'ring' | 'stack' | 'fluted' | 'arcade' | 'arches' | 'ringwall' | 'archwall' | 'columns' | 'sector' | 'blocks' | 'strokes' | 'hill' | 'ribbons' | 'pad'
+  geo: 'box' | 'cyl' | 'cone' | 'sphere' | 'ring' | 'stack' | 'fluted' | 'arcade' | 'arches' | 'ringwall' | 'archwall' | 'columns' | 'sector' | 'blocks' | 'strokes' | 'hill' | 'ribbons' | 'pad' | 'rblocks' | 'blobs'
   pos: [number, number, number]
   rot?: [number, number, number]
   scale: [number, number, number]
@@ -978,12 +979,8 @@ export function landmarkParts(l: Landmark, ground?: BridgeGround, terrain?: Terr
       return p
     }
     case 'town':
-      return [0, 1, 2, 3].map((i) => ({
-        geo: 'box' as const,
-        pos: [(i - 1.5) * 0.4, 0.2 + i * 0.05, (i % 2) * 0.3],
-        scale: [0.3, 0.4 + i * 0.1, 0.3],
-        color: ['#f3e6cf', '#e9d3b3', '#f7efe1', '#dfc9a9'][i],
-      }))
+      // Sausalito, the whole town (sausalito.ts), standing on the drawn terrain
+      return sausalito(terrain)
     case 'cityhall':
       return cityHall().parts
     case 'ghirardelli':
@@ -2064,6 +2061,7 @@ export function partGeometry(p: Part, grow = 0): THREE.BufferGeometry {
     case 'blocks': return blocksGeometry(a, grow)
     case 'strokes': return strokesGeometry(a)
     case 'hill': case 'ribbons': case 'pad': return freeformGeometry(p.geo, a, grow)
+    case 'rblocks': case 'blobs': return townGeometry(p.geo, a)
   }
 }
 

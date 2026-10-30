@@ -207,6 +207,9 @@ and `scene/LandmarkModel.tsx`. React has its own chunk (`manualChunks` in `vite.
 - Procedural filler (step 6) now only fills 150 m cells with no real footprints near them, i.e. everything outside the detail areas.
   Density is tuned by spacing/prob there. The `-0.03` ground sink is baked into the block files, not applied by the renderer.
 - Overpass punishes bursts: several 429s in a row end in refused connections for a good while. Pace any tiled query.
+- The census land polygon is 1:500k and cuts across water in places. `scripts/lib/shore.ts` (`fixShores`, applied to `buildLand()`)
+  erases the water between OSM's coastline and a path out in the bay; Sausalito's marinas and Waldo Point were "land" before it.
+  Add another entry to `FIXES` for another bad stretch (its closing path must only cross water the census already has).
 
 ## Verifying in the Claude Code browser pane
 
@@ -251,6 +254,15 @@ and `scene/LandmarkModel.tsx`. React has its own chunk (`manualChunks` in `vite.
   The Legion of Honor has its own kind (`legion`; `museum` is the Exploratorium's box) and `archwall`, one wall with a real arched
   opening (its triumphal arch). SF's footprint survey has nothing at the Legion, so its size and axis (bearing -40, parallel to
   Legion of Honor Drive) are read off the roads and the aerials rather than measured.
+  Sausalito (`town`) is the whole town at true plan size, in `src/scene/sausalito.ts`: every OSM building footprint in the city
+  (houses, Bridgeway's shops, the Marinship sheds) and Waldo Point's 435 floating homes as fitted boxes, plus the marina docks, baked
+  into `src/scene/sausalitoData.ts` by `scripts/sausalito.ts` (base-64, like Twin Peaks; Marin City is left out). The model dresses
+  them (pitched roofs, paint, garden trees, boats berthed along every dock) and hand-places Plaza Viña del Mar (the origin: fountain,
+  the two elephants, palms), the ferry landing, the Spinnaker, Star of the Sea's steeple, the Taj Mahal houseboat and the sea lion.
+  It stands on the drawn terrain through the same `terrain` sampler as Twin Peaks, doesn't pop, and is all `detail` (merged `rblocks`,
+  turned boxes and roofs, and `blobs`, low-poly crowns, one mesh per colour); its hover target is the Census city outline in
+  `areas.json` (`AREA_PARKS`, fed from the atlas's places) plus hit boxes for the waterfront and Waldo Point. The filler (step 6)
+  stays out of that outline. Re-run the script if the landmark's lat/lng moves.
   Kinds with one landmark and a model of their own: `alcatraz` (brings its own rock in three terraces, a bit bigger than the heightmap's
   80 m-pixel bump, at sea level), `twinpeaks` (the real hill at true size: a 15 m grid of
   USGS elevation over the natural area, baked with OSM's figure-eight, trails, stairs and Christmas Tree Point's car parks into

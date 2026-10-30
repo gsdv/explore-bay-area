@@ -281,7 +281,7 @@ export const days: Day[] = [
         kind: 'food',
         title: 'Late lunch in Sausalito',
         place: 'Bridgeway, Sausalito',
-        lat: 37.8591, lng: -122.4853,
+        lat: 37.85613, lng: -122.47944,
         landmark: 'sausalito',
         view: { dist: 14, yaw: 0.4 },
         getThere: 'Down the mountain, about 35 minutes.',

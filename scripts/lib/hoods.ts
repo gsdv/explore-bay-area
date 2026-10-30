@@ -25,7 +25,7 @@ export interface HoodFeature {
 }
 
 /** Census places in the bbox as GeoJSON (NAME, GEOID, LSAD), clipped to the region. */
-async function buildPlaces(): Promise<GeoJSON.FeatureCollection> {
+export async function buildPlaces(): Promise<GeoJSON.FeatureCollection> {
   const out = path.join(CACHE, 'places.geojson')
   if (!fs.existsSync(out)) {
     const zip = await cachedDownload('cb_2023_06_place_500k.zip', PLACES_URL)

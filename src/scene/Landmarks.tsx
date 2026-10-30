@@ -52,7 +52,7 @@ export function Landmarks({ world }: { world: World }) {
         <LandmarkObject key={l.id} landmark={l} world={world} />
       ))}
       {/* landmarks that are a whole park or beach: their outline on the ground is the target (areas.json decides which; the rest render nothing) */}
-      {landmarks.filter((l) => /^(park|beach|tamalpais|forest|island)$/.test(l.kind)).map((l) => (
+      {landmarks.filter((l) => /^(park|beach|tamalpais|forest|island|town)$/.test(l.kind)).map((l) => (
         <LandmarkArea key={l.id} landmark={l} world={world} />
       ))}
     </group>
@@ -72,9 +72,9 @@ function LandmarkObject({ landmark: l, world }: { landmark: Landmark; world: Wor
   const tier = useZoomTier()
   // bridges read the terrain so their decks run onto the shore instead of stopping over water
   const ground = useMemo(() => (l.kind === 'bridge' ? bridgeGround(l, (x, z) => world.heights.yAt(x, z)) : undefined), [l, world])
-  // Twin Peaks brings its own hill, which rises out of the ground exactly as it is drawn
+  // Twin Peaks brings its own hill, which rises out of the ground exactly as it is drawn; Sausalito's houses stand on it
   const terrain = useMemo(() => {
-    if (l.kind !== 'twinpeaks') return undefined
+    if (l.kind !== 'twinpeaks' && l.kind !== 'town') return undefined
     const [x, z] = project(l.lat, l.lng)
     return { origin: Math.max(0, world.heights.yAt(x, z)), at: (lx: number, lz: number) => terrainHeightAt(world, x + lx, z + lz) }
   }, [l, world])
@@ -118,8 +118,8 @@ function LandmarkObject({ landmark: l, world }: { landmark: Landmark; world: Wor
   useFrame((_, dt) => {
     if (!group.current) return
     // bridges don't pop: scaled about one end, a kilometres-long deck would swing its far end off the shore (nor does Twin
-    // Peaks: its hill is the ground, and would lift its sunken edge out of the city's)
-    const target = hovered && l.kind !== 'bridge' && l.kind !== 'twinpeaks' ? 1.12 : 1
+    // Peaks: its hill is the ground, and would lift its sunken edge out of the city's; nor a 3 km town)
+    const target = hovered && l.kind !== 'bridge' && l.kind !== 'twinpeaks' && l.kind !== 'town' ? 1.12 : 1
     scaleT.v += (target - scaleT.v) * Math.min(1, dt * 10)
     group.current.scale.setScalar(scaleT.v)
     group.current.position.y = pos.y + (scaleT.v - 1) * 1.5

@@ -8,9 +8,10 @@ import osmtogeojson from 'osmtogeojson'
 import { log, OUT, seeded, writeJSON } from './lib/util.ts'
 import * as osm from './lib/osm.ts'
 import { buildLand } from './lib/land.ts'
+import { fixShores } from './lib/shore.ts'
 import { buildHeightmap, writeHeightmap } from './lib/terrain.ts'
 import { buildZctas, fetchRentByZip } from './lib/rent.ts'
-import { buildHoods } from './lib/hoods.ts'
+import { buildHoods, buildPlaces } from './lib/hoods.ts'
 import { fitBox } from './lib/footprints.ts'
 import { fetchFootprintsSF } from './lib/sfbuildings.ts'
 import { fetchFootprintsCore } from './lib/overture.ts'
@@ -26,7 +27,7 @@ import { companies } from '../src/data/companies.ts'
 import { landmarkParts } from '../src/scene/LandmarkModel.tsx'
 
 const t0 = Date.now()
-const land = await buildLand()
+const land = await fixShores(await buildLand())
 const hm = await buildHeightmap()
 
 // ---------- 1. land mask ----------
@@ -60,6 +61,7 @@ const AREA_PARKS: Record<string, string[]> = {
   mttam: ['Mount Tamalpais State Park', 'Mount Tamalpais Watershed'],
   muirwoods: ['Muir Woods National Monument'],
   angelisland: ['Angel Island State Park'],
+  sausalito: ['Sausalito'],
 }
 const beachesGeo = osmtogeojson(await osm.fetchBeaches()) as GeoJSON.FeatureCollection
 // Pieces cut to a box [west, south, east, north] before merging. Mount Tamalpais is the State Park plus only the water district's land
@@ -69,6 +71,10 @@ const AREA_CLIP: Record<string, [number, number, number, number]> = {
   'Mount Tamalpais Watershed': [-122.635, 37.9, -122.555, 37.94],
 }
 const piecesGeo = osmtogeojson(await osm.fetchAreaPieces()) as GeoJSON.FeatureCollection
+// a town modelled whole (Sausalito) is its Census city limits, clipped to the shore: the atlas's places, under OSM's `name`
+const townsGeo = (await buildPlaces()).features
+  .filter((f) => landmarks.some((l) => l.kind === 'town' && l.name === f.properties?.NAME))
+  .map((f) => ({ ...f, properties: { name: f.properties!.NAME } }))
 const { default: mapshaper } = await import('mapshaper')
 const areas: Record<string, { rings: number[][]; holes: number[][] }> = {}
 for (const [id, names] of Object.entries(AREA_PARKS)) {
@@ -79,7 +85,7 @@ for (const [id, names] of Object.entries(AREA_PARKS)) {
     const [lng, lat] = c.split(',').map(Number), [x, z] = project(lat, lng)
     return Math.hypot(x - lx, z - lz) < 30
   })
-  const pieces = [...parksGeo.features, ...beachesGeo.features, ...piecesGeo.features].filter(
+  const pieces = [...parksGeo.features, ...beachesGeo.features, ...piecesGeo.features, ...townsGeo].filter(
     (f) => names.includes(f.properties?.name) && (f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon') && near(f),
   )
   // several pieces: grow 15 m, merge, shrink 10 m, so pieces a path or a creek apart (Crissy Field's, the Panhandle and the park)
@@ -389,6 +395,9 @@ log('real footprints: boxes', nBoxes, '· true outlines', nOutlines)
 // ---------- 6. procedural filler blocks along streets (wherever there are no real footprints) ----------
 log('filler blocks')
 const M_LAT = 1 / 110_574, M_LNG = 1 / (111_320 * Math.cos((37.6 * Math.PI) / 180))
+// a town modelled whole brings every one of its real buildings: no filler inside its outline
+const townRings = landmarks.filter((l) => l.kind === 'town').flatMap((l) => areas[l.id]?.rings ?? [])
+  .map((r) => Array.from({ length: r.length / 2 }, (_, i) => [r[2 * i], r[2 * i + 1]] as [number, number]))
 for (const w of roadWays) {
   const cls = w.tags.highway
   if (!/^(residential|unclassified|living_street|tertiary|secondary|primary)$/.test(cls)) continue
@@ -421,6 +430,7 @@ for (const w of roadWays) {
         const wlen = spacing * (0.62 + rnd() * 0.2)
         let h = minor ? 7 + rnd() * 6 : 9 + rnd() * 14
         if (!minor && rnd() < 0.08) h = 25 + rnd() * 30
+        if (townRings.some((r) => inRing(r, x, z))) continue
         fill.push(x, elevationToY(elevAt(lat, lng)) - 0.03, z, wlen * UNIT, depth * UNIT, h * UNIT * BUILDING_EXAGGERATION, Math.atan2(uy, ux)) // (ux, uy) is east/north, z is south, and a Y turn by θ sends local +x to (cos θ, 0, −sin θ)
       }
       d += spacing
