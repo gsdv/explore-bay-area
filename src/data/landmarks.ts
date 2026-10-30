@@ -1,6 +1,6 @@
 export type LandmarkKind =
   | 'bridge' | 'tower' | 'pyramid' | 'ferry' | 'coit' | 'sutro' | 'rotunda' | 'stadium' | 'arena'
-  | 'peak' | 'park' | 'beach' | 'houses' | 'island' | 'campanile' | 'museum' | 'wharf' | 'street' | 'gate' | 'forest' | 'town' | 'campus' | 'legion' | 'lombard' | 'tamalpais' | 'alcatraz' | 'twinpeaks' | 'bernal' | 'ballpark' | 'cityhall' | 'ghirardelli' | 'cathedral' | 'mission' | 'conservatory' | 'deyoung' | 'transit'
+  | 'peak' | 'park' | 'beach' | 'houses' | 'island' | 'campanile' | 'museum' | 'wharf' | 'street' | 'gate' | 'forest' | 'town' | 'campus' | 'legion' | 'lombard' | 'tamalpais' | 'diablo' | 'alcatraz' | 'twinpeaks' | 'bernal' | 'ballpark' | 'cityhall' | 'ghirardelli' | 'cathedral' | 'mission' | 'conservatory' | 'deyoung' | 'transit'
 
 export interface Landmark {
   id: string
@@ -70,6 +70,6 @@ export const landmarks: Landmark[] = [
   { id: 'stanford', name: 'Stanford (Hoover Tower)', kind: 'campus', modelType: 'structure', lat: 37.42763, lng: -122.16699, bearing: 15, covers: [[37.4275, -122.1697]], area: 'Palo Alto', blurb: 'The 8,000-acre farm that seeded Silicon Valley. Hoover Tower and the Main Quad are the postcards; the Dish trail is the hike.', height: 87, tags: ['culture', 'hike'] },
   { id: 'levis', name: 'Levi\'s Stadium', kind: 'stadium', modelType: 'structure', lat: 37.4033, lng: -121.9694, area: 'Santa Clara', blurb: 'Home of the 49ers, next to the NVIDIA and Intel campuses.', tags: ['culture'] },
   { id: 'mavericks', name: 'Mavericks (Half Moon Bay)', kind: 'beach', modelType: 'land', lat: 37.4956, lng: -122.4979, area: 'Coastside', blurb: 'One of the biggest surf breaks in the world, firing on winter swells. Pillar Point harbour has the fish tacos.', tags: ['nature'] },
-  { id: 'mtdiablo', name: 'Mount Diablo', kind: 'peak', modelType: 'land', lat: 37.8816, lng: -121.9147, area: 'East Bay', blurb: 'At 3,849 feet, the East Bay\'s summit. On a clear winter day the view stretches from Lassen to Half Dome.', tags: ['hike', 'view'] },
+  { id: 'mtdiablo', name: 'Mount Diablo', kind: 'diablo', modelType: 'land', lat: 37.88175, lng: -121.91418, area: 'East Bay', blurb: 'At 3,849 feet, the East Bay\'s summit. On a clear winter day the view stretches from Lassen to Half Dome.', tags: ['hike', 'view'] },
   { id: 'missionmurals', name: 'Mission Murals (Clarion Alley)', kind: 'street', modelType: 'structure', lat: 37.7628, lng: -122.4200, area: 'Mission', blurb: 'Hundreds of murals across the Mission; Clarion Alley and Balmy Alley are the dense ones.', tags: ['culture'] },
 ]

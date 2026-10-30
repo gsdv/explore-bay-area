@@ -533,6 +533,43 @@ export function landmarkParts(l: Landmark, ground?: BridgeGround, terrain?: Terr
         box(0.16, yr + 0.29, yr + 0.35, 0.12, 0.08, 0.004, ORANGE, true),
       ]
     }
+    case 'diablo': {
+      // Mount Diablo: like Tamalpais, the terrain has the mountain and the model is what stands on the summit: the Summit
+      // Building (1942, built by the CCC of the mountain's own fossil-bearing sandstone), a two-storey hall with a roof deck and a
+      // square tower at its east end, the 1928 aviation beacon on top (lit each 7 December since 1964). ~4x true size on a
+      // 1,173 m mountain. The State Park is the landmark's hoverable outline (areas.json). It stands on the drawn ground, not the
+      // heightmap: the terrain grid's ~150 m triangles cut the sharp summit ~down, and the crown stood out of it like a plinth.
+      const drop = terrain ? terrain.at(0, 0) - terrain.origin : 0
+      const ROCK = '#a99d84', SAND = '#c4aa80', CAP = '#a88f69', DECK = '#8c877d', DARK = '#3b3127', STEEL = '#4a4a4a'
+      const yb = 0.05, yh = 0.3, yt = 0.52
+      const parapet = (x: number, z: number, w: number, d: number, y: number, t = 0.018): Part =>
+        blocks([[x, z - d / 2 + t / 2, w, t, y, y + 0.035], [x, z + d / 2 - t / 2, w, t, y, y + 0.035],
+          [x - w / 2 + t / 2, z, t, d, y, y + 0.035], [x + w / 2 - t / 2, z, t, d, y, y + 0.035]], CAP, { detail: true })
+      return ([
+        // the summit's rocky crown, sunk deep for the same reason as Tamalpais's
+        tier(0, -0.7, 0.02, 0.6, 0.44, ROCK, 9),
+        { geo: 'sphere', pos: [-0.3, 0.02, 0.24], scale: [0.14, 0.07, 0.1], color: ROCK, detail: true, args: [1, 7, 5] },
+        { geo: 'sphere', pos: [0.32, 0.0, -0.22], scale: [0.12, 0.06, 0.12], color: ROCK, detail: true, args: [1, 7, 5] },
+        // the hall, its roof deck and the stone terrace on the south side, under the door
+        box(-0.09, yb - 0.12, yh, 0, 0.54, 0.34, SAND),
+        box(-0.09, yh, yh + 0.004, 0, 0.5, 0.3, DECK, true),
+        parapet(-0.09, 0, 0.54, 0.34, yh),
+        box(-0.14, yb - 0.12, yb, 0.23, 0.34, 0.12, CAP),
+        box(-0.2, yb, yb + 0.11, 0.17, 0.06, 0.02, DARK, true),
+        wallOpenings(-0.15, 0, yb + 0.06, yb + 0.16, 0.42, 0.34, 4, 0.045, { flat: true }),
+        wallOpenings(-0.09, 0, yb + 0.06, yb + 0.16, 0.34, 0.54, 2, 0.045, { axis: 1, sides: -1, flat: true }),
+        // the tower, windows on its storey above the deck, its parapet and the beacon on a short steel stand
+        box(0.21, yb - 0.12, yt, 0, 0.3, 0.3, SAND),
+        box(0.21, yt, yt + 0.004, 0, 0.26, 0.26, DECK, true),
+        parapet(0.21, 0, 0.3, 0.3, yt),
+        wallOpenings(0.21, 0, yh + 0.07, yt - 0.06, 0.3, 0.3, 2, 0.05, { flat: true }),
+        wallOpenings(0.21, 0, yh + 0.07, yt - 0.06, 0.3, 0.3, 2, 0.05, { axis: 1, flat: true }),
+        wallOpenings(0.21, 0, yb + 0.06, yb + 0.16, 0.3, 0.3, 1, 0.05, { axis: 1, sides: 1, flat: true }),
+        box(0.21, yt, yt + 0.07, 0, 0.05, 0.05, STEEL),
+        at(drum(yt + 0.07, yt + 0.12, 0.032, 0.032, ORANGE), 0.21, 0),
+        at(drum(yt + 0.12, yt + 0.14, 0.036, 0.016, STEEL), 0.21, 0),
+      ] as Part[]).map((p) => ({ ...p, pos: [p.pos[0], p.pos[1] + drop, p.pos[2]] }))
+    }
     case 'peak':
       return [
         { geo: 'cone', pos: [0, 0.35, 0], scale: [1, 0.7, 1], color: '#c9b98f', args: [0.55, 6] },

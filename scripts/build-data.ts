@@ -59,6 +59,7 @@ const AREA_PARKS: Record<string, string[]> = {
   dolores: ['Mission Dolores Park'],
   landsend: ['Lands End'],
   mttam: ['Mount Tamalpais State Park', 'Mount Tamalpais Watershed'],
+  mtdiablo: ['Mount Diablo State Park'],
   muirwoods: ['Muir Woods National Monument'],
   angelisland: ['Angel Island State Park'],
   sausalito: ['Sausalito'],
