@@ -3,7 +3,7 @@ import { useStore } from '../store'
 
 /**
  * Right: the tour guide for the open day. Before it starts, the day's introduction and a way in; then the current stop
- * in full (time range and length, what to do, how to get there, tips) with Back / Next, which fly the camera.
+ * in full (time range and length, what to do, tips) with Back / Next, which fly the camera.
  */
 export function StopCard() {
   const day = useStore((s) => s.day)
@@ -54,11 +54,6 @@ export function StopCard() {
       </div>
       <h2 className="stop__title">{s.title}</h2>
       <div className="stop__place">{s.place}</div>
-      {s.getThere && (
-        <p className="stop__there">
-          <span className="stop__label">Getting there</span> {s.getThere}
-        </p>
-      )}
       <p className="stop__about">{s.about}</p>
       {s.tips?.length ? (
         <ul className="stop__tips">

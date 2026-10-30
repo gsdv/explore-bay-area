@@ -28,8 +28,6 @@ export interface Stop {
   lng: number
   /** what to do there, a few sentences */
   about: string
-  /** how to get here from the previous stop */
-  getThere?: string
   tips?: string[]
   landmark?: string
   view?: { dist?: number; yaw?: number; at?: [lat: number, lng: number] }
@@ -74,7 +72,6 @@ export const days: Day[] = [
         lat: 37.787658, lng: -122.402755,
         landmark: 'monadnock',
         view: { dist: 4.5, yaw: -1.8 },
-        getThere: 'Five minutes down Kearny Street to Market.',
         about: 'Meet Gab and get free Notion coffee and another office tour.',
       },
       {
@@ -87,7 +84,6 @@ export const days: Day[] = [
         lat: 37.789109, lng: -122.39688,
         landmark: 'salesforcepark',
         view: { dist: 6, yaw: 0, at: [37.78956, -122.39779] },
-        getThere: 'Ten minutes east along Mission Street, then up the free gondola at Fremont.',
         about: 'A garden four storeys up, on the roof of the bus station. Walk the loop between the towers, past the fountain, and look straight up at Salesforce Tower next door.',
       },
       {
@@ -101,7 +97,6 @@ export const days: Day[] = [
         landmark: 'ferrybuilding',
         // from the bay, looking back at the city: from the other side the towers block it
         view: { dist: 10, yaw: 1.35 },
-        getThere: 'Fifteen minutes down to the end of Market Street.',
         about: 'Wander the food hall in the old 1898 terminal, then go out the back to watch the ferries come in under the Bay Bridge.',
       },
       {
@@ -114,7 +109,6 @@ export const days: Day[] = [
         lat: 37.787658, lng: -122.402755,
         landmark: 'monadnock',
         view: { dist: 4.5, yaw: -1.8 },
-        getThere: 'Back up Market Street: a 20-minute walk, or a few stops on the F-line streetcar.',
         about: 'Come back for a free lunch at Notion!',
       },
       {
@@ -127,7 +121,6 @@ export const days: Day[] = [
         lat: 37.81001, lng: -122.41039,
         landmark: 'pier39',
         view: { dist: 10, yaw: 0.25 },
-        getThere: 'The F-line streetcar runs from Market Street all the way to the Wharf, about 20 minutes.',
         about: 'Say hi to the sea lions on the docks beside Pier 39, with Alcatraz across the water, then wander west past the crab stands and the old arcade games of the Musée Mécanique.',
       },
       {
@@ -140,7 +133,6 @@ export const days: Day[] = [
         lat: 37.805873, lng: -122.422954,
         landmark: 'ghirardelli',
         view: { dist: 6, yaw: Math.PI },
-        getThere: 'Fifteen minutes west along Jefferson and Beach Street.',
         about: 'The old chocolate factory, now shops round a brick plaza. Share a hot fudge sundae under the clock tower, then look out over Aquatic Park and the tall ships at Hyde Street Pier.',
       },
       {
@@ -153,7 +145,6 @@ export const days: Day[] = [
         lat: 37.80211, lng: -122.41881,
         landmark: 'lombard',
         view: { dist: 7, yaw: 1.4 },
-        getThere: 'Ride the Powell–Hyde cable car from its turnaround by Ghirardelli up to Lombard, or walk ten steep minutes up Hyde Street.',
         about: 'Walk down the eight hairpin turns on the steps beside the road, then look back up from the bottom for the photo.',
       },
       {
@@ -165,7 +156,6 @@ export const days: Day[] = [
         place: 'Chestnut Street, between Steiner and Scott',
         lat: 37.800406, lng: -122.439522,
         view: { dist: 8, yaw: 0 },
-        getThere: 'Ten minutes west by car, or a 35-minute walk downhill and along Lombard.',
         about: 'Dinner somewhere on Chestnut Street, the Marina\'s main street: a few blocks of restaurants, wine bars and dessert shops. Afterwards walk ten minutes north to the Marina Green to see the Golden Gate Bridge at night.',
       },
     ],
@@ -198,7 +188,6 @@ export const days: Day[] = [
         lat: 37.7628, lng: -122.4200,
         landmark: 'missionmurals',
         view: { dist: 8, yaw: 0.2 },
-        getThere: 'Around the corner.',
         about: 'Hundreds of murals cover the Mission. Clarion Alley, between Mission and Valencia, changes every year; Balmy Alley, further south, has murals going back to the 1980s.',
       },
       {
@@ -211,7 +200,6 @@ export const days: Day[] = [
         lat: 37.7596, lng: -122.4269,
         landmark: 'dolores',
         view: { dist: 9, yaw: -0.9 },
-        getThere: 'Pick up burritos on the way (placeholder taquería), then walk up 18th Street.',
         about: 'The city’s living room on a sunny day. Take the burritos up to the top corner by Church and 20th for the view of downtown over the palm trees.',
       },
       {
@@ -224,7 +212,6 @@ export const days: Day[] = [
         lat: 37.7701, lng: -122.4703,
         landmark: 'ggpark',
         view: { dist: 18, yaw: 0.2 },
-        getThere: 'About 20 minutes west by car or the N Judah.',
         about: 'A thousand acres, bigger than Central Park. Pick one or two: the Japanese Tea Garden, the de Young tower’s free viewing floor, the Academy of Sciences, or a walk to the bison paddock.',
       },
       {
@@ -237,7 +224,6 @@ export const days: Day[] = [
         lat: 37.7876, lng: -122.5055,
         landmark: 'landsend',
         view: { dist: 14, yaw: 0.9 },
-        getThere: 'Ten minutes north-west to the Lands End Lookout.',
         about: 'Cliffs at the mouth of the Golden Gate. Walk down to the ruins of the Sutro Baths, then along the Coastal Trail toward the bridge as the sun drops into the Pacific.',
         tips: ['Sunset is around 5 pm in early November. It gets cold fast once the sun is down.'],
       },
@@ -250,7 +236,6 @@ export const days: Day[] = [
         place: 'The Castro',
         lat: 37.7609, lng: -122.4350,
         view: { dist: 9, yaw: 0.3 },
-        getThere: 'About 20 minutes back across the city.',
         about: 'Placeholder: a bar, a show, or just walking the neighborhood.',
       },
     ],
@@ -283,7 +268,6 @@ export const days: Day[] = [
         lat: 37.8920, lng: -122.5718,
         landmark: 'muirwoods',
         view: { dist: 22, yaw: 0.2 },
-        getThere: 'Across the bridge and up the winding road, about 40 minutes.',
         about: 'Old-growth coast redwoods, some over 1,000 years old, in a quiet canyon on the flank of Mount Tam. The main loop along Redwood Creek is flat and takes about an hour; Cathedral Grove is the hushed middle.',
         tips: ['Parking or shuttle reservations are required. Book them ahead.'],
       },
@@ -297,7 +281,6 @@ export const days: Day[] = [
         lat: 37.92909, lng: -122.57779,
         landmark: 'mttam',
         view: { dist: 26, yaw: 0.6 },
-        getThere: 'Up Panoramic Highway and Ridgecrest Boulevard, about 30 minutes.',
         about: 'A short, steep trail from the East Peak parking lot to the fire lookout at 2,571 feet. On a clear day you can see the whole bay, the city, the Farallon Islands and, far off, the Sierra.',
       },
       {
@@ -310,7 +293,6 @@ export const days: Day[] = [
         lat: 37.85613, lng: -122.47944,
         landmark: 'sausalito',
         view: { dist: 14, yaw: 0.4 },
-        getThere: 'Down the mountain, about 35 minutes.',
         about: 'Placeholder for a lunch spot on the water. Afterwards walk Bridgeway along the bay, with the city skyline across the water, and look at the houseboats further north.',
       },
       {
@@ -323,7 +305,6 @@ export const days: Day[] = [
         lat: 37.75191, lng: -122.44815,
         landmark: 'twinpeaks',
         view: { dist: 16, yaw: -0.6 },
-        getThere: 'Back over the bridge and up to the middle of the city, about 30 minutes.',
         about: 'Two hills near the centre of the city with the best free panorama of San Francisco: downtown, both bridges and the bay laid out below as the lights come on.',
         tips: ['Wind is guaranteed. Bring the jacket again.'],
       },
@@ -336,7 +317,6 @@ export const days: Day[] = [
         place: 'Hayes Valley',
         lat: 37.7765, lng: -122.4241,
         view: { dist: 9, yaw: 0.3 },
-        getThere: 'Fifteen minutes downhill.',
         about: 'Placeholder for the last-night reservation. Hayes Valley is small and walkable, with good restaurants and a few bars for a nightcap.',
       },
     ],

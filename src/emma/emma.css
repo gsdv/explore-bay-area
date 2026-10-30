@@ -96,8 +96,6 @@ li:last-child .slot__dot::before { bottom: calc(100% - 8px); }
 .stop__kind { margin-left: auto; font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 500; color: var(--ink); border: 1px solid var(--ink); padding: 1px 6px; }
 .stop__title { font-family: var(--serif); font-size: 26px; font-weight: 600; line-height: 1.1; margin: 6px 0 0; letter-spacing: -0.005em; }
 .stop__place { font-family: var(--mono); font-size: 11px; color: var(--ink-2); margin-top: 5px; }
-.stop__there { margin: 12px 0 0; padding: 7px 10px; background: var(--paper-2); font-size: 13px; line-height: 1.45; color: var(--ink-2); }
-.stop__label { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink); margin-right: 4px; }
 .stop__about { margin: 12px 0 0; font-size: 14.5px; line-height: 1.55; }
 .stop__tips { margin: 10px 0 0; padding: 0; list-style: none; }
 .stop__tips li { position: relative; padding-left: 18px; font-size: 13px; line-height: 1.45; color: var(--ink-2); }
