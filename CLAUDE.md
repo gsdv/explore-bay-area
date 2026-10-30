@@ -273,8 +273,8 @@ and `scene/LandmarkModel.tsx`. React has its own chunk (`manualChunks` in `vite.
   (`AREA_PARKS`: landmark id -> OSM names, outer rings of ways and relations alike; Golden Gate Park + the Panhandle, the Presidio, and
   Ocean Beach, whose polygon comes from `osm.fetchBeaches`, named natural=beach in SF, cached as `overpass-beaches.json`) and `scene/LandmarkArea.tsx` drapes it on the
   terrain (`lib/drape.ts`: the polygon cut into 50 m cells so it follows the ground) as an invisible fill that is the hover/click
-  target. Nothing shows at rest (the owner removed the resting border); under the pointer the outline appears as the landmarks' shimmering hover outline laid flat (two ribbons using
-  `scene/hoverGlow.ts`, the hull material shared with `Landmarks.tsx`) over a faint orange wash. It shares the landmark id with the little tree model, so both light
+  target. Nothing shows at rest (the owner removed the resting border); under the pointer the outline appears as the landmarks' hover outline laid flat (one ribbon using
+  `scene/hoverGlow.ts`, the hull material shared with `Landmarks.tsx`: one solid accent hull, no glow shell, with pale lava-lamp blobs of 3D noise drifting over it in world space, spaced by the landmark's size) over a faint orange wash. It shares the landmark id with the little tree model, so both light
   up together. A landmark with `areaOnly: true` (Ocean Beach) has no model at all: `Landmarks.tsx` skips it and `LandmarkArea` draws its
   label. When an area has several pieces they are merged in the pipeline (mapshaper: grow 15 m, dissolve, shrink 10 m; a single piece is used
   as it is, because the buffer collapsed Dolores Park's plain rectangle), so neighbours a path

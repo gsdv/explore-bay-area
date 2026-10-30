@@ -16,9 +16,9 @@ let pending: Promise<Areas> | null = null
 const loadAreas = () => (pending ??= fetch('/data/areas.json').then((r) => r.json() as Promise<Areas>).catch((): Areas => ({})))
 
 const ACCENT = '#f04a00' // --orange
-// the landmarks' hover outline, laid flat: the same shimmering accent band, as a ribbon on the ground
-// (double-sided, because a ribbon has no inside to show a back face from). On sand the shimmer's pale highlights read as gaps
-// in a still frame; they travel, so in motion it is the same glimmer.
+// the landmarks' hover outline, laid flat: the same accent band with its drifting lava blobs, as a ribbon on the ground
+// (double-sided, because a ribbon has no inside to show a back face from). On sand the blobs' pale colour reads as gaps
+// in a still frame; they drift, so in motion they read as the same lava.
 const OUTLINE = hullMaterial({ side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 })
 const BAND = 0.2
 

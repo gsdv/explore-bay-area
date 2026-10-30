@@ -14,13 +14,13 @@ import { hullMaterial, shimmer } from './hoverGlow'
 import { LandmarkArea } from './LandmarkArea'
 import { useZoomTier } from './viewStore'
 
-// the shimmer's bands are spaced by the landmark's size (a quarter of its largest extent, 20-175 m), so a small
-// building gets a few thin bands rather than one band as big as itself; one outline material per spacing
+// the outline's lava blobs are spaced by the landmark's size (a quarter of its largest extent, 20-175 m), so a small
+// building gets a few small blobs rather than one as big as itself; one outline material per spacing
 const outlines = new Map<number, THREE.Material>()
 const outlineFor = (size: number) => {
-  const stripe = Math.round(Math.min(1.75, Math.max(0.2, size / 4)) * 20) / 20
-  if (!outlines.has(stripe)) outlines.set(stripe, hullMaterial({}, stripe))
-  return outlines.get(stripe)!
+  const blob = Math.round(Math.min(1.75, Math.max(0.2, size / 4)) * 20) / 20
+  if (!outlines.has(blob)) outlines.set(blob, hullMaterial({}, blob))
+  return outlines.get(blob)!
 }
 const geoCache = new Map<string, THREE.BufferGeometry>()
 const geoFor = (p: Part) => {
