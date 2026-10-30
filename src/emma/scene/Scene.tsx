@@ -7,6 +7,7 @@ import { Buildings } from './Buildings'
 import { Landmarks } from './Landmarks'
 import { DayRoute } from './DayRoute'
 import { CameraRig } from './CameraRig'
+import { HoverOutline } from './HoverOutline'
 import { useStore } from '../store'
 
 export const SKY = '#dbe6ee'
@@ -32,6 +33,8 @@ export function Scene({ world }: { world: World }) {
       <Landmarks world={world} />
       <DayRoute world={world} />
       <CameraRig world={world} />
+      {/* after the rig, so the outline's offscreen passes see this frame's camera */}
+      <HoverOutline />
     </Canvas>
   )
 }

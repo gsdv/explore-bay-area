@@ -58,7 +58,8 @@ src/
   scene/Heatmap.tsx     ground washes (heat-food.webp, rent.webp, hoods.webp) draped on the shared terrain grid; one per kind, cross-fade
   scene/Buildings.tsx   true-outline extrusions + one instanced block per house (20×20 chunks), pastel paint + greyed roofs via onBeforeCompile
   scene/Transit.tsx     LineSegments2 per mode + station discs/labels
-  scene/Landmarks.tsx   landmark groups: hover outline (inverted hull), pop-up scale, labels
+  scene/Landmarks.tsx   landmark groups: pop-up scale, labels; hovering puts the model's meshes on the outline layer
+  scene/HoverOutline.tsx  the hovered model's outline in screen space: silhouette mask + jump flood, a rim drawn at the silhouette's depth
   scene/LandmarkModel.tsx  procedural part lists per landmark kind; bridge cables as line batches
   scene/LandmarkArea.tsx   park-sized landmarks: draped outline border + hoverable ground (areas.json)
   scene/Companies.tsx   HQ blocks + Html chips
@@ -228,7 +229,7 @@ and `scene/LandmarkModel.tsx`. React has its own chunk (`manualChunks` in `vite.
   hand-written snapshots and need a live source before launch. Logos come from Google's favicon service.
 - `src/data/landmarks.ts`: each has a `kind` mapped to a procedural model in `LandmarkModel.tsx`. Add a
   new kind there (parts list, optional `landmarkLines` for thin geometry). Mark thin surface parts (stripes, struts)
-  `detail: true` so the hover hull skips them, and give grid-aligned buildings a `bearing` (downtown SF is −9°).
+  `detail: true` so the pipeline's clearing ignores them, and give grid-aligned buildings a `bearing` (downtown SF is −9°).
   A landmark that *is* the building (kinds `pyramid`, `tower`, `coit`, `ferry`) has its OSM footprint dropped in `build-data.ts` step 5
   (`MODELLED`), otherwise the footprint extrudes as a prism around the model. A company housed in one sets `landmark: '<id>'`
   in `companies.ts`, so no HQ block is drawn inside the model and its chip rides above the landmark label.
@@ -238,16 +239,15 @@ and `scene/LandmarkModel.tsx`. React has its own chunk (`manualChunks` in `vite.
   helpers `box`, `drum`, `drumOpenings`, `wallOpenings` build these parts; avoid `rot` on long parts, it squares up the hover box.
   The Palace of Fine Arts adds `ringwall` (a ring of walls with real see-through arches, via ExtrudeGeometry), `columns` (free-standing
   columns at plan spots, one mesh, always `detail`) and `sector` (curved walls about a centre on the z axis). The last two normalise to
-  their own bounding box so pos/scale stay true for the hover box and the pipeline's clearing; a sector's hover hull is built already
-  offset (`partGeometry(p, grow)`, see `hullGeoFor`) because scaling a curve about its centre doesn't outline it. The clearing is
+  their own bounding box so pos/scale stay true for the hover box and the pipeline's clearing. The clearing is
   symmetric about the landmark point, so a lopsided complex puts its origin mid-complex (the Palace's is 25 m behind the rotunda).
   Fisherman's Wharf & Pier 39 (`wharf`) is a diorama: the pier is true to the footprints (origin mid-pier, stands at sea level like
   bridges/islands), everything round it (marinas, boats, sea lions, the wharf sign and the SkyStar wheel, both pulled in from Taylor St)
   is `detail` so the clearing stays pier-sized. `blocks` draws any number of same-coloured boxes or gabled roofs as one mesh (a few
   hundred boats are three parts). In `build-data.ts` step 5 a `COMPLEX` kind (only `wharf`) also drops every downtown OSM footprint
   centred under its clearing (the pier's two dozen shops; also `lombard`, which is inside the downtown box); the other modelled kinds still drop just the footprint they stand in.
-  Two more `Part` flags: `hullOnly` (never drawn, only its hover hull: one clean outline round a huddle of `detail` parts such as the
-  Painted Ladies or the pier's shops, and it sizes the clearing; stop it at the eaves so the grown hull just reaches the ridges) and
+  Two more `Part` flags: `hullOnly` (never drawn: it sizes the hover box and the clearing round a huddle of `detail` parts such as the
+  Painted Ladies or the pier's shops; the outline itself follows only what is drawn) and
   `scenery` (drawn, but outside the hover box and label height: Stanford's Main Quad beside Hoover Tower). A landmark's `covers`
   points make the pipeline drop the real footprints containing them (the Quad is one solid 5 ha polygon in Overture).
   `blocks` also does roofs with the ridge along x and pyramids.
@@ -287,8 +287,8 @@ and `scene/LandmarkModel.tsx`. React has its own chunk (`manualChunks` in `vite.
   (`AREA_PARKS`: landmark id -> OSM names, outer rings of ways and relations alike; Golden Gate Park + the Panhandle, the Presidio, and
   Ocean Beach, whose polygon comes from `osm.fetchBeaches`, named natural=beach in SF, cached as `overpass-beaches.json`) and `scene/LandmarkArea.tsx` drapes it on the
   terrain (`lib/drape.ts`: the polygon cut into 50 m cells so it follows the ground) as an invisible fill that is the hover/click
-  target. Nothing shows at rest (the owner removed the resting border); under the pointer the outline appears as the landmarks' hover outline laid flat (one ribbon using
-  `scene/hoverGlow.ts`, the hull material shared with `Landmarks.tsx`: one solid accent hull, no glow shell, with pale lava-lamp blobs of 3D noise drifting over it in world space, spaced by the landmark's size) over a faint orange wash. It shares the landmark id with the little tree model, so both light
+  target. Nothing shows at rest (the owner removed the resting border); under the pointer the outline appears as the landmarks' hover outline laid flat (one ribbon in
+  `scene/hoverGlow.ts`'s accent material, with the same pale lava-lamp blobs of world-space noise as the models' outline in `scene/HoverOutline.tsx`) over a faint orange wash. It shares the landmark id with the little tree model, so both light
   up together. A landmark with `areaOnly: true` (Ocean Beach) has no model at all: `Landmarks.tsx` skips it and `LandmarkArea` draws its
   label. When an area has several pieces they are merged in the pipeline (mapshaper: grow 15 m, dissolve, shrink 10 m; a single piece is used
   as it is, because the buffer collapsed Dolores Park's plain rectangle), so neighbours a path

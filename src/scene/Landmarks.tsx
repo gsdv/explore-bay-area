@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, type ThreeEvent } from '@react-three/fiber'
 import { Html, Line } from '@react-three/drei'
 import * as THREE from 'three'
@@ -8,36 +8,16 @@ import type { World } from '../lib/world'
 import { useStore } from '../store'
 import { landmarkParts, landmarkLines, landmarkCables, bridgeGround, partGeometry, type Part } from './LandmarkModel'
 import { terrainHeightAt } from './Terrain'
-import { hullMaterial, shimmer } from './hoverGlow'
+import { shimmer } from './hoverGlow'
+import { hoverOutline, markOutline } from './HoverOutline'
 import { LandmarkArea } from './LandmarkArea'
 import { useZoomTier } from './viewStore'
 
-// the outline's lava blobs are spaced by the landmark's size (a quarter of its largest extent, 20-175 m), so a small
-// building gets a few small blobs rather than one as big as itself; one outline material per spacing
-const outlines = new Map<number, THREE.Material>()
-const outlineFor = (size: number) => {
-  const blob = Math.round(Math.min(1.75, Math.max(0.2, size / 4)) * 20) / 20
-  if (!outlines.has(blob)) outlines.set(blob, hullMaterial({}, blob))
-  return outlines.get(blob)!
-}
 const geoCache = new Map<string, THREE.BufferGeometry>()
 const geoFor = (p: Part) => {
   const key = p.geo + JSON.stringify(p.args ?? [])
   if (!geoCache.has(key)) geoCache.set(key, partGeometry(p))
   return geoCache.get(key)!
-}
-
-// the fluted shaft is an open, grooved tube: as a hull its rim shows as a row of teeth, so it borrows a plain capped taper
-// (likewise the pierced ring of arches borrows a plain prism), and a curved wall can't be grown by scaling it about its
-// centre, so a sector builds its hull already offset
-const hullCache = new Map<string, THREE.BufferGeometry>()
-const hullGeoFor = (p: Part, by: number) => {
-  if (p.geo === 'fluted') return geoFor({ ...p, geo: 'cyl', args: [0.5 * Number(p.args?.[0] ?? 1), 0.5, 24] })
-  if (p.geo === 'ringwall') return geoFor({ ...p, geo: 'cyl', args: [0.5, 0.5, Number(p.args?.[0] ?? 8), 1, false, Math.PI / Number(p.args?.[0] ?? 8)] })
-  if (!/^(sector|blocks|hill|ribbons|pad)$/.test(p.geo)) return geoFor(p)
-  const key = by + JSON.stringify(p.args)
-  if (!hullCache.has(key)) hullCache.set(key, partGeometry(p, by))
-  return hullCache.get(key)!
 }
 
 export function Landmarks({ world }: { world: World }) {
@@ -58,9 +38,6 @@ export function Landmarks({ world }: { world: World }) {
     </group>
   )
 }
-
-const HULL = 0.09
-const grown = (p: Part, by: number): [number, number, number] => [p.scale[0] + by * 2, p.scale[1] + by * 2, p.scale[2] + by * 2]
 
 function LandmarkObject({ landmark: l, world }: { landmark: Landmark; world: World }) {
   const group = useRef<THREE.Group>(null)
@@ -99,7 +76,20 @@ function LandmarkObject({ landmark: l, world }: { landmark: Landmark; world: Wor
     const pad = 0.12
     return { center: [(minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2] as [number, number, number], size: [maxX - minX + pad, maxY - minY + pad, maxZ - minZ + pad] as [number, number, number] }
   }, [parts])
-  const outline = useMemo(() => outlineFor(Math.max(...bounds.size)), [bounds])
+  // the hover outline's lava blobs are spaced by the landmark's size (a quarter of its largest extent, 20-175 m), so a small
+  // building gets a few small blobs rather than one as big as itself
+  const blob = Math.min(1.75, Math.max(0.2, Math.max(...bounds.size) / 4))
+  useEffect(() => {
+    const g = group.current
+    if (!g || !hovered) return
+    markOutline(g, true)
+    hoverOutline.target = g
+    hoverOutline.blob = blob
+    return () => {
+      markOutline(g, false)
+      if (hoverOutline.target === g) hoverOutline.target = null
+    }
+  }, [hovered, blob])
   const { pos, rotY, scaleT } = useMemo(() => {
     const [x, z] = project(l.lat, l.lng)
     let rotY = 0
@@ -168,9 +158,6 @@ function LandmarkObject({ landmark: l, world }: { landmark: Landmark; world: Wor
             <mesh geometry={geoFor(p)} scale={p.scale}>
               <meshStandardMaterial color={p.color} roughness={0.85} metalness={0} flatShading vertexColors={p.geo === 'hill'} />
             </mesh>
-          )}
-          {hovered && !p.detail && (
-            <mesh geometry={hullGeoFor(p, HULL)} material={outline} scale={grown(p, HULL)} raycast={() => null} />
           )}
         </group>
       ))}

@@ -1,11 +1,12 @@
 import * as THREE from 'three'
 
-// Hover outline for landmarks: an inverted hull in the accent (International Orange, --orange in styles.css) with
-// pale blobs of hot light drifting over it like a lava lamp, in world space so they run across parts without a seam.
+// The hover outline's look: the accent (International Orange, --orange in styles.css) with pale blobs of hot light drifting
+// over it like a lava lamp, in world space so they run across a model without a seam. `LAVA_GLSL` is shared with the models'
+// screen-space outline (HoverOutline.tsx); `hullMaterial` paints it on the park outlines' ribbons.
 export const shimmer = { uTime: { value: 0 }, uHot: { value: new THREE.Color('#ffc492') } }
 
 // 3D simplex noise (Ashima Arts / Stefan Gustavson, MIT)
-const SNOISE = `
+export const LAVA_GLSL = `
 vec3 lavaMod(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
 vec4 lavaMod(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
 vec4 lavaPermute(vec4 x) { return lavaMod(((x * 34.0) + 1.0) * x); }
@@ -42,6 +43,15 @@ float lavaNoise(vec3 v) {
   m = m * m;
   return 42.0 * dot(m * m, vec4(dot(g0, x0), dot(g1, x1), dot(g2, x2), dot(g3, x3)));
 }
+// two layers of noise drifting upward at different speeds (and the finer one sideways): where their sum crosses the
+// threshold is a blob's edge, so blobs swell, pinch off and run together as the layers slide past each other. q is the
+// world position over the blob spacing; returns 0 (accent) to 1 (blob)
+float lavaBlobs(vec3 q, float t) {
+  float lava = lavaNoise(q * vec3(1.0, 0.7, 1.0) - vec3(0.0, t * 0.22, t * 0.05)) * 0.7
+             + lavaNoise(q * 1.7 + vec3(t * 0.11, -t * 0.37, 0.0)) * 0.3;
+  float edge = fwidth(lava) * 0.75 + 0.01;
+  return smoothstep(0.2 - edge, 0.2 + edge, lava);
+}
 `
 
 // `blob` is the blobs' spacing in world units: small landmarks pass a short one so several blobs drift over them instead
@@ -55,18 +65,11 @@ export const hullMaterial = (opts: THREE.MeshBasicMaterialParameters, blob = 1.7
       .replace('#include <common>', '#include <common>\nvarying vec3 vShimmerPos;')
       .replace('#include <project_vertex>', '#include <project_vertex>\nvShimmerPos = (modelMatrix * vec4(transformed, 1.0)).xyz;')
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nuniform float uTime;\nuniform float uBlob;\nuniform vec3 uHot;\nvarying vec3 vShimmerPos;\n' + SNOISE)
+      .replace('#include <common>', '#include <common>\nuniform float uTime;\nuniform float uBlob;\nuniform vec3 uHot;\nvarying vec3 vShimmerPos;\n' + LAVA_GLSL)
       .replace(
         '#include <color_fragment>',
-        // two layers of noise drifting upward at different speeds (and the finer one sideways): where their sum crosses the
-        // threshold is a blob's edge, so blobs swell, pinch off and run together as the layers slide past each other
         `#include <color_fragment>
-        vec3 q = vShimmerPos * uBlob;
-        float t = uTime;
-        float lava = lavaNoise(q * vec3(1.0, 0.7, 1.0) - vec3(0.0, t * 0.22, t * 0.05)) * 0.7
-                   + lavaNoise(q * 1.7 + vec3(t * 0.11, -t * 0.37, 0.0)) * 0.3;
-        float edge = fwidth(lava) * 0.75 + 0.01;
-        diffuseColor.rgb = mix(diffuseColor.rgb, uHot, smoothstep(0.2 - edge, 0.2 + edge, lava) * 0.85);`,
+        diffuseColor.rgb = mix(diffuseColor.rgb, uHot, lavaBlobs(vShimmerPos * uBlob, uTime) * 0.85);`,
       )
   }
   return m

@@ -11,6 +11,7 @@ import { Landmarks } from './Landmarks'
 import { Companies } from './Companies'
 import { QuestRoute } from './QuestRoute'
 import { CameraRig } from './CameraRig'
+import { HoverOutline } from './HoverOutline'
 import { DevStats } from './DevStats'
 import { useStore } from '../store'
 
@@ -43,6 +44,8 @@ export function Scene({ world }: { world: World }) {
       <Companies world={world} />
       <QuestRoute world={world} />
       <CameraRig world={world} />
+      {/* after the rig, so the outline's offscreen passes see this frame's camera */}
+      <HoverOutline />
       {import.meta.env.DEV && <DevStats />}
     </Canvas>
   )
