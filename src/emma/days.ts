@@ -60,7 +60,7 @@ export const days: Day[] = [
         place: 'Hallidie Building, 130 Sutter St',
         lat: 37.790213, lng: -122.403055,
         landmark: 'hallidie',
-        view: { dist: 5, yaw: 0 },
+        view: { dist: 4.5, yaw: -0.74 },
         about: 'Meet Carolina and get a tour of the office.',
       },
       {
