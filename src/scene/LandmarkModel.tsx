@@ -994,6 +994,8 @@ export function landmarkParts(l: Landmark, ground?: BridgeGround, terrain?: Terr
       return missionDolores().parts
     case 'conservatory':
       return conservatory(terrain).parts
+    case 'deyoung':
+      return deYoung().parts
   }
 }
 
@@ -1740,6 +1742,73 @@ function conservatory(terrain?: Terrain): { parts: Part[]; lines: number[] } {
     seg(lines, [Math.cos(a) * r0, yOct, zO + Math.sin(a) * r0], [Math.cos(a) * r1, ySkirt, zO + Math.sin(a) * r1])
   }
   return { parts: p, lines }
+}
+
+/**
+ * The de Young Museum (Herzog & de Meuron, 2005) on its DataSF footprint at true size (origin mid-roof, bearing -41.8: local +x
+ * runs north-east along the building, +z faces the Music Concourse). A long, low body in perforated, dimpled copper gone dark
+ * brown, under one flat roof that overhangs the entrance; a five-sided courtyard cut through it and a wedge of fern court
+ * between the main body and the wing that carries the Hamon Tower. The tower starts square to the museum and twists, floor by
+ * floor, until its glazed top deck lines up with the city's grid (a world-aligned box: local y-rotation -41.8 degrees).
+ */
+function deYoung(): { parts: Part[]; lines: number[] } {
+  const COPPER = '#6f5545', DARK = '#584236', ROOF = '#7b6352', GLASS = '#2f3a40', LEAF = '#5d8a4a', FERN = '#4f7d3c', TRUNK = '#8a7558', FROND = '#5f8f45'
+  const d = asDetail, SUNK = -0.1, yWall = H(12.5), yRoof = H(14), TWIST = (-41.8 * Math.PI) / 180
+  const p: Part[] = []
+  // the copper skin's dimples: rows of small darker squares on a wall
+  const dimples = (x: number, z: number, len: number, depth: number, axis: 0 | 1, sides: -1 | 0 | 1 = 0, y0 = 0.02, y1 = yWall - 0.02): Part =>
+    ({ ...wallOpenings(x, z, y0, y1, len - 0.01, depth, Math.max(4, Math.round(len / 0.024)), 0.009, { rows: 6, axis, sides, flat: true }), color: DARK })
+  // the main body: walls set back under the roof, deep on the entrance side; the north-west bar and the link to the south-west
+  const walls: [number, number, number, number][] = [
+    [-0.75, 0.674, -0.015, 0.29], [-0.75, -0.45, 0.29, 0.368], [0.35, 0.674, 0.29, 0.368], // main body (the entrance under the overhang between)
+    [-0.75, 0.47, -0.362, -0.108], [-0.75, -0.035, -0.108, -0.015], // north-west bar, and the link across the end of the fern court
+  ]
+  for (const [x0, x1, z0, z1] of walls) {
+    p.push(box((x0 + x1) / 2, SUNK, yWall, (z0 + z1) / 2, x1 - x0, z1 - z0, COPPER))
+    p.push(dimples((x0 + x1) / 2, (z0 + z1) / 2, x1 - x0, z1 - z0, 0), dimples((x0 + x1) / 2, (z0 + z1) / 2, z1 - z0, x1 - x0, 1))
+  }
+  // the glass lobby under the overhang, and the roof: one slab over everything, with the courtyard left open
+  p.push(
+    d(box(-0.05, SUNK, H(5), 0.3, 0.8, 0.02, GLASS)),
+    blocks([
+      [-0.306, 0.177, 0.92, 0.414, yWall, yRoof], [0.609, 0.177, 0.16, 0.414, yWall, yRoof],
+      [0.341, 0.016, 0.375, 0.092, yWall, yRoof], [0.341, 0.305, 0.375, 0.158, yWall, yRoof],
+      [-0.143, -0.235, 1.246, 0.284, yWall, yRoof], [-0.393, -0.062, 0.746, 0.064, yWall, yRoof],
+    ], ROOF),
+    d(blocks([[0, 0.384, 1.53, 0.006, yWall, yRoof], [0, -0.377, 1.53, 0.006, yWall, yRoof]], DARK)),
+  )
+  // the courtyard's trees and the fern court's tree ferns
+  const sc = (q: Part): Part => ({ ...q, detail: true, scenery: true })
+  for (const [x, z] of [[0.25, 0.12], [0.36, 0.17], [0.44, 0.13], [0.3, 0.19]]) {
+    p.push(sc(at(drum(0, H(7), 0.004, 0.005, TRUNK), x, z)), sc({ geo: 'sphere', pos: [x, H(7) + 0.02, z], scale: [0.03, 0.03, 0.03], color: LEAF, args: [1, 8, 6] }))
+  }
+  for (let i = 0; i < 7; i++) {
+    const x = 0.06 + i * 0.085, z = -0.088 + (i / 6) * 0.05
+    p.push(sc({ geo: 'sphere', pos: [x, H(2.5), z], scale: [0.018, 0.01, 0.018], color: FERN, args: [1, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2] }))
+  }
+  // palms along the entrance front
+  for (const x of [-0.5, -0.3, -0.1, 0.12, 0.3]) {
+    p.push(sc(at(drum(0, H(14), 0.006, 0.008, TRUNK), x, 0.44)), sc({ geo: 'sphere', pos: [x, H(14) + 0.01, 0.44], scale: [0.04, 0.025, 0.04], color: FROND, args: [1, 8, 5] }))
+  }
+
+  // the Hamon Tower: thin slices, each turned a little further and tapering from the museum's square base towards the
+  // world-aligned deck on top (so the turn reads as a twist, not a stack), slots of glass at three levels; then the glazed
+  // band and the cantilevered deck
+  const TX = 0.615, TZ = -0.235, floors = 18, yBase = 0, yTop = H(38)
+  const base = [0.24, 0.26], top = [0.22, 0.17]
+  for (let i = 0; i < floors; i++) {
+    const t0 = i / floors, t1 = (i + 1) / floors, tm = (t0 + t1) / 2
+    const y0 = yBase + (yTop - yBase) * t0, y1 = yBase + (yTop - yBase) * t1
+    const sx = base[0] + (top[0] - base[0]) * tm, sz = base[1] + (top[1] - base[1]) * tm
+    p.push({ geo: 'box', pos: [TX, (y0 + y1) / 2, TZ], rot: [0, TWIST * tm, 0], scale: [sx, y1 - y0 + 0.002, sz], color: COPPER })
+    if (i % 6 === 5) p.push({ geo: 'box', pos: [TX, y1, TZ], rot: [0, TWIST * t1, 0], scale: [sx + 0.004, 0.012, sz + 0.004], color: GLASS, detail: true })
+  }
+  p.push(
+    { geo: 'box', pos: [TX, yTop + H(1.2), TZ], rot: [0, TWIST, 0], scale: [top[0] + 0.02, H(2.4), top[1] + 0.01], color: GLASS },
+    { geo: 'box', pos: [TX + 0.02, yTop + H(2.4) + H(1.8), TZ], rot: [0, TWIST, 0], scale: [top[0] + 0.09, H(3.6), top[1] + 0.03], color: COPPER },
+    { geo: 'box', pos: [TX + 0.02, yTop + H(2.4) + H(3.6) + 0.002, TZ], rot: [0, TWIST, 0], scale: [top[0] + 0.085, 0.004, top[1] + 0.025], color: ROOF, detail: true },
+  )
+  return { parts: p, lines: [] }
 }
 
 /** Ground profile under a bridge: how far the deck must run past each endpoint to reach the shore, and the terrain height along the axis. */
