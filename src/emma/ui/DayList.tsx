@@ -13,7 +13,6 @@ export function DayList() {
         <h1 className="home__title">
           San Francisco, <em>in three days</em>
         </h1>
-        <p className="home__sub">Pick a day. Each one runs from breakfast to the last stop of the night, and the map flies you from place to place.</p>
       </header>
       <ol className="days">
         {days.map((d, i) => {
