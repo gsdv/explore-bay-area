@@ -73,7 +73,7 @@ export function StopCard() {
         </button>
         {next ? (
           <button className="btn btn--primary" onClick={nextStop}>
-            <span className="btn__label">Next: {next.title}</span> <span className="btn__arrow" aria-hidden>→</span>
+            <span className="btn__label">Next: {next.name}</span> <span className="btn__arrow" aria-hidden>→</span>
           </button>
         ) : (
           <button className="btn btn--primary" onClick={closeDay}>End of the day ✓</button>

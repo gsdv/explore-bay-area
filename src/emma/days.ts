@@ -17,7 +17,10 @@ export interface Stop {
   start: string
   end: string
   kind: StopKind
+  /** the stop's full title, as the schedule and the card show it */
   title: string
+  /** the location in a word or two ("Coit Tower"), for the Next button */
+  name: string
   /** the place, as a line under the title */
   place: string
   lat: number
@@ -50,6 +53,7 @@ export const days: Day[] = [
     stops: [
       {
         id: 'ferry',
+        name: 'Ferry Building',
         start: '09:00', end: '10:00',
         kind: 'food',
         title: 'Breakfast at the Ferry Building',
@@ -63,6 +67,7 @@ export const days: Day[] = [
       },
       {
         id: 'pier39',
+        name: 'Embarcadero',
         start: '10:15', end: '11:45',
         kind: 'walk',
         title: 'Along the Embarcadero to the sea lions',
@@ -75,6 +80,7 @@ export const days: Day[] = [
       },
       {
         id: 'wharf-lunch',
+        name: "Fisherman's Wharf",
         start: '12:00', end: '13:00',
         kind: 'food',
         title: 'Lunch at the Wharf',
@@ -86,6 +92,7 @@ export const days: Day[] = [
       },
       {
         id: 'lombard',
+        name: 'Lombard Street',
         start: '13:15', end: '13:45',
         kind: 'sight',
         title: 'Down Lombard Street',
@@ -98,6 +105,7 @@ export const days: Day[] = [
       },
       {
         id: 'coit',
+        name: 'Coit Tower',
         start: '14:00', end: '15:15',
         kind: 'view',
         title: 'Coit Tower and the Filbert Steps',
@@ -110,6 +118,7 @@ export const days: Day[] = [
       },
       {
         id: 'ggb',
+        name: 'Golden Gate Bridge',
         start: '15:30', end: '17:00',
         kind: 'walk',
         title: 'Walk out on the Golden Gate Bridge',
@@ -123,6 +132,7 @@ export const days: Day[] = [
       },
       {
         id: 'northbeach',
+        name: 'North Beach',
         start: '19:00', end: '21:00',
         kind: 'food',
         title: 'Dinner in North Beach',
@@ -143,6 +153,7 @@ export const days: Day[] = [
     stops: [
       {
         id: 'mission-coffee',
+        name: 'Valencia Street',
         start: '09:00', end: '10:00',
         kind: 'food',
         title: 'Coffee and pastries in the Mission',
@@ -153,6 +164,7 @@ export const days: Day[] = [
       },
       {
         id: 'murals',
+        name: 'Clarion Alley',
         start: '10:00', end: '11:30',
         kind: 'walk',
         title: 'The Mission murals',
@@ -165,6 +177,7 @@ export const days: Day[] = [
       },
       {
         id: 'dolores',
+        name: 'Dolores Park',
         start: '12:00', end: '13:30',
         kind: 'food',
         title: 'Burritos in Dolores Park',
@@ -177,6 +190,7 @@ export const days: Day[] = [
       },
       {
         id: 'ggpark',
+        name: 'Golden Gate Park',
         start: '13:45', end: '15:45',
         kind: 'sight',
         title: 'Golden Gate Park',
@@ -189,6 +203,7 @@ export const days: Day[] = [
       },
       {
         id: 'landsend',
+        name: 'Lands End',
         start: '16:00', end: '17:15',
         kind: 'view',
         title: 'Sunset at Lands End',
@@ -202,6 +217,7 @@ export const days: Day[] = [
       },
       {
         id: 'nightout',
+        name: 'The Castro',
         start: '20:00', end: '23:00',
         kind: 'night',
         title: 'A night out',
@@ -222,6 +238,7 @@ export const days: Day[] = [
     stops: [
       {
         id: 'marina',
+        name: 'The Marina',
         start: '08:30', end: '09:15',
         kind: 'food',
         title: 'Breakfast in the Marina',
@@ -232,6 +249,7 @@ export const days: Day[] = [
       },
       {
         id: 'muirwoods',
+        name: 'Muir Woods',
         start: '10:00', end: '12:00',
         kind: 'walk',
         title: 'Muir Woods',
@@ -245,6 +263,7 @@ export const days: Day[] = [
       },
       {
         id: 'tam',
+        name: 'Mount Tamalpais',
         start: '12:30', end: '13:45',
         kind: 'view',
         title: 'The top of Mount Tamalpais',
@@ -257,6 +276,7 @@ export const days: Day[] = [
       },
       {
         id: 'sausalito',
+        name: 'Sausalito',
         start: '14:15', end: '15:45',
         kind: 'food',
         title: 'Late lunch in Sausalito',
@@ -269,6 +289,7 @@ export const days: Day[] = [
       },
       {
         id: 'twinpeaks',
+        name: 'Twin Peaks',
         start: '16:15', end: '17:15',
         kind: 'view',
         title: 'Sunset on Twin Peaks',
@@ -282,6 +303,7 @@ export const days: Day[] = [
       },
       {
         id: 'farewell',
+        name: 'Hayes Valley',
         start: '19:00', end: '21:00',
         kind: 'food',
         title: 'Farewell dinner',
