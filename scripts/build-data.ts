@@ -12,7 +12,7 @@ import { fixShores } from './lib/shore.ts'
 import { buildHeightmap, writeHeightmap } from './lib/terrain.ts'
 import { buildZctas, fetchRentByZip } from './lib/rent.ts'
 import { buildHoods, buildPlaces } from './lib/hoods.ts'
-import { fitBox } from './lib/footprints.ts'
+import { fitBox, hull } from './lib/footprints.ts'
 import { fetchFootprintsSF } from './lib/sfbuildings.ts'
 import { fetchFootprintsCore } from './lib/overture.ts'
 import polylabel from 'polylabel'
@@ -72,6 +72,22 @@ const beachesGeo = osmtogeojson(await osm.fetchBeaches()) as GeoJSON.FeatureColl
 const AREA_CLIP: Record<string, [number, number, number, number]> = {
   'Mount Tamalpais Watershed': [-122.635, 37.9, -122.555, 37.94],
 }
+// Pieces cut along a road, keeping the bay side (north) between two longitudes. The Marina is only its waterfront: the neighborhood
+// north of Marina Boulevard (the Green, both yacht harbors, the jetty out to the Wave Organ), from the Presidio to Fort Mason.
+const AREA_SHORE: Record<string, { road: string; west: number; east: number }> = {
+  Marina: { road: 'Marina Boulevard', west: -122.4485, east: -122.4321 },
+}
+const shoreCuts: Record<string, GeoJSON.FeatureCollection> = {}
+for (const [name, { road, west, east }] of Object.entries(AREA_SHORE)) {
+  const pts = (await osm.fetchRoadsMajor()).elements
+    .filter((w: any) => w.type === 'way' && w.tags?.name === road && w.geometry)
+    .flatMap((w: any) => w.geometry.map((g: any) => [g.lon, g.lat]))
+    .filter(([lng]: number[]) => lng >= west - 1e-4 && lng <= east + 1e-4)
+    .sort((a: number[], b: number[]) => a[0] - b[0])
+  const top = Math.max(...pts.map((p: number[]) => p[1])) + 0.02
+  const ring = [[pts[0][0], top], ...pts, [pts.at(-1)[0], top], [pts[0][0], top]]
+  shoreCuts[name] = { type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [ring] } }] }
+}
 const piecesGeo = osmtogeojson(await osm.fetchAreaPieces()) as GeoJSON.FeatureCollection
 // a town modelled whole (Sausalito) is its Census city limits, clipped to the shore: the atlas's places, under OSM's `name`
 const townsGeo = (await buildPlaces()).features
@@ -98,16 +114,27 @@ for (const [id, names] of Object.entries(AREA_PARKS)) {
   // several pieces: grow 15 m, merge, shrink 10 m, so pieces a path or a creek apart (Crissy Field's, the Panhandle and the park)
   // become one outline. A single piece is used as it is: mapshaper's buffer collapsed Dolores Park's plain rectangle to nothing.
   for (const f of pieces) {
-    const box = AREA_CLIP[f.properties?.name]
-    if (!box) continue
-    const res: any = await mapshaper.applyCommands(`-i in.json -clip bbox=${box.join(',')} -o out.json format=geojson`, {
-      'in.json': { type: 'FeatureCollection', features: [f] },
-    })
-    const out = JSON.parse(res['out.json'].toString())
-    const polys = (out.geometries ?? out.features?.map((q: GeoJSON.Feature) => q.geometry) ?? []).flatMap((g: GeoJSON.Geometry) =>
-      g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [],
-    )
-    f.geometry = { type: 'MultiPolygon', coordinates: polys }
+    const box = AREA_CLIP[f.properties?.name], shore = shoreCuts[f.properties?.name]
+    if (!box && !shore) continue
+    const clip = async () => {
+      const res: any = await mapshaper.applyCommands(`-i in.json -clip ${box ? `bbox=${box.join(',')}` : 'cut.json'} -o out.json format=geojson`, {
+        'in.json': { type: 'FeatureCollection', features: [f] },
+        ...(shore && { 'cut.json': shore }),
+      })
+      const out = JSON.parse(res['out.json'].toString())
+      const polys = (out.geometries ?? out.features?.map((q: GeoJSON.Feature) => q.geometry) ?? []).flatMap((g: GeoJSON.Geometry) =>
+        g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [],
+      )
+      f.geometry = { type: 'MultiPolygon', coordinates: polys }
+    }
+    await clip()
+    // along a shore the cut is filled out to its convex hull and cut again, so the harbors between its jetties count too, not
+    // just the land with the docks as spikes
+    if (shore) {
+      const h = hull(JSON.stringify(f.geometry).match(/-?\d+\.\d+,-?\d+\.\d+/g)!.map((c) => c.split(',').map(Number) as [number, number]))
+      f.geometry = { type: 'Polygon', coordinates: [[...h, h[0]]] }
+      await clip()
+    }
   }
   let geoms: GeoJSON.Geometry[] = pieces.map((f) => f.geometry)
   if (pieces.length > 1) {

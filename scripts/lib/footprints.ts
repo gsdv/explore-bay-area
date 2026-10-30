@@ -27,7 +27,7 @@ export function ringArea(p: Pt[]): number {
 }
 
 /** Andrew's monotone chain. */
-function hull(pts: Pt[]): Pt[] {
+export function hull(pts: Pt[]): Pt[] {
   const p = [...pts].sort((a, b) => a[0] - b[0] || a[1] - b[1])
   const cross = (o: Pt, a: Pt, b: Pt) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
   const half = (src: Pt[]) => {
