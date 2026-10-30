@@ -1009,6 +1009,8 @@ export function landmarkParts(l: Landmark, ground?: BridgeGround): Part[] {
       return cityHall().parts
     case 'ghirardelli':
       return ghirardelli().parts
+    case 'cathedral':
+      return graceCathedral().parts
   }
 }
 
@@ -1320,6 +1322,143 @@ function ghirardelli(): { parts: Part[]; lines: number[] } {
     seg(lines, [text.x0, yBase + 0.02, z], [text.x1, yBase + 0.02, z])
   }
   p.push({ ...box((text.x0 + text.x1) / 2, top(0.222, 0.424, 13), yBase + em * 1.05, ZS + 0.01, text.x1 - text.x0, 0.03, STEEL), hullOnly: true })
+  return { parts: p, lines }
+}
+
+/**
+ * Grace Cathedral on Nob Hill (Lewis Hobart, 1928-1964): French Gothic in concrete, on its OSM outline at 1.2x (origin mid-nave,
+ * bearing -9, local +x the Taylor Street front, the apse to the west). The front: two flat-topped towers with paired belfry
+ * lancets and corner pinnacles, a gabled centre with the rose window over the deep portal and its gilded Ghiberti doors, and the
+ * flight of steps down to Taylor. Behind it the nave with lean-to aisles, buttresses and pinnacles, tall clerestory lancets and a
+ * steep slate roof; the transept with a rose in each gable; the choir ending in the round apse; the verdigris flèche over the
+ * crossing with its gold cross, 75 m up. The cathedral stands on a raised floor 6 m above the street; the ground falls to Taylor.
+ * On the plaza north of the front, the outdoor labyrinth (rings drawn as `landmarkLines`, in the first part's colour).
+ */
+function graceCathedral(): { parts: Part[]; lines: number[] } {
+  const STONE = '#cfc8b8', TRIM = '#ddd7c9', SLATE = '#6c6f70', VERDIGRIS = '#5d7f73', GOLD = '#c9a24e', TERRAZZO = '#86827a', BRONZE = '#b8924a'
+  const S = 1.2 // plan scale; numbers below are true local metres / 100 before it
+  const s = (v: number) => v * S
+  const d = asDetail
+  const xF = s(0.353), xT = s(0.461), xP = s(0.48), xN0 = s(-0.066) // tower line, front face, porch, nave's west end
+  const xX0 = s(-0.197), xC = s(-0.131), xA = s(-0.39) // transept's west wall, crossing, apse centre
+  const zA = s(0.134), zN = s(0.06), zT = s(0.217), zC = s(0.088), zTw = s(0.045) // aisle, nave, transept, choir half-widths; towers' inner edge
+  const yP = H(5), yA = yP + H(12), yN = yP + H(28), yR = yN + H(12), yTower = H(53), SUNK = -0.18
+  const naveX = (xN0 + xF) / 2, naveL = xF - xN0
+  const p: Part[] = [
+    // the raised floor the whole cathedral stands on, and the steps down to Taylor Street
+    d(box((xA - zC + xP) / 2, SUNK, yP, 0, xP - xA + zC + 0.04, 2 * zT + 0.04, TRIM)),
+    // nave walls and roof, the aisles' lean-to roofs either side
+    box(naveX, SUNK, yN, 0, naveL, 2 * zN, STONE),
+    d(box(naveX, SUNK, yA, 0, naveL, 2 * zA, STONE)),
+    d(blocks([[naveX, 0, naveL, 2 * zA + 0.012, yA - 0.004, yA + H(8)]], SLATE, { gabled: 'x' })),
+    blocks([[naveX - 0.01, 0, naveL + 0.02, 2 * zN + 0.016, yN - 0.004, yR]], SLATE, { gabled: 'x' }),
+    // transept and choir, the same height as the nave, and the round apse under a cone
+    box(xC, SUNK, yN, 0, xN0 - xX0 + 0.004, 2 * zT, STONE),
+    blocks([[xC, 0, xN0 - xX0 + 0.016, 2 * zT + 0.02, yN - 0.004, yR]], SLATE, { gabled: true }),
+    // stone gable ends: a steeper stone gable just inside the roof, a hair longer, so only its end triangles show
+    d(blocks([[xC, 0, xN0 - xX0, 2 * zT + 0.026, yN - 0.004, yR - 0.004]], STONE, { gabled: true })),
+    box((xA + xX0) / 2, SUNK, yN, 0, xX0 - xA, 2 * zC, STONE),
+    blocks([[(xA + xX0) / 2, 0, xX0 - xA, 2 * zC + 0.016, yN - 0.004, yR]], SLATE, { gabled: 'x' }),
+    at(prism(0, SUNK, yN, zC / Math.cos(Math.PI / 10), 10, STONE), xA, 0),
+    { ...at(tier(0, yN - 0.004, yR, zC + 0.01, 0.004, SLATE, 10), xA, 0) },
+    // eaves lines
+    d(box(naveX, yN - 0.012, yN + 0.002, 0, naveL, 2 * zN + 0.012, TRIM)),
+    d(box(naveX, yA - 0.012, yA + 0.002, 0, naveL, 2 * zA + 0.01, TRIM)),
+  ]
+  // windows: clerestory and aisle lancets in seven bays, the choir's, the apse's round, and the transept walls
+  p.push(
+    wallOpenings(naveX, 0, yA + H(7), yN - 0.03, naveL - 0.05, 2 * zN, 7, 0.032),
+    wallOpenings(naveX, 0, yP + 0.035, yA - 0.03, naveL - 0.05, 2 * zA, 7, 0.03),
+    wallOpenings((xA + xX0) / 2, 0, yP + 0.04, yN - 0.04, xX0 - xA - 0.02, 2 * zC, 3, 0.032),
+    at(drumOpenings(yP + 0.04, yN - 0.04, zC, 0.03), xA, 0),
+    wallOpenings(xC, s(0.165), yP + 0.04, yN - 0.05, s(0.09), xN0 - xX0, 2, 0.03, { axis: 1 }),
+    wallOpenings(xC, -s(0.165), yP + 0.04, yN - 0.05, s(0.09), xN0 - xX0, 2, 0.03, { axis: 1 }),
+    wallOpenings(xC, 0, yP + 0.04, yN - H(12), xN0 - xX0 - 0.05, 2 * zT, 3, 0.026),
+  )
+  // buttresses between the bays, each topped by a pinnacle, and pinnacles on the transept corners
+  const bays = 7, butt: number[][] = [], pins: number[][] = []
+  for (let i = 0; i <= bays; i++) {
+    const x = xN0 + 0.012 + ((naveL - 0.024) * i) / bays
+    for (const sz of [-1, 1]) { butt.push([x, sz * (zA + 0.012), 0.022, 0.028, SUNK, yA + 0.03]); pins.push([x, sz * (zA + 0.012), 0.026, 0.026, yA + 0.03, yA + 0.1]) }
+  }
+  for (const sx of [xX0, xN0]) for (const sz of [-1, 1]) { butt.push([sx, sz * (zT - 0.006), 0.03, 0.03, SUNK, yN + 0.02]); pins.push([sx, sz * (zT - 0.006), 0.034, 0.034, yN + 0.02, yN + 0.11]) }
+  p.push(d(blocks(butt, STONE)), d(blocks(pins, TRIM, { pyramid: true })))
+  // rose windows: a stone ring, dark glass and a stone hub, on both transept gables and the front
+  const rose = (x: number, y: number, z: number, r: number, axis: 'x' | 'z'): Part[] => {
+    const rot: [number, number, number] = axis === 'x' ? [0, 0, Math.PI / 2] : [Math.PI / 2, 0, 0]
+    return [[r + 0.012, 0.004, TRIM], [r, 0.008, SHADE], [r * 0.25, 0.012, TRIM]].map(([rr, t, c]) =>
+      ({ geo: 'cyl', pos: [x, y, z], rot, scale: [2 * (rr as number), t as number, 2 * (rr as number)], color: c as string, args: [0.5, 0.5, 20], detail: true }))
+  }
+  for (const sz of [-1, 1]) p.push(...rose(xC, yN - 0.01, sz * (zT + 0.002), 0.052, 'z'))
+
+  // the front: two towers, the gabled centre between them with the rose, the portal and its doors
+  const towerZ = (zA + zTw) / 2, tW = zA - zTw, tD = xT - xF
+  p.push(
+    box(xF + tD / 2, SUNK, yN, 0, tD, 2 * zTw + 0.004, STONE),
+    blocks([[xF + tD / 2 + 0.004, 0, tD - 0.008, 2 * zTw + 0.008, yN, yR + 0.03]], STONE, { gabled: 'x' }),
+    ...rose(xT + 0.002, yP + H(22), 0, 0.058, 'x'),
+    d(box(xP / 2 + xT / 2, SUNK, yP + H(13), 0, xP - xT + 0.01, s(0.102), TRIM)),
+    d(blocks([[xP / 2 + xT / 2, 0, xP - xT + 0.014, s(0.102) + 0.01, yP + H(13), yP + H(19)]], TRIM, { gabled: 'x' })),
+    wallOpenings(xP / 2 + xT / 2, 0, yP + 0.01, yP + H(10), 0.06, xP - xT + 0.014, 1, 0.05, { axis: 1, sides: 1 }),
+    d(box(xP + 0.012, yP + 0.01, yP + H(6), 0, 0.004, 0.034, BRONZE)),
+    d(box(xT - 0.002, yN + 0.03, yN + 0.05, 0, 0.012, 2 * zTw, TRIM)),
+  )
+  for (const sz of [-1, 1]) {
+    const tz = sz * towerZ
+    p.push(
+      box(xF + tD / 2, SUNK, yTower, tz, tD, tW, STONE),
+      d(box(xF + tD / 2, yTower - 0.02, yTower + 0.012, tz, tD + 0.012, tW + 0.012, TRIM)),
+      // belfry: two tall lancets a face, a lower pair, and a door at the foot
+      wallOpenings(xF + tD / 2, tz, yTower - H(14), yTower - H(2.5), tW - 0.03, tD, 2, 0.026, { axis: 1 }),
+      wallOpenings(xF + tD / 2, tz, yTower - H(14), yTower - H(2.5), tD - 0.03, tW, 2, 0.026),
+      wallOpenings(xF + tD / 2, tz, yN - H(10), yN - H(1), tW - 0.03, tD, 2, 0.018, { axis: 1, sides: 1 }),
+      wallOpenings(xF + tD / 2, tz, yP + 0.01, yP + H(6), 0.03, tD + 0.004, 1, 0.026, { axis: 1, sides: 1 }),
+      // stepped buttresses on the outer corners, a pinnacle on every corner of the top
+      d(blocks([-1, 1].map((sx) => [xF + tD / 2 + sx * (tD / 2 - 0.008), tz + sz * (tW / 2 + 0.008), 0.022, 0.018, SUNK, yTower - H(10)]), STONE)),
+      d(blocks([-1, 1].flatMap((sx) => [-1, 1].map((s2) => [xF + tD / 2 + sx * (tD / 2 - 0.008), tz + s2 * (tW / 2 - 0.008), 0.018, 0.018, yTower + 0.012, yTower + 0.07])), TRIM, { pyramid: true })),
+    )
+  }
+  // the steps: five broad flights from the raised floor down to the street, as wide as the front
+  const steps: number[][] = []
+  for (let i = 0; i < 5; i++) steps.push([xP + 0.02 + i * 0.024 + 0.012, 0, 0.024 + 0.004, 2 * zA + 0.02, SUNK, yP - ((yP + 0.08) * (i + 1)) / 5])
+  p.push(d(blocks(steps, TRIM)))
+
+  // the flèche: an open octagonal lantern, a ring of pinnacles, and the needle with its gold cross
+  const yL0 = yR - 0.04, yL1 = yR + H(9), yTip = H(73)
+  p.push(
+    at(prism(0, yL0, yL1, 0.034, 8, VERDIGRIS), xC, 0),
+    { ...at(drumOpenings(yL0 + 0.05, yL1 - 0.02, 0.034 * Math.cos(Math.PI / 8), 0.012), xC, 0), color: SHADE },
+    d(at(prism(0, yL1 - 0.008, yL1 + 0.006, 0.042, 8, VERDIGRIS), xC, 0)),
+    d(blocks(Array.from({ length: 8 }, (_, k) => { const a = ((k + 0.5) / 8) * Math.PI * 2; return [xC + Math.cos(a) * 0.036, Math.sin(a) * 0.036, 0.01, 0.01, yL1, yL1 + 0.05] }), VERDIGRIS, { pyramid: true })),
+    { geo: 'cone', pos: [xC, (yL1 + yTip) / 2, 0], scale: [0.06, yTip - yL1, 0.06], color: VERDIGRIS, detail: true, args: [0.5, 8] },
+    d(box(xC, yTip - 0.01, H(76), 0, 0.006, 0.006, GOLD)),
+    d(box(xC, H(74.6), H(75.2), 0, 0.006, 0.03, GOLD)),
+  )
+
+  // beside the choir, at their true size: the Chapel of Grace to the south and the lower wing to the north
+  const yCh = yP + H(12), yWg = yP + H(8)
+  p.push(
+    d(box(-0.351, SUNK, yCh, 0.141, 0.308, 0.136, STONE)),
+    d(blocks([[-0.351, 0.141, 0.316, 0.146, yCh - 0.004, yCh + H(7)]], SLATE, { gabled: 'x' })),
+    wallOpenings(-0.351, 0.141, yP + 0.03, yCh - 0.03, 0.27, 0.136, 5, 0.026, { sides: 1 }),
+    d(box(-0.347, SUNK, yWg, -0.186, 0.308, 0.246, STONE)),
+    d(blocks([[-0.347, -0.186, 0.316, 0.254, yWg - 0.004, yWg + H(5)]], SLATE, { gabled: 'x' })),
+    wallOpenings(-0.347, -0.186, yP + 0.02, yWg - 0.02, 0.27, 0.246, 8, 0.018, { rows: 2, sides: -1, flat: true }),
+  )
+
+  // the outdoor labyrinth on the plaza beside the front steps: a terrazzo disc and its rings
+  const LX = 0.4, LZ = -0.36, LR = 0.055
+  p.push(d(at(drum(SUNK, 0.006, LR + 0.006, LR + 0.006, TERRAZZO), LX, LZ)))
+  const lines: number[] = []
+  for (let r = 1; r <= 7; r++) {
+    const rr = (LR * r) / 7.4, n = 12 + r * 4
+    for (let k = 0; k < n; k++) {
+      // a gap at a different place in each ring, the way the path turns
+      if (k === (r * 5) % n) continue
+      const a0 = (k / n) * Math.PI * 2, a1 = ((k + 1) / n) * Math.PI * 2
+      seg(lines, [LX + Math.cos(a0) * rr, 0.008, LZ + Math.sin(a0) * rr], [LX + Math.cos(a1) * rr, 0.008, LZ + Math.sin(a1) * rr])
+    }
+  }
   return { parts: p, lines }
 }
 
@@ -1649,6 +1788,7 @@ function bayBridge(l: Landmark, ground?: BridgeGround): BridgeModel {
 export function landmarkLines(l: Landmark, ground?: BridgeGround): number[] {
   if (l.kind === 'cityhall') return cityHall().lines
   if (l.kind === 'ghirardelli') return ghirardelli().lines
+  if (l.kind === 'cathedral') return graceCathedral().lines
   if (l.kind !== 'bridge') return []
   return (l.id === 'baybridge' ? bayBridge(l, ground) : goldenGate(l, ground)).lines
 }

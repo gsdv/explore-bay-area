@@ -263,7 +263,7 @@ function parseHeight(tags: any): number {
   return 9
 }
 // Landmarks whose model is the building itself: their OSM footprint would extrude as a prism around the model, so drop it.
-const MODELLED = landmarks.filter((l) => ['pyramid', 'tower', 'coit', 'ferry', 'museum', 'arena', 'cityhall'].includes(l.kind))
+const MODELLED = landmarks.filter((l) => ['pyramid', 'tower', 'coit', 'ferry', 'museum', 'arena', 'cityhall', 'cathedral'].includes(l.kind))
 const contains = (ring: { lat: number; lon: number }[], lat: number, lng: number) => {
   let inside = false
   for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
@@ -274,7 +274,7 @@ const contains = (ring: { lat: number; lon: number }[], lat: number, lng: number
 }
 // Landmark models that stand among buildings are toy-scale, far bigger than the real thing, so the survey's houses would
 // poke through them: clear each model's ground rectangle (in its own bearing), measured from the same parts list the app draws.
-const STANDS_IN_TOWN = /^(coit|sutro|rotunda|houses|wharf|gate|museum|street|ferry|tower|pyramid|stadium|arena|campanile|campus|legion|ballpark|twinpeaks|lombard|cityhall|ghirardelli)$/
+const STANDS_IN_TOWN = /^(coit|sutro|rotunda|houses|wharf|gate|museum|street|ferry|tower|pyramid|stadium|arena|campanile|campus|legion|ballpark|twinpeaks|lombard|cityhall|ghirardelli|cathedral)$/
 const clearings = landmarks
   .filter((l) => STANDS_IN_TOWN.test(l.kind))
   .map((l) => {
@@ -297,7 +297,7 @@ const inClearing = (c: (typeof clearings)[number], x: number, z: number) => {
   return Math.abs(dx * c.cos - dz * c.sin) < c.hx && Math.abs(dx * c.sin + dz * c.cos) < c.hz
 }
 // a model that stands in for a whole complex (Pier 39's two dozen shops) replaces every downtown footprint centred under it
-const COMPLEX = /^(wharf|lombard|ghirardelli)$/
+const COMPLEX = /^(wharf|lombard|ghirardelli|cathedral)$/
 const bld = await osm.fetchBuildingsDowntown()
 const buildings: { p: number[]; h: number; y: number }[] = []
 for (const w of bld.elements) {

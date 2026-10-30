@@ -260,7 +260,9 @@ and `scene/LandmarkModel.tsx`. React has its own chunk (`manualChunks` in `vite.
   1.5x; the dome's gilded ribs are `landmarkLines`, coloured by the first part, a `hullOnly` box), `ghirardelli` (Ghirardelli Square: every building
   its true OSM outline round the plaza, each on its own slice of the 11 m slope to Beach St; a `COMPLEX` kind, so the square's 16 OSM
   footprints are dropped; the roof sign is `strokes`, thick segments in one mesh laid out by `signText`'s small stroke font, which only
-  knows the letters of GHIRARDELLI, reading from -z, on a lattice of `landmarkLines`). `island`, `peak` and `stadium` remain the generic models (Angel Island, the other peaks, Levi's). Landmarks never stand
+  knows the letters of GHIRARDELLI, reading from -z, on a lattice of `landmarkLines`), `cathedral` (Grace Cathedral: its OSM outline at 1.2x on a raised
+  floor, the front towards Taylor St; a `COMPLEX` kind, so the Chapel of Grace and the north wing's footprints go and the model draws
+  them at true size; the outdoor labyrinth's rings are `landmarkLines`). `island`, `peak` and `stadium` remain the generic models (Angel Island, the other peaks, Levi's). Landmarks never stand
   below sea level (`Math.max(0, yAt)`): a pier's origin is over seabed in the heightmap. Helpers: `slab` (tapering rounded rectangle),
   `tier` (low-poly frustum), `at` (move a part in plan), `asDetail`.
   Area landmarks: a park too big to be an object gets its real outline instead. `build-data.ts` step 2 writes `areas.json`
