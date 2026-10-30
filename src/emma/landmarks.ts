@@ -30,7 +30,6 @@ export const emmaLandmarks: EmmaLandmark[] = [
     area: 'Monadnock Building',
     blurb:
       'Notion moved its headquarters here from the Mission in 2025, into five floors of the Monadnock Building. The ten-storey block of cream brick and terracotta was finished in 1907, as downtown rebuilt after the earthquake and fire.',
-    tip: 'Come by after dark, when the arched doorway on Market lights up the lobby\'s painted vault. The Palace Hotel\'s glass-roofed Garden Court is next door.',
     tags: ['culture'],
     parts: monadnockParts,
     topper: { Node: NotionLogo, height: LOGO_HEIGHT },
@@ -47,7 +46,6 @@ export const emmaLandmarks: EmmaLandmark[] = [
     area: 'Hallidie Building',
     blurb:
       'CircleCI works on the seventh and top floor of the Hallidie Building, right under the gold cresting. Willis Polk finished it in 1918 with one of the country\'s first glass curtain walls. It is named for Andrew Hallidie, the cable car pioneer.',
-    tip: 'Stand across Sutter Street to take in the whole front: the fire escapes bow out like balconies. The ground floor is the Center for Architecture + Design, with a gallery and a café.',
     tags: ['culture'],
     parts: hallidieParts,
     topper: { Node: CircleCILogo, height: LOGO_HEIGHT },
