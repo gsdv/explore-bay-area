@@ -992,6 +992,8 @@ export function landmarkParts(l: Landmark, ground?: BridgeGround, terrain?: Terr
       return graceCathedral().parts
     case 'mission':
       return missionDolores().parts
+    case 'conservatory':
+      return conservatory(terrain).parts
   }
 }
 
@@ -1590,6 +1592,156 @@ function missionDolores(): { parts: Part[]; lines: number[] } {
   return { parts: p, lines: [] }
 }
 
+/**
+ * The Conservatory of Flowers in Golden Gate Park (1879): a white wood-and-glass Victorian glasshouse on its DataSF footprint at
+ * 1.2x (origin under the dome, bearing -6, local +z the south front over Conservatory Valley). The octagonal central pavilion
+ * with tall glass walls, a curved glass skirt roof with gabled dormers, a clerestory and the high glass dome under a cupola; the
+ * gabled glass vestibule in front; two long, low wings on a brick base under curved glass roofs; the end pavilions under
+ * glass domes with little cupolas; growing houses behind. Glazing bars are `landmarkLines` (white, the first part's colour).
+ * In front (`scenery`): the terrace, the grand stairs with their brick piers, the flower beds in the valley and a few palms, each
+ * on the drawn ground (`terrain`, in world axes, so local points are turned by the bearing first).
+ */
+function conservatory(terrain?: Terrain): { parts: Part[]; lines: number[] } {
+  const WHITE = '#f4f3ee', GLASS = '#cfdcdf', PANE = '#b9cdd2', BRICK = '#a35a46', LAWN = '#7fae5f', PATH = '#c9c1b0', SIGN = '#3f5a4c',
+    STAIN = '#7a4f9a', TRUNK = '#8a7558', FROND = '#5f8f45'
+  const S = 1.2, s = (v: number) => v * S, d = asDetail, SUNK = -0.12
+  const yBase = H(0.8), yWing = H(4.2), riseW = H(2.6), yEnd = H(5), yOct = H(8), ySkirt = H(10.5), yDrum = H(12.5), hDome = H(5)
+  const R = s(0.0953), zO = s(-0.004) // the octagon's corner radius and centre
+  const wingD = s(0.11), wingZ = s(-0.005), endD = s(0.21), endZ = s(0.04), endW = s(0.112)
+  const wings = [[s(-0.343), s(-0.086)], [s(0.091), s(0.347)]], ends = [s(-0.31), s(0.3175)]
+  const p: Part[] = [
+    // the octagon first: its white is the colour of the glazing bars
+    at(prism(0, SUNK, yOct, R, 8, WHITE), 0, zO),
+    { ...at(drumOpenings(yBase + 0.02, yOct - 0.025, R * Math.cos(Math.PI / 8), 0.026, 3), 0, zO), color: PANE },
+    d(at(prism(0, SUNK, yBase, R + 0.006, 8, BRICK), 0, zO)),
+    d(at(prism(0, yOct - 0.006, yOct + 0.006, R + 0.01, 8, WHITE), 0, zO)),
+    // the curved skirt roof, its dormers to the east, west and south, the clerestory, the dome and its cupola
+    d(at({ ...tier(0, yOct, ySkirt, R + 0.008, R * 0.62, GLASS, 8), args: [r4(0.5 * 0.62 * R / (R + 0.008)), 0.5, 8, 1, false, Math.PI / 8] }, 0, zO)),
+    at(prism(0, ySkirt - 0.01, yDrum, R * 0.6, 8, WHITE), 0, zO),
+    { ...at(drumOpenings(ySkirt + 0.008, yDrum - 0.01, R * 0.6 * Math.cos(Math.PI / 8), 0.02, 2), 0, zO), color: PANE },
+    { geo: 'sphere', pos: [0, yDrum, zO], scale: [R * 0.6, hDome, R * 0.6], color: GLASS, args: [1, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2] },
+    d(at(drum(yDrum + hDome - 0.008, yDrum + hDome + H(1.2), 0.012, 0.012, WHITE), 0, zO)),
+    { geo: 'sphere', pos: [0, yDrum + hDome + H(1.2), zO], scale: [0.014, 0.012, 0.014], color: WHITE, detail: true, args: [1, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2] },
+    d(box(0, yDrum + hDome + H(1.2), H(19.5), zO, 0.004, 0.004, WHITE)),
+  ]
+  const dormer = (x: number, z: number, axis: 'x' | 'z'): Part[] => {
+    const w = 0.05, dd = 0.04, y0 = yOct - 0.01, y1 = ySkirt - 0.02
+    const [sx, sz] = axis === 'z' ? [w, dd] : [dd, w]
+    return [
+      d(box(x, y0, y1, z, sx, sz, WHITE)),
+      d(blocks([[x, z, sx + 0.008, sz + 0.004, y1, y1 + 0.03]], WHITE, { gabled: axis === 'z' ? true : 'x' })),
+      { ...wallOpenings(x, z, y0 + 0.01, y1 - 0.01, w - 0.012, dd, 3, 0.01, { axis: axis === 'z' ? 0 : 1, flat: true }), color: PANE },
+      { ...wallOpenings(x, z, y1 - 0.012, y1 - 0.004, w - 0.01, dd + 0.002, 5, 0.006, { axis: axis === 'z' ? 0 : 1, flat: true }), color: STAIN },
+    ]
+  }
+  p.push(...dormer(0, zO + R * 0.82, 'z'), ...dormer(R * 0.82, zO, 'x'), ...dormer(-R * 0.82, zO, 'x'))
+  // the entrance vestibule: a glass room under a gable with a fretted white crest, the sign, the doors
+  const vx = s(0.0035), vz = (s(0.082) + s(0.151)) / 2, vw = s(0.077), vd = s(0.069), yV = H(4.5)
+  p.push(
+    box(vx, SUNK, yV, vz, vw, vd, WHITE),
+    { ...wallOpenings(vx, vz, yBase + 0.01, yV - 0.03, vw - 0.02, vd, 4, 0.014, { flat: true }), color: PANE },
+    { ...wallOpenings(vx, vz, yBase + 0.01, yV - 0.03, vd - 0.02, vw, 3, 0.014, { axis: 1, flat: true }), color: PANE },
+    d(blocks([[vx, vz, vw + 0.012, vd + 0.008, yV, yV + H(2)]], GLASS, { gabled: true })),
+    d(blocks([[vx, vz + vd / 2 + 0.006, vw + 0.016, 0.004, yV, yV + H(2.4)]], WHITE, { gabled: true })),
+    d(box(vx, yV - 0.026, yV - 0.008, vz + vd / 2 + 0.002, vw * 0.8, 0.004, SIGN)),
+    d(box(vx, yBase, H(3), vz + vd / 2 + 0.003, 0.026, 0.004, WHITE)),
+    d(box(vx, SUNK, yBase, vz, vw + 0.008, vd + 0.008, BRICK)),
+  )
+  // the wings: a brick base, glass walls between white frames, a band of stained glass, and the curved glass roof
+  for (const [x0, x1] of wings) {
+    const cx = (x0 + x1) / 2, len = x1 - x0
+    p.push(
+      box(cx, SUNK, yWing, wingZ, len, wingD, WHITE),
+      d(box(cx, SUNK, yBase, wingZ, len + 0.004, wingD + 0.008, BRICK)),
+      { ...wallOpenings(cx, wingZ, yBase + 0.008, yWing - 0.03, len - 0.02, wingD, 14, 0.014, { flat: true }), color: PANE },
+      { ...wallOpenings(cx, wingZ, yWing - 0.024, yWing - 0.01, len - 0.02, wingD + 0.002, 20, 0.007, { flat: true }), color: STAIN },
+      { geo: 'cyl', pos: [cx, yWing, wingZ], rot: [0, 0, Math.PI / 2], scale: [2 * riseW, len, wingD + 0.006], color: GLASS, args: [0.5, 0.5, 16], detail: true },
+      d(box(cx, yWing + riseW - 0.004, yWing + riseW + 0.012, wingZ, len, 0.006, WHITE)),
+    )
+  }
+  // the end pavilions: taller glass rooms under domes, each with a cupola and a gabled south door
+  for (const ex of ends) {
+    p.push(
+      box(ex, SUNK, yEnd, endZ, endW, endD, WHITE),
+      d(box(ex, SUNK, yBase, endZ, endW + 0.008, endD + 0.008, BRICK)),
+      { ...wallOpenings(ex, endZ, yBase + 0.008, yEnd - 0.03, endW - 0.02, endD, 5, 0.014, { flat: true }), color: PANE },
+      { ...wallOpenings(ex, endZ, yBase + 0.008, yEnd - 0.03, endD - 0.02, endW, 9, 0.014, { axis: 1, flat: true }), color: PANE },
+      d(box(ex, yEnd - 0.006, yEnd + 0.006, endZ, endW + 0.01, endD + 0.01, WHITE)),
+      { geo: 'sphere', pos: [ex, yEnd + 0.004, endZ], scale: [endW / 2 + 0.002, H(4), endD / 2 + 0.002], color: GLASS, detail: true, args: [1, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2] },
+      d(at(drum(yEnd + H(4), yEnd + H(5.2), 0.01, 0.01, WHITE), ex, endZ)),
+      { geo: 'sphere', pos: [ex, yEnd + H(5.2), endZ], scale: [0.012, 0.012, 0.012], color: WHITE, detail: true, args: [1, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2] },
+      d(box(ex, yBase, H(4), endZ + endD / 2 + 0.01, 0.05, 0.02, WHITE)),
+      d(blocks([[ex, endZ + endD / 2 + 0.01, 0.058, 0.024, H(4), H(5.6)]], WHITE, { gabled: true })),
+      { ...wallOpenings(ex, endZ + endD / 2 + 0.01, yBase, H(3.5), 0.03, 0.02, 1, 0.024, { sides: 1 }), color: PANE },
+    )
+  }
+  // the growing houses behind: low glass ranges under pitched roofs
+  p.push(
+    d(blocks([[s(-0.187), s(-0.1175), s(0.258), s(0.059), SUNK, H(3)], [s(0.082), s(-0.137), s(0.228), s(0.088), SUNK, H(3)], [s(-0.143), s(-0.176), s(0.222), s(0.058), SUNK, H(3)]], WHITE)),
+    d(blocks([[s(-0.187), s(-0.1175), s(0.258), s(0.059) + 0.006, H(3), H(4.5)], [s(0.082), s(-0.137), s(0.228), s(0.088) + 0.006, H(3), H(4.5)], [s(-0.143), s(-0.176), s(0.222), s(0.058) + 0.006, H(3), H(4.5)]], GLASS, { gabled: 'x' })),
+  )
+
+  // in front: the terrace lawn, the grand stairs down to the valley between brick piers with urns, the flower beds, palms
+  const sc = (q: Part): Part => ({ ...q, detail: true, scenery: true })
+  // the terrace stands a few metres proud and the stairs come down to the valley at ground level (the drawn terrain is smooth
+  // here and runs a little above the heightmap, so anything lower is buried)
+  const th = (6 * Math.PI) / 180
+  const gy = (x: number, z: number) => (terrain ? terrain.at(x * Math.cos(th) + z * Math.sin(th), -x * Math.sin(th) + z * Math.cos(th)) - terrain.origin : 0)
+  const zT = s(0.151) + 0.06, zS = zT + 0.09, yV0 = gy(0, zS), yTer = Math.max(H(1.8), gy(0, zT) + H(1.8))
+  p.push(
+    sc(box(0, SUNK - 0.1, yTer, (s(-0.06) + zT) / 2, s(0.78), zT - s(-0.06), LAWN)),
+    sc(box(0, SUNK - 0.1, yTer + 0.002, vz + vd / 2 + 0.03, 0.05, 0.06, PATH)),
+  )
+  // six steps from the terrace down to the valley floor
+  p.push(sc(blocks(Array.from({ length: 6 }, (_, i) => [0, zT + (i + 0.5) * 0.015, 0.11, 0.015, SUNK - 0.1, yTer - ((yTer - yV0) * (i + 1)) / 7]), PATH)))
+  p.push(sc(blocks([-1, 1].map((a) => [a * 0.065, zT + 0.045, 0.018, 0.09, SUNK - 0.1, yTer + 0.02]), BRICK)))
+  p.push(...[-1, 1].map((a) => sc({ geo: 'sphere', pos: [a * 0.065, yTer + 0.03, zT + 0.01], scale: [0.01, 0.012, 0.01], color: BRICK, args: [1, 8, 6] })))
+  // the valley: lawn, a long central bed in stripes of colour, side beds, paths
+  const zV0 = zS, zV1 = zS + 0.36
+  const beds: [string, number[][]][] = [
+    ['#d2473a', [[0, zV0 + 0.1, 0.05, 0.12], [-0.22, zV0 + 0.09, 0.2, 0.025], [0.22, zV0 + 0.09, 0.2, 0.025]]],
+    ['#e9c23d', [[0, zV0 + 0.2, 0.05, 0.06], [-0.22, zV0 + 0.13, 0.2, 0.02], [0.22, zV0 + 0.13, 0.2, 0.02]]],
+    ['#e5803a', [[0, zV0 + 0.26, 0.05, 0.05], [-0.22, zV0 + 0.165, 0.2, 0.02], [0.22, zV0 + 0.165, 0.2, 0.02]]],
+    ['#8a5fb0', [[-0.22, zV0 + 0.05, 0.2, 0.02], [0.22, zV0 + 0.05, 0.2, 0.02], [0, zV0 + 0.03, 0.05, 0.02]]],
+  ]
+  for (const [color, list] of beds) p.push(sc(blocks(list.map(([x, z, w, l]) => [x, z, w, l, gy(x, z) - 0.05, gy(x, z) + 0.012]), color)))
+  p.push(sc(blocks([-0.07, 0.07].flatMap((x) => [0.25, 0.75].map((f) => { const z = zV0 + (zV1 - zV0) * f; return [x, z, 0.02, (zV1 - zV0) / 2, gy(x, z) - 0.05, gy(x, z) + 0.006] })), PATH)))
+  for (const [x, z, y] of [[-0.2, zT - 0.03, yTer], [0.2, zT - 0.03, yTer], [-0.5, s(0.1), gy(-0.5, s(0.1))], [0.52, s(0.06), gy(0.52, s(0.06))], [-0.13, zS + 0.05, gy(-0.13, zS + 0.05)]]) {
+    p.push(sc(at(drum(y, y + H(14), 0.006, 0.008, TRUNK), x, z)))
+    p.push(sc({ geo: 'sphere', pos: [x, y + H(14) + 0.01, z], scale: [0.04, 0.025, 0.04], color: FROND, args: [1, 8, 5] }))
+  }
+
+  // glazing bars: ribs across the wings' curved roofs, meridians over the domes, ridges up the skirt roof
+  const lines: number[] = []
+  for (const [x0, x1] of wings) {
+    const n = Math.round((x1 - x0) / 0.022)
+    for (let i = 0; i <= n; i++) {
+      const x = x0 + ((x1 - x0) * i) / n
+      for (let k = 0; k < 8; k++) {
+        const a0 = (k / 8) * Math.PI, a1 = ((k + 1) / 8) * Math.PI, hw = wingD / 2 + 0.004
+        seg(lines, [x, yWing + riseW * 1.03 * Math.sin(a0), wingZ - hw * Math.cos(a0)], [x, yWing + riseW * 1.03 * Math.sin(a1), wingZ - hw * Math.cos(a1)])
+      }
+    }
+  }
+  const meridians = (cx: number, cz: number, y0: number, rx: number, h: number, rz: number, n: number) => {
+    for (let k = 0; k < n; k++) {
+      const a = (k / n) * Math.PI * 2
+      for (let i = 0; i < 6; i++) {
+        const t0 = (i / 6) * (Math.PI / 2), t1 = ((i + 1) / 6) * (Math.PI / 2)
+        const pt = (t: number): [number, number, number] => [cx + Math.cos(a) * rx * 1.02 * Math.cos(t), y0 + h * 1.02 * Math.sin(t), cz + Math.sin(a) * rz * 1.02 * Math.cos(t)]
+        seg(lines, pt(t0), pt(t1))
+      }
+    }
+  }
+  meridians(0, zO, yDrum, R * 0.6, hDome, R * 0.6, 16)
+  for (const ex of ends) meridians(ex, endZ, yEnd + 0.004, endW / 2 + 0.002, H(4), endD / 2 + 0.002, 12)
+  for (let k = 0; k < 16; k++) {
+    const a = (k / 16) * Math.PI * 2 + Math.PI / 16, r0 = (R + 0.008) * 1.02, r1 = R * 0.62 * 1.02
+    seg(lines, [Math.cos(a) * r0, yOct, zO + Math.sin(a) * r0], [Math.cos(a) * r1, ySkirt, zO + Math.sin(a) * r1])
+  }
+  return { parts: p, lines }
+}
+
 /** Ground profile under a bridge: how far the deck must run past each endpoint to reach the shore, and the terrain height along the axis. */
 export interface BridgeGround {
   /** deck extension past the start (lat/lng) and end (lat2/lng2) endpoints, world units */
@@ -1917,6 +2069,7 @@ export function landmarkLines(l: Landmark, ground?: BridgeGround): number[] {
   if (l.kind === 'cityhall') return cityHall().lines
   if (l.kind === 'ghirardelli') return ghirardelli().lines
   if (l.kind === 'cathedral') return graceCathedral().lines
+  if (l.kind === 'conservatory') return conservatory().lines
   if (l.kind !== 'bridge') return []
   return (l.id === 'baybridge' ? bayBridge(l, ground) : goldenGate(l, ground)).lines
 }

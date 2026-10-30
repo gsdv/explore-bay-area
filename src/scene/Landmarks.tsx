@@ -50,9 +50,9 @@ function LandmarkObject({ landmark: l, world }: { landmark: Landmark; world: Wor
   // bridges read the terrain so their decks run onto the shore instead of stopping over water
   const ground = useMemo(() => (l.kind === 'bridge' ? bridgeGround(l, (x, z) => world.heights.yAt(x, z)) : undefined), [l, world])
   // the real hills (Twin Peaks, Bernal) bring their own ground, which rises out of the city's exactly as it is drawn;
-  // Sausalito's houses stand on it
+  // Sausalito's houses stand on it, and so do the Conservatory's flower beds
   const terrain = useMemo(() => {
-    if (l.kind !== 'twinpeaks' && l.kind !== 'bernal' && l.kind !== 'town') return undefined
+    if (l.kind !== 'twinpeaks' && l.kind !== 'bernal' && l.kind !== 'town' && l.kind !== 'conservatory') return undefined
     const [x, z] = project(l.lat, l.lng)
     return { origin: Math.max(0, world.heights.yAt(x, z)), at: (lx: number, lz: number) => terrainHeightAt(world, x + lx, z + lz) }
   }, [l, world])

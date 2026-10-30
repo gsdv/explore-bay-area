@@ -283,7 +283,8 @@ and `scene/LandmarkModel.tsx`. React has its own chunk (`manualChunks` in `vite.
   floor, the front towards Taylor St; a `COMPLEX` kind, so the Chapel of Grace and the north wing's footprints go and the model draws
   them at true size; the outdoor labyrinth's rings are `landmarkLines`), `mission` (Mission Dolores: the 1791 chapel and the 1918 Basilica on their
   DataSF footprints at 1.1x, the chapel turned 4 degrees off the Basilica as it stands; `covers` drops both footprints, and the cemetery
-  garden south of the chapel is `scenery`). `island`, `peak` and `stadium` remain the generic models (Angel Island, the other peaks, Levi's). Landmarks never stand
+  garden south of the chapel is `scenery`), `conservatory` (the Conservatory of Flowers on its DataSF footprint at 1.2x; the flower beds
+  in the valley stand on the drawn ground, so the kind is on `Landmarks.tsx`'s list of those handed `terrain`). `island`, `peak` and `stadium` remain the generic models (Angel Island, the other peaks, Levi's). Landmarks never stand
   below sea level (`Math.max(0, yAt)`): a pier's origin is over seabed in the heightmap. Helpers: `slab` (tapering rounded rectangle),
   `tier` (low-poly frustum), `at` (move a part in plan), `asDetail`.
   Area landmarks: a park too big to be an object gets its real outline instead. `build-data.ts` step 2 writes `areas.json`
