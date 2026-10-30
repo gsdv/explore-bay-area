@@ -16,12 +16,11 @@ let pending: Promise<Areas> | null = null
 const loadAreas = () => (pending ??= fetch('/data/areas.json').then((r) => r.json() as Promise<Areas>).catch((): Areas => ({})))
 
 const ACCENT = '#f04a00' // --orange
-// the landmarks' hover outline, laid flat: the same shimmering accent band and its wider translucent glow, as ribbons on the ground
+// the landmarks' hover outline, laid flat: the same shimmering accent band, as a ribbon on the ground
 // (double-sided, because a ribbon has no inside to show a back face from). On sand the shimmer's pale highlights read as gaps
 // in a still frame; they travel, so in motion it is the same glimmer.
 const OUTLINE = hullMaterial({ side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 })
-const GLOW = hullMaterial({ color: '#ff7a33', transparent: true, opacity: 0.34, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 })
-const BAND = 0.2, HALO = 0.7
+const BAND = 0.2
 
 /**
  * A landmark you can't model as an object: Golden Gate Park is five kilometres of ground. The ground inside its real outline is
@@ -49,7 +48,7 @@ export function LandmarkArea({ landmark: l, world }: { landmark: Landmark; world
   const setHovered = useStore((s) => s.setHoveredLandmark)
   const select = useStore((s) => s.select)
 
-  const { ground, outline, glow } = useMemo(() => {
+  const { ground, outline } = useMemo(() => {
     const yAt = (x: number, z: number) => Math.max(0, world.heights.yAt(x, z))
     const geo = new THREE.BufferGeometry()
     // areas nest (Crissy Field lies inside the Presidio) and the pointer takes the nearest surface, so a smaller area floats its
@@ -60,19 +59,16 @@ export function LandmarkArea({ landmark: l, world }: { landmark: Landmark; world
     geo.setAttribute('position', new THREE.Float32BufferAttribute(rings.flatMap((r) => drapePolygon(r, yAt, 0.5, lift, holes)), 3))
     // the border runs round the holes too (Muir Woods inside Mount Tamalpais State Park)
     const borders = [...rings, ...holes].map((r) => drapeLine(r, yAt))
-    const band = (width: number, lift: number) => {
-      const g = new THREE.BufferGeometry()
-      g.setAttribute('position', new THREE.Float32BufferAttribute(borders.flatMap((b) => ribbon(b, width, lift)), 3))
-      return g
-    }
-    return { ground: geo, outline: band(BAND, 0.02), glow: band(HALO, 0.01) }
+    const outline = new THREE.BufferGeometry()
+    outline.setAttribute('position', new THREE.Float32BufferAttribute(borders.flatMap((b) => ribbon(b, BAND, 0.02)), 3))
+    return { ground: geo, outline }
   }, [rings, holes, world])
   const tier = useZoomTier()
   const labelAt = useMemo(() => {
     const [x, z] = project(l.lat, l.lng)
     return [x, Math.max(0, world.heights.yAt(x, z)) + 0.6, z] as [number, number, number]
   }, [l, world])
-  useEffect(() => () => [ground, outline, glow].forEach((g) => g.dispose()), [ground, outline, glow])
+  useEffect(() => () => [ground, outline].forEach((g) => g.dispose()), [ground, outline])
 
   const wash = useRef<THREE.MeshBasicMaterial>(null)
   useFrame((_, dt) => {
@@ -102,12 +98,7 @@ export function LandmarkArea({ landmark: l, world }: { landmark: Landmark; world
       <mesh geometry={ground} onPointerOver={onOver} onPointerOut={onOut} onClick={onClick} renderOrder={2}>
         <meshBasicMaterial ref={wash} color={ACCENT} transparent opacity={0} depthWrite={false} polygonOffset polygonOffsetFactor={-2} polygonOffsetUnits={-2} />
       </mesh>
-      {hovered && (
-        <>
-          <mesh geometry={glow} material={GLOW} renderOrder={3} raycast={() => null} />
-          <mesh geometry={outline} material={OUTLINE} renderOrder={4} raycast={() => null} />
-        </>
-      )}
+      {hovered && <mesh geometry={outline} material={OUTLINE} renderOrder={4} raycast={() => null} />}
       {/* same rule as the models' labels: from far away only the icons are named */}
       {l.areaOnly && !touring && (tier !== 'far' || l.tags?.includes('icon')) && (
         <Html position={labelAt} center zIndexRange={[19, 10]} style={{ pointerEvents: 'none' }}>

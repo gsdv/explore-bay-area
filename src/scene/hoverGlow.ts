@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 
 // Hover outline for landmarks: an inverted hull in the accent (International Orange, --orange in styles.css) with a
-// band of hot light sweeping diagonally through world space. A second, wider and translucent hull is the glow.
+// band of hot light sweeping diagonally through world space.
 export const shimmer = { uTime: { value: 0 }, uHot: { value: new THREE.Color('#ffc492') } }
 // `stripe` is the bands' spacing in world units: small landmarks pass a short one so several thin bands run over them
 // instead of one wide band washing over the whole model (the program is shared, the spacing is a uniform per material)
