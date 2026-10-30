@@ -63,6 +63,7 @@ const AREA_PARKS: Record<string, string[]> = {
   muirwoods: ['Muir Woods National Monument'],
   angelisland: ['Angel Island State Park'],
   sausalito: ['Sausalito'],
+  marina: ['Marina'],
 }
 const beachesGeo = osmtogeojson(await osm.fetchBeaches()) as GeoJSON.FeatureCollection
 // Pieces cut to a box [west, south, east, north] before merging. Mount Tamalpais is the State Park plus only the water district's land
@@ -76,6 +77,11 @@ const piecesGeo = osmtogeojson(await osm.fetchAreaPieces()) as GeoJSON.FeatureCo
 const townsGeo = (await buildPlaces()).features
   .filter((f) => landmarks.some((l) => l.kind === 'town' && l.name === f.properties?.NAME))
   .map((f) => ({ ...f, properties: { name: f.properties!.NAME } }))
+// a neighborhood (the Marina) is its outline in the atlas: Zillow's SF neighborhoods, only those a `hood` landmark names
+const hoodNames = landmarks.filter((l) => l.kind === 'hood').flatMap((l) => AREA_PARKS[l.id] ?? [])
+const hoodsGeo: GeoJSON.Feature[] = (await buildHoods())
+  .filter((h) => h.kind === 'hood' && hoodNames.includes(h.name))
+  .map((h) => ({ type: 'Feature', properties: { name: h.name }, geometry: h.geometry }))
 const { default: mapshaper } = await import('mapshaper')
 const areas: Record<string, { rings: number[][]; holes: number[][] }> = {}
 for (const [id, names] of Object.entries(AREA_PARKS)) {
@@ -86,7 +92,7 @@ for (const [id, names] of Object.entries(AREA_PARKS)) {
     const [lng, lat] = c.split(',').map(Number), [x, z] = project(lat, lng)
     return Math.hypot(x - lx, z - lz) < 30
   })
-  const pieces = [...parksGeo.features, ...beachesGeo.features, ...piecesGeo.features, ...townsGeo].filter(
+  const pieces = [...parksGeo.features, ...beachesGeo.features, ...piecesGeo.features, ...townsGeo, ...hoodsGeo].filter(
     (f) => names.includes(f.properties?.name) && (f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon') && near(f),
   )
   // several pieces: grow 15 m, merge, shrink 10 m, so pieces a path or a creek apart (Crissy Field's, the Panhandle and the park)

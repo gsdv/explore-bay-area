@@ -31,8 +31,8 @@ export function Landmarks({ world }: { world: World }) {
       {landmarks.filter((l) => !l.areaOnly).map((l) => (
         <LandmarkObject key={l.id} landmark={l} world={world} />
       ))}
-      {/* landmarks that are a whole park or beach: their outline on the ground is the target (areas.json decides which; the rest render nothing) */}
-      {landmarks.filter((l) => /^(park|beach|tamalpais|diablo|forest|island|town)$/.test(l.kind)).map((l) => (
+      {/* landmarks that are a whole park, beach or neighborhood: their outline on the ground is the target (areas.json decides which; the rest render nothing) */}
+      {landmarks.filter((l) => /^(park|beach|tamalpais|diablo|forest|island|town|hood)$/.test(l.kind)).map((l) => (
         <LandmarkArea key={l.id} landmark={l} world={world} />
       ))}
     </group>

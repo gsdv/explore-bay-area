@@ -158,6 +158,19 @@ export const days: Day[] = [
         view: { dist: 8, yaw: 0 },
         about: 'Dinner somewhere on Chestnut Street, the Marina\'s main street: a few blocks of restaurants, wine bars and dessert shops. Afterwards walk ten minutes north to the Marina Green to see the Golden Gate Bridge at night.',
       },
+      {
+        id: 'marinagreen',
+        name: 'The Marina',
+        start: '19:00', end: '19:45',
+        kind: 'night',
+        title: 'The Marina at night',
+        place: 'Marina Green, Marina Blvd',
+        lat: 37.80597, lng: -122.43668,
+        landmark: 'marina',
+        // from the east, past the yacht harbor to the bridge
+        view: { dist: 14, yaw: 1.4 },
+        about: 'Walk off dinner on the Marina Green, the lawn along the bay at the top of the neighborhood. The Golden Gate Bridge is lit up at the far end, with Alcatraz out in the water to the east.',
+      },
     ],
   },
   {

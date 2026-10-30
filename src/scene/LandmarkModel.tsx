@@ -1031,6 +1031,8 @@ export function landmarkParts(l: Landmark, ground?: BridgeGround, terrain?: Terr
       return deYoung().parts
     case 'transit':
       return salesforcePark().parts
+    case 'hood':
+      return [] // a neighborhood is only its outline (areas.json)
   }
 }
 
