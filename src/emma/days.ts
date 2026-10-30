@@ -7,6 +7,7 @@
  * - `start` / `end` are 24-hour "HH:MM" strings; the UI shows them as "9:00 – 10:30 am" and the length.
  * - `view` is the camera for that stop: distance in world units (1 = 100 m) and heading in radians
  *   (0 looks north, π/2 looks west, −π/2 looks east, π looks south).
+ *   `at` aims the camera at another ground point than the stop's pin, to frame something off to one side.
  * - `landmark` names a landmark id from src/data/landmarks.ts that the stop is about, if any.
  */
 
@@ -31,7 +32,7 @@ export interface Stop {
   getThere?: string
   tips?: string[]
   landmark?: string
-  view?: { dist?: number; yaw?: number }
+  view?: { dist?: number; yaw?: number; at?: [lat: number, lng: number] }
 }
 
 export interface Day {
@@ -85,7 +86,7 @@ export const days: Day[] = [
         place: 'On the roof of the Transit Center',
         lat: 37.789109, lng: -122.39688,
         landmark: 'salesforcepark',
-        view: { dist: 9, yaw: 0 },
+        view: { dist: 6, yaw: 0, at: [37.78956, -122.39779] },
         getThere: 'Ten minutes east along Mission Street, then up the free gondola at Fremont.',
         about: 'A garden four storeys up, on the roof of the bus station. Walk the loop between the towers, past the fountain, and look straight up at Salesforce Tower next door.',
       },

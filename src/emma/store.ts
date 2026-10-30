@@ -76,7 +76,7 @@ export const useStore = create<State>((set, get) => ({
     if (!day) return
     const at = Math.max(0, Math.min(day.stops.length - 1, i))
     const stop = day.stops[at]
-    const [x, z] = project(stop.lat, stop.lng)
+    const [x, z] = stop.view?.at ? project(...stop.view.at) : project(stop.lat, stop.lng)
     set({ step: at })
     get().flyTo(x, z, stop.view?.dist ?? 12, false, { yaw: stop.view?.yaw, duration: 2.2 })
   },
