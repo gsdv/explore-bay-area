@@ -4,9 +4,10 @@ import { BUILDING_EXAGGERATION, UNIT } from './geo'
 import type { Building } from './world'
 
 /**
- * Extrudes footprints into a single non-indexed geometry with flat normals and per-building tint.
+ * Extrudes footprints into a single non-indexed geometry with flat normals and per-building tint. `shrink` scales each
+ * building about its own centre (plan and height alike), so the city can stand back a little from the landmarks.
  */
-export function extrudeBuildings(buildings: Building[]): THREE.BufferGeometry {
+export function extrudeBuildings(buildings: Building[], shrink = 1): THREE.BufferGeometry {
   let vcount = 0
   for (const b of buildings) {
     const n = b.p.length / 2
@@ -24,10 +25,16 @@ export function extrudeBuildings(buildings: Building[]): THREE.BufferGeometry {
     o++
   }
   for (let bi = 0; bi < buildings.length; bi++) {
-    const b = buildings[bi]
+    let b = buildings[bi]
     const n = b.p.length / 2
+    if (shrink !== 1) {
+      let cx = 0, cz = 0
+      for (let i = 0; i < n; i++) { cx += b.p[i * 2]; cz += b.p[i * 2 + 1] }
+      cx /= n; cz /= n
+      b = { ...b, p: b.p.map((v, i) => (i % 2 ? cz : cx) + (v - (i % 2 ? cz : cx)) * shrink) }
+    }
     const y0 = b.y - 0.05
-    const y1 = b.y + b.h * UNIT * BUILDING_EXAGGERATION
+    const y1 = b.y + b.h * UNIT * BUILDING_EXAGGERATION * shrink
     // tint: taller = cooler grey, low = warm cream
     const t = Math.min(1, b.h / 120)
     const hue = 0.1 - t * 0.05

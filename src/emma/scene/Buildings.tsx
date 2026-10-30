@@ -8,6 +8,8 @@ import type { World } from '../world'
 /** World units (25 km): past this a house is about a pixel tall, so its chunk is skipped. */
 const HOUSE_RANGE = 250
 const CHUNKS = 10 // ≈3 km cells: SF alone holds ~200k blocks, so cull it in pieces
+/** Every building from the data, shrunk about its own centre so the streets open up round the landmark models. */
+const SHRINK = 0.8
 
 /**
  * House paint, as [hue, saturation, lightness]. SF is mostly cream, white and grey stucco with the odd pastel,
@@ -42,7 +44,7 @@ function blockMaterial(): THREE.MeshStandardMaterial {
 
 /** Footprints with a true outline (one merged mesh) + a block per house (instanced, chunked for frustum culling). */
 export function Buildings({ world }: { world: World }) {
-  const outlines = useMemo(() => extrudeBuildings(world.buildings), [world])
+  const outlines = useMemo(() => extrudeBuildings(world.buildings, SHRINK), [world])
 
   const chunks = useMemo(() => {
     const box = new THREE.BoxGeometry(1, 1, 1)
@@ -75,7 +77,7 @@ export function Buildings({ world }: { world: World }) {
           const o = i * 7
           p.set(f[o], f[o + 1], f[o + 2])
           q.setFromAxisAngle(up, f[o + 6])
-          s.set(f[o + 3], f[o + 5], f[o + 4])
+          s.set(f[o + 3] * SHRINK, f[o + 5] * SHRINK, f[o + 4] * SHRINK)
           m.compose(p, q, s)
           mesh.setMatrixAt(k, m)
           const r = ((i * 7919) % 100) / 100

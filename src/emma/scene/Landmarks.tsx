@@ -15,6 +15,10 @@ import { hoverOutline, markOutline } from './HoverOutline'
 import { LandmarkArea } from './LandmarkArea'
 import { useZoomTier } from './viewStore'
 
+/** A hovered landmark grows this much and rises this far (world units: 0.3 = 30 m) at full pop. */
+const HOVER_SCALE = 1.5
+const HOVER_LIFT = 0.3
+
 const geoCache = new Map<string, THREE.BufferGeometry>()
 const geoFor = (p: Part) => {
   const key = p.geo + JSON.stringify(p.args ?? [])
@@ -113,10 +117,10 @@ function LandmarkObject({ landmark: l, world }: { landmark: Landmark | EmmaLandm
     if (!group.current) return
     // bridges don't pop: scaled about one end, a kilometres-long deck would swing its far end off the shore (nor do Twin
     // Peaks and Bernal: each hill is the ground, and would lift its sunken edge out of the city's; nor a 3 km town)
-    const target = hovered && l.kind !== 'bridge' && l.kind !== 'twinpeaks' && l.kind !== 'bernal' && l.kind !== 'town' ? 1.12 : 1
+    const target = hovered && l.kind !== 'bridge' && l.kind !== 'twinpeaks' && l.kind !== 'bernal' && l.kind !== 'town' ? HOVER_SCALE : 1
     scaleT.v += (target - scaleT.v) * Math.min(1, dt * 10)
     group.current.scale.setScalar(scaleT.v)
-    group.current.position.y = pos.y + (scaleT.v - 1) * 1.5
+    group.current.position.y = pos.y + ((scaleT.v - 1) / (HOVER_SCALE - 1)) * HOVER_LIFT
   })
 
   const top = Math.max(...parts.filter((p) => !p.scenery && !p.hullOnly && !p.hit).map((p) => p.pos[1] + p.scale[1] / 2))
