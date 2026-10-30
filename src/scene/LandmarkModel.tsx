@@ -6,7 +6,7 @@ import * as BH from './bernalData'
 import { sausalito, townGeometry } from './sausalito'
 
 export interface Part {
-  geo: 'box' | 'cyl' | 'cone' | 'sphere' | 'ring' | 'stack' | 'fluted' | 'arcade' | 'arches' | 'ringwall' | 'archwall' | 'columns' | 'sector' | 'blocks' | 'strokes' | 'hill' | 'ribbons' | 'pad' | 'rblocks' | 'blobs'
+  geo: 'box' | 'cyl' | 'cone' | 'sphere' | 'ring' | 'stack' | 'fluted' | 'arcade' | 'arches' | 'ringwall' | 'archwall' | 'columns' | 'sector' | 'blocks' | 'strokes' | 'outline' | 'hill' | 'ribbons' | 'pad' | 'rblocks' | 'blobs'
   pos: [number, number, number]
   rot?: [number, number, number]
   scale: [number, number, number]
@@ -996,6 +996,8 @@ export function landmarkParts(l: Landmark, ground?: BridgeGround, terrain?: Terr
       return conservatory(terrain).parts
     case 'deyoung':
       return deYoung().parts
+    case 'transit':
+      return salesforcePark().parts
   }
 }
 
@@ -1811,6 +1813,114 @@ function deYoung(): { parts: Part[]; lines: number[] } {
   return { parts: p, lines: [] }
 }
 
+/**
+ * Salesforce Park on the roof of the Salesforce Transit Center (Pelli Clarke Pelli, 2018): the building is its OSM outline at
+ * true size (bearing -45, local +x north-east along Mission St's side of the block, origin mid-building), an undulating band
+ * 437 m long. White aluminium skin perforated in a Penrose pattern (a lattice of `landmarkLines` in the first part's grey), over
+ * a glass street level on white columns; First and Fremont Streets pass underneath, so the lower storey stops either side of
+ * them. On the roof, 21 m up: the lawn, a winding walk with Ned Kahn's Bus Jet Fountain beside it, palms and broadleaf trees,
+ * the pond, the amphitheater with its striped stage wall, the restaurant pavilion, the swirl-paved plaza at the east end, and
+ * the elliptical skylight over the Grand Hall.
+ */
+function salesforcePark(): { parts: Part[]; lines: number[] } {
+  const LATTICE = '#a9b0b2', SKIN = '#eef0ee', GLASS = '#8aa3ad', LAWN = '#7fae5f', WALK = '#d8d0bf', WATER = '#74add0', LEAF = '#5f8f4c', FROND = '#6a9a4c',
+    TRUNK = '#8a7558', WOOD = '#b9825a', COLUMN = '#f4f4f2'
+  const SUNK = -0.08, yLow = H(8), yPark = H(21), d = asDetail
+  const ring: [number, number][] = []
+  for (let i = 0; i < TRANSIT_CENTER.length; i += 2) ring.push([TRANSIT_CENTER[i], TRANSIT_CENTER[i + 1]])
+  const squeeze = (k: number) => ring.map(([x, z]) => [x, z * k] as [number, number])
+  // the street level stops either side of First (x 0.088) and Fremont (x 1.175)
+  const spans: [number, number][] = [[-2.3, -0.03], [0.21, 1.06], [1.29, 2.3]]
+  const p: Part[] = [
+    { ...outline(ring, SUNK, yPark, LATTICE), hullOnly: true },
+    d(outline(ring, yLow, yPark, SKIN)),
+    ...spans.map(([a, b]) => d(outline(clipX(squeeze(0.92), a, b), SUNK, yLow, GLASS))),
+    d(outline(squeeze(0.97), yPark, yPark + 0.006, LAWN)),
+  ]
+  // white columns along both sides of the street level
+  const cols: [number, number][] = []
+  for (const [a, b] of spans) for (let x = a + 0.06; x < b - 0.03; x += 0.12) for (const side of [-1, 1]) if (Math.abs(x) < 2.1) cols.push([x, side * 0.235])
+  p.push(columns(cols, SUNK, yLow, 0.012, COLUMN))
+  // the walk: a ribbon that wanders from end to end, the Bus Jet Fountain beside it along the middle, the swirl plaza, the pond
+  const walkZ = (x: number) => -0.1 + 0.07 * Math.sin(x * 2.1) + 0.03 * Math.sin(x * 5.3)
+  const walk: number[][] = []
+  for (let x = -2.05; x < 2.05; x += 0.05) walk.push([x + 0.025, walkZ(x + 0.025), 0.056, 0.04, yPark, yPark + 0.009])
+  p.push(d(blocks(walk, WALK)))
+  const jets: [number, number][] = []
+  for (let x = -0.9; x <= 0.9; x += 0.03) jets.push([x, walkZ(x) + 0.032])
+  p.push(
+    d(blocks(jets.map(([x, z]) => [x, z, 0.032, 0.012, yPark, yPark + 0.011]), WATER)),
+    { ...columns(jets.filter((_, i) => i % 2 === 0), yPark + 0.011, yPark + 0.04, 0.0025, '#f2f7fa'), detail: true },
+    d(at(drum(yPark, yPark + 0.012, 0.1, 0.1, WALK), 1.92, 0.02)),
+    d(at(drum(yPark, yPark + 0.012, 0.045, 0.045, WATER), -1.25, 0.1)),
+  )
+  // the skylight over the Grand Hall: an ellipse of glass in a white rim
+  p.push(
+    { geo: 'cyl', pos: [0.62, yPark + 0.008, 0.04], scale: [0.2, 0.02, 0.11], color: COLUMN, args: [0.5, 0.5, 24], detail: true },
+    { geo: 'cyl', pos: [0.62, yPark + 0.01, 0.04], scale: [0.17, 0.02, 0.09], color: GLASS, args: [0.5, 0.5, 24], detail: true },
+  )
+  // the amphitheater: a striped wooden stage wall under a grey band, and four curved steps in front of it
+  const AX = 1.62, AZ = 0.1
+  p.push(
+    d(box(AX, yPark, yPark + H(7), AZ + 0.07, 0.16, 0.05, WOOD)),
+    d(box(AX, yPark + H(7), yPark + H(9), AZ + 0.07, 0.16, 0.05, GLASS)),
+    ...[0.11, 0.09, 0.07, 0.05].map((r, i) => d(at(drum(yPark, yPark + 0.006 * (i + 1), r, r, WALK), AX, AZ + 0.045))),
+  )
+  // the restaurant pavilion near the west end
+  p.push(d(box(-1.62, yPark, yPark + H(5), 0.1, 0.14, 0.08, GLASS)), d(box(-1.62, yPark + H(5), yPark + H(5) + 0.01, 0.1, 0.16, 0.1, COLUMN)))
+  // trees: palms and broadleaf, scattered (a fixed pattern) away from the walk, the fountain and the pavilions
+  let seed = 7
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
+  const trunks: [number, number][] = [], palms: [number, number][] = []
+  for (let i = 0; i < 70; i++) {
+    const x = -2.0 + rnd() * 4.0, z = -0.22 + rnd() * 0.44
+    if (Math.abs(z - walkZ(x)) < 0.06 || (Math.abs(x - AX) < 0.14 && z > 0) || Math.abs(x + 1.62) < 0.1 || Math.hypot(x - 1.92, z - 0.02) < 0.12 || Math.hypot((x - 0.62) / 0.12, (z - 0.04) / 0.07) < 1) continue
+    if (rnd() < 0.4) palms.push([x, z])
+    else { trunks.push([x, z]); p.push({ geo: 'sphere', pos: [x, yPark + H(5), z], scale: [0.03, 0.028, 0.03], color: LEAF, detail: true, args: [1, 8, 6] }) }
+  }
+  p.push({ ...columns(trunks, yPark, yPark + H(4), 0.004, TRUNK), detail: true }, { ...columns(palms, yPark, yPark + H(9), 0.004, TRUNK), detail: true })
+  for (const [x, z] of palms) p.push({ geo: 'sphere', pos: [x, yPark + H(9), z], scale: [0.03, 0.014, 0.03], color: FROND, detail: true, args: [1, 8, 4] })
+
+  // the skin's lattice: diamonds up both long sides, a railing round the park, rings on the swirl plaza
+  const lines: number[] = []
+  const rows = 4, y0 = yLow, y1 = yPark
+  for (let i = 0; i < ring.length; i++) {
+    const [ax, az] = ring[i], [bx, bz] = ring[(i + 1) % ring.length]
+    const out = (z: number) => z + Math.sign(z || 1) * 0.004
+    for (let k = 0; k < rows; k++) {
+      const ya = y0 + ((y1 - y0) * k) / rows, yb = y0 + ((y1 - y0) * (k + 1)) / rows
+      seg(lines, [ax, ya, out(az)], [bx, yb, out(bz)])
+      seg(lines, [ax, yb, out(az)], [bx, ya, out(bz)])
+    }
+    seg(lines, [ax, yPark + 0.025, out(az)], [bx, yPark + 0.025, out(bz)])
+    if (i % 2 === 0) seg(lines, [ax, yPark, out(az)], [ax, yPark + 0.025, out(az)])
+  }
+  for (let r = 0.02; r < 0.1; r += 0.016) for (let k = 0; k < 24; k++) {
+    const a0 = (k / 24) * Math.PI * 2, a1 = ((k + 1) / 24) * Math.PI * 2
+    seg(lines, [1.92 + Math.cos(a0) * r, yPark + 0.014, 0.02 + Math.sin(a0) * r], [1.92 + Math.cos(a1) * r, yPark + 0.014, 0.02 + Math.sin(a1) * r])
+  }
+  return { parts: p, lines }
+}
+
+/** The Salesforce Transit Center's outline from OSM (way 542375290), x/z pairs in its local frame (bearing -45, origin mid-building). */
+const TRANSIT_CENTER = [
+  2.038, -0.241, 2.077, -0.249, 2.112, -0.252, 2.146, -0.238, 2.169, -0.214, 2.18, -0.184, 2.182, -0.152, 2.176, -0.133, 2.165, -0.107, 2.154, -0.07, 2.15, -0.034, 2.147, 0.01, 2.149, 0.051, 2.159, 0.102, 2.172, 0.148, 2.186, 0.181,
+  2.184, 0.207, 2.168, 0.235, 2.145, 0.252, 2.117, 0.259, 2.079, 0.251, 2.034, 0.246, 1.978, 0.242, 1.65, 0.249, 1.6, 0.267, 1.571, 0.274, 1.537, 0.269, 1.467, 0.255, 1.444, 0.251, 1.412, 0.249, 1.382, 0.251, 1.339, 0.258,
+  1.306, 0.266, 1.27, 0.262, 1.187, 0.244, 1.159, 0.241, 1.134, 0.245, 1.07, 0.265, 1.036, 0.271, 1.001, 0.267, 0.946, 0.242, 0.912, 0.237, 0.873, 0.242, 0.816, 0.266, 0.78, 0.274, 0.742, 0.268, 0.672, 0.251, 0.633, 0.246,
+  0.595, 0.248, 0.53, 0.266, 0.497, 0.274, 0.448, 0.265, 0.387, 0.25, 0.353, 0.249, 0.315, 0.252, 0.246, 0.27, 0.216, 0.277, 0.172, 0.273, 0.109, 0.255, 0.088, 0.252, 0.077, 0.251, 0.053, 0.255, -0.015, 0.278, -0.042, 0.281,
+  -0.068, 0.278, -0.148, 0.254, -0.176, 0.251, -0.207, 0.254, -0.273, 0.273, -0.305, 0.277, -0.335, 0.272, -0.406, 0.254, -0.433, 0.251, -0.461, 0.253, -0.528, 0.272, -0.56, 0.276, -0.594, 0.271, -0.658, 0.252, -0.693, 0.249, -0.731, 0.252,
+  -0.784, 0.265, -0.824, 0.274, -0.869, 0.265, -0.916, 0.251, -0.953, 0.248, -0.99, 0.25, -1.04, 0.267, -1.078, 0.273, -1.118, 0.267, -1.145, 0.26, -1.191, 0.246, -1.225, 0.243, -1.255, 0.246, -1.332, 0.266, -1.357, 0.269, -1.379, 0.264,
+  -1.439, 0.243, -1.475, 0.24, -1.511, 0.245, -1.562, 0.262, -1.596, 0.269, -1.629, 0.264, -1.667, 0.248, -1.7, 0.235, -1.761, 0.23, -1.88, 0.23, -1.936, 0.229, -1.987, 0.229, -2.008, 0.228, -2.044, 0.232, -2.074, 0.239, -2.096, 0.243,
+  -2.126, 0.235, -2.142, 0.22, -2.147, 0.215, -2.162, 0.196, -2.165, 0.167, -2.159, 0.141, -2.146, 0.113, -2.141, 0.096, -2.143, 0.067, -2.158, 0.067, -2.184, 0.067, -2.184, 0.025, -2.186, -0.085, -2.143, -0.085, -2.141, -0.103, -2.149, -0.129,
+  -2.157, -0.151, -2.163, -0.174, -2.163, -0.193, -2.159, -0.207, -2.156, -0.22, -2.147, -0.234, -2.127, -0.252, -2.109, -0.261, -2.091, -0.268, -2.062, -0.27, -2.039, -0.264, -2.008, -0.259, -1.945, -0.256, -1.862, -0.257, -1.682, -0.257, -1.633, -0.273,
+  -1.607, -0.277, -1.582, -0.273, -1.531, -0.261, -1.496, -0.252, -1.475, -0.251, -1.451, -0.254, -1.368, -0.276, -1.344, -0.279, -1.315, -0.275, -1.237, -0.257, -1.215, -0.256, -1.191, -0.257, -1.106, -0.278, -1.086, -0.281, -1.062, -0.278, -0.982, -0.254,
+  -0.954, -0.25, -0.925, -0.253, -0.847, -0.275, -0.822, -0.277, -0.787, -0.271, -0.732, -0.248, -0.706, -0.244, -0.679, -0.246, -0.636, -0.256, -0.592, -0.269, -0.567, -0.273, -0.544, -0.271, -0.505, -0.257, -0.465, -0.247, -0.438, -0.244, -0.414, -0.248,
+  -0.377, -0.253, -0.337, -0.265, -0.307, -0.269, -0.277, -0.266, -0.204, -0.246, -0.172, -0.242, -0.145, -0.245, -0.074, -0.263, -0.049, -0.265, -0.024, -0.262, 0.05, -0.24, 0.077, -0.235, 0.088, -0.236, 0.105, -0.239, 0.186, -0.26, 0.213, -0.265,
+  0.237, -0.263, 0.306, -0.234, 0.346, -0.225, 0.385, -0.232, 0.458, -0.259, 0.5, -0.263, 0.53, -0.258, 0.532, -0.257, 0.633, -0.235, 0.657, -0.235, 0.681, -0.241, 0.719, -0.253, 0.745, -0.26, 0.774, -0.265, 0.803, -0.263, 0.884, -0.237,
+  0.919, -0.231, 0.952, -0.235, 0.995, -0.258, 1.03, -0.266, 1.066, -0.257, 1.133, -0.242, 1.165, -0.24, 1.209, -0.243, 1.267, -0.251, 1.297, -0.255, 1.331, -0.249, 1.393, -0.239, 1.422, -0.24, 1.448, -0.24, 1.53, -0.254, 1.564, -0.257,
+  1.595, -0.252, 1.687, -0.233,
+]
+
 /** Ground profile under a bridge: how far the deck must run past each endpoint to reach the shore, and the terrain height along the axis. */
 export interface BridgeGround {
   /** deck extension past the start (lat/lng) and end (lat2/lng2) endpoints, world units */
@@ -2139,6 +2249,7 @@ export function landmarkLines(l: Landmark, ground?: BridgeGround): number[] {
   if (l.kind === 'ghirardelli') return ghirardelli().lines
   if (l.kind === 'cathedral') return graceCathedral().lines
   if (l.kind === 'conservatory') return conservatory().lines
+  if (l.kind === 'transit') return salesforcePark().lines
   if (l.kind !== 'bridge') return []
   return (l.id === 'baybridge' ? bayBridge(l, ground) : goldenGate(l, ground)).lines
 }
@@ -2526,6 +2637,7 @@ export function partGeometry(p: Part, grow = 0): THREE.BufferGeometry {
     case 'sector': return sectorGeometry(a, grow)
     case 'blocks': return blocksGeometry(a, grow)
     case 'strokes': return strokesGeometry(a)
+    case 'outline': return outlineGeometry(a)
     case 'hill': case 'ribbons': case 'pad': return freeformGeometry(p.geo, a, grow)
     case 'rblocks': case 'blobs': return townGeometry(p.geo, a)
   }
@@ -2747,6 +2859,35 @@ function blocksGeometry(a: number[], grow: number): THREE.BufferGeometry {
     quad(v(x0, y1, z0), v(x0, y1, z1), v(x1, y1, z0), v(x1, y1, z1))
   }
   return fromPositions(pos)
+}
+
+/** A flat-topped prism on any plan outline ([x, z] points in model units) from y0 to y1, as one part normalised to its bounds. */
+const outline = (pts: [number, number][], y0: number, y1: number, color: string): Part => {
+  const b = planBox(pts)
+  return { geo: 'outline', pos: [b.cx, (y0 + y1) / 2, b.cz], scale: [b.sx, y1 - y0, b.sz], color, args: [r4(b.cx), r4(b.cz), r4(b.sx), r4(b.sz), ...pts.flat().map(r4)] }
+}
+function outlineGeometry(a: number[]): THREE.BufferGeometry {
+  const [cx, cz, sx, sz] = a
+  const shape = new THREE.Shape()
+  for (let i = 4; i + 1 < a.length; i += 2) {
+    const u = (a[i] - cx) / sx, v = -(a[i + 1] - cz) / sz // shape y is -z, so turning the extrusion up keeps z
+    if (i === 4) shape.moveTo(u, v)
+    else shape.lineTo(u, v)
+  }
+  return new THREE.ExtrudeGeometry(shape, { depth: 1, bevelEnabled: false }).rotateX(-Math.PI / 2).translate(0, -0.5, 0)
+}
+/** The part of a plan outline between x = a and x = b (Sutherland-Hodgman against the two lines). */
+function clipX(pts: [number, number][], a: number, b: number): [number, number][] {
+  const clip = (src: [number, number][], keep: (x: number) => boolean, edge: number) => {
+    const out: [number, number][] = []
+    for (let i = 0; i < src.length; i++) {
+      const p = src[i], q = src[(i + 1) % src.length], pin = keep(p[0]), qin = keep(q[0])
+      if (pin) out.push(p)
+      if (pin !== qin) { const t = (edge - p[0]) / (q[0] - p[0]); out.push([edge, p[1] + (q[1] - p[1]) * t]) }
+    }
+    return out
+  }
+  return clip(clip(pts, (x) => x >= a, a), (x) => x <= b, b)
 }
 
 /**
