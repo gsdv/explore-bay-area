@@ -1005,7 +1005,136 @@ export function landmarkParts(l: Landmark, ground?: BridgeGround): Part[] {
         scale: [0.3, 0.4 + i * 0.1, 0.3],
         color: ['#f3e6cf', '#e9d3b3', '#f7efe1', '#dfc9a9'][i],
       }))
+    case 'cityhall':
+      return cityHall().parts
   }
+}
+
+/**
+ * San Francisco City Hall (Arthur Brown Jr., 1915). Local axes are the building's: +x is the Polk Street front on Civic Center
+ * Plaza, -x the matching Van Ness front, -z McAllister Street (bearing -9, the Western Addition grid, as the city's footprint
+ * survey has it). A grey granite block of 124 m by 83 m: a rusticated ground floor, a giant colonnade along both long fronts
+ * between corner pavilions, a cornice and an attic, skylit roofs over the two light courts. Each front has a pedimented central
+ * portico, and one gabled roof runs between the two into the square base of the rotunda. On that: a stepped plinth, the drum
+ * (sixteen tall windows, eight buttress piers with paired columns and a statue each), an attic of small round-headed windows,
+ * the slate dome with gilded ribs (`landmarkLines`) and cartouches, the gilt lantern, and the spire, 93.7 m up. The block is
+ * 1.2x true in plan; the dome and drum are 1.5x, so the height exaggeration doesn't stretch them into a bullet.
+ */
+const CH_DOME = { y: H(57.5) + 0.01, r: 0.222, h: H(15) }
+function cityHall(): { parts: Part[]; lines: number[] } {
+  const GRANITE = '#dddad2', BASE = '#cfcbc1', TRIM = '#ebe8e0', RELIEF = '#c7c2b5', ROOF = '#8f9b9b', GLASS = '#5f6e76', SLATE = '#6a737a', GOLD = '#d2a64a'
+  const W = 1.0, L = 1.48, SUNK = -0.06
+  const yBase = H(9), yCols = H(21.5), yCornice = H(23.5), yAttic = H(26.5), yPed = yAttic + H(6.5)
+  const yRot = H(34), yDrum = H(36.5), yDrumTop = H(51), yAtticTop = H(57.5)
+  const rDrum = 0.24, { y: yDome, r: rDome, h: hDome } = CH_DOME
+  const yLantern = yDome + hDome - 0.01, yCupola = H(81)
+  const d = (q: Part): Part => ({ ...q, detail: true })
+  const wingZ = 0.405, wingLen = 0.39 // the colonnaded stretch between the portico and a corner pavilion
+  // the parts list's first colour is the line colour (Landmarks.tsx), so the hover-only block carries the gilding's
+  const p: Part[] = [
+    { ...box(0, SUNK, yAttic + 0.02, 0, W + 0.06, L + 0.04, GOLD), hullOnly: true },
+    { ...box(0, SUNK, yAttic, 0, W + 0.2, 0.44, GOLD), hullOnly: true },
+    // body, rusticated ground floor, cornice band, roof and the light courts' skylights
+    d(box(0, SUNK, yAttic, 0, W, L, GRANITE)),
+    d(box(0, SUNK, yBase, 0, W + 0.05, L + 0.03, BASE)),
+    d(box(0, yCols, yCornice, 0, W + 0.05, L + 0.03, TRIM)),
+    d(box(0, yAttic - 0.01, yAttic + 0.012, 0, W + 0.03, L + 0.02, TRIM)),
+    d(box(0, yAttic, yAttic + 0.02, 0, W - 0.08, L - 0.08, ROOF)),
+    d(blocks([[-0.3, 0, 0.2, L - 0.3, yAttic, yAttic + 0.05], [0.3, 0, 0.2, L - 0.3, yAttic, yAttic + 0.05]], ROOF, { gabled: true })),
+    d(blocks([[0, -wingZ - 0.02, 0.36, 0.3, yAttic, yAttic + 0.06], [0, wingZ + 0.02, 0.36, 0.3, yAttic, yAttic + 0.06]], GLASS, { gabled: 'x' })),
+    // corner pavilions, standing a little proud of both faces and above the attic, each with a tall arched window
+    d(blocks([-1, 1].flatMap((sx) => [-1, 1].map((sz) => [sx * (W / 2 - 0.06), sz * (L / 2 - 0.07), 0.16, 0.18, SUNK, yAttic + 0.025])), GRANITE)),
+    d(blocks([-1, 1].flatMap((sx) => [-1, 1].map((sz) => [sx * (W / 2 - 0.06), sz * (L / 2 - 0.07), 0.18, 0.2, yAttic + 0.025, yAttic + 0.04])), TRIM)),
+  ]
+  for (const sz of [-1, 1]) {
+    p.push(
+      wallOpenings(0, sz * (L / 2 - 0.07), yBase + 0.03, yCols - 0.02, 0.1, W + 0.04, 1, 0.07, { axis: 1 }),
+      // the colonnaded wings: windows on two storeys behind the columns, square ones in the base and the attic
+      wallOpenings(0, sz * wingZ, yBase + 0.02, yCols - 0.01, wingLen, W, 8, 0.022, { axis: 1, rows: 2, flat: true }),
+      wallOpenings(0, sz * wingZ, 0.03, yBase - 0.04, wingLen, W + 0.05, 8, 0.024, { axis: 1, flat: true }),
+      wallOpenings(0, sz * wingZ, yCornice + 0.015, yAttic - 0.02, wingLen, W, 8, 0.02, { axis: 1, flat: true }),
+    )
+  }
+  for (const sx of [-1, 1]) p.push(wallOpenings(sx * (W / 2 - 0.06), 0, yBase + 0.03, yCols - 0.02, 0.1, L + 0.04, 1, 0.07))
+  // the McAllister and Grove ends: a shallow centre pavilion and three storeys of windows either side of it
+  p.push(
+    d(box(0, SUNK, yAttic + 0.015, 0, 0.3, L + 0.05, GRANITE)),
+    wallOpenings(0, 0, 0.03, yBase - 0.04, W - 0.34, L + 0.03, 12, 0.024, { flat: true }),
+    wallOpenings(0, 0, yBase + 0.02, yAttic - 0.02, W - 0.34, L, 12, 0.022, { rows: 3, flat: true }),
+    wallOpenings(0, 0, 0.03, yCols - 0.04, 0.2, L + 0.05, 3, 0.04, {}),
+  )
+  // the giant order on both long fronts, standing on the base in front of the wall
+  const cols: [number, number][] = []
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) for (let i = 0; i < 9; i++) cols.push([sx * (W / 2 + 0.014), sz * (wingZ - wingLen / 2 + (wingLen * (i + 0.5)) / 9)])
+  p.push(columns(cols, yBase, yCols, 0.011, TRIM))
+  // the porticos: a rusticated base with three arched doors, solid end piers, six columns, entablature, and the pediment
+  // with its relief, as one gabled roof run through the building so its triangle shows on both fronts
+  const portico: [number, number][] = []
+  for (const sx of [-1, 1]) for (let i = 0; i < 6; i++) portico.push([sx * (W / 2 + 0.075), -0.13 + i * 0.052])
+  p.push(
+    d(box(0, SUNK, yBase, 0, W + 0.18, 0.42, BASE)),
+    wallOpenings(0, 0, 0.02, yBase - 0.02, 0.24, W + 0.18, 3, 0.05, { axis: 1 }),
+    d(blocks([-1, 1].flatMap((sx) => [-1, 1].map((sz) => [sx * (W / 2 + 0.045), sz * 0.185, 0.09, 0.05, yBase, yCornice])), GRANITE)),
+    columns(portico, yBase, yCornice, 0.013, TRIM),
+    wallOpenings(0, 0, yBase + 0.03, yCornice - 0.02, 0.26, W + 0.004, 5, 0.03, { axis: 1, rows: 2, flat: true }),
+    d(box(0, yCornice, yAttic, 0, W + 0.19, 0.43, TRIM)),
+    { ...blocks([[0, 0, W + 0.2, 0.44, yAttic, yPed]], GRANITE, { gabled: 'x' }) },
+    d(blocks([[0, 0, W + 0.204, 0.34, yAttic + 0.015, yPed - 0.03]], RELIEF, { gabled: 'x' })),
+  )
+  // the rotunda's square base and the stepped plinth with its balustrade
+  p.push(
+    box(0, yAttic - 0.1, yRot, 0, 0.56, 0.56, GRANITE),
+    d(box(0, yRot - 0.012, yRot + 0.004, 0, 0.58, 0.58, TRIM)),
+    drum(yRot, yDrum - 0.02, 0.3, 0.29, TRIM),
+    d(drum(yDrum - 0.02, yDrum, 0.27, 0.27, GRANITE)),
+  )
+  // the drum: bays of two windows between the buttress piers, each pier faced with a pair of columns and crowned by a statue
+  const deg = Math.PI / 180
+  p.push(
+    drum(yDrum, yDrumTop, rDrum, rDrum, GRANITE),
+    drumOpenings(yDrum + 0.04, yDrumTop - 0.05, rDrum, 0.042, 2, true),
+    d(drum(yDrumTop - 0.015, yDrumTop + 0.02, rDrum + 0.025, rDrum + 0.025, TRIM)),
+    drum(yDrumTop + 0.02, yAtticTop, rDome + 0.008, rDome + 0.004, GRANITE),
+    drumOpenings(yDrumTop + 0.035, yAtticTop - 0.02, rDome + 0.008, 0.026, 2),
+    d(drum(yAtticTop - 0.008, yDome, rDome + 0.014, rDome + 0.014, TRIM)),
+  )
+  const pairs: [number, number][] = []
+  for (let k = 0; k < 8; k++) {
+    const a = (22.5 + 45 * k) * deg
+    p.push(d({ geo: 'box', pos: [Math.cos(a) * (rDrum + 0.01), (yDrum + yDrumTop) / 2, Math.sin(a) * (rDrum + 0.01)], rot: [0, -a, 0], scale: [0.05, yDrumTop - yDrum, 0.07], color: GRANITE }))
+    for (const s of [-1, 1]) pairs.push([Math.cos(a + (s * 0.024) / rDrum) * (rDrum + 0.04), Math.sin(a + (s * 0.024) / rDrum) * (rDrum + 0.04)])
+    p.push(d({ geo: 'cone', pos: [Math.cos(a) * (rDrum + 0.02), yDrumTop + 0.06, Math.sin(a) * (rDrum + 0.02)], scale: [0.04, 0.08, 0.04], color: TRIM, args: [0.5, 6] }))
+  }
+  p.push(columns(pairs, yDrum, yDrumTop - 0.015, 0.011, TRIM))
+  // the dome, its gilded cartouches between the ribs, the iron ring at its crown, the gilt lantern, the cupola and the spire
+  p.push({ geo: 'sphere', pos: [0, yDome, 0], scale: [rDome, hDome, rDome], color: SLATE, args: [1, 32, 12, 0, Math.PI * 2, 0, Math.PI / 2] })
+  for (let k = 0; k < 8; k++) {
+    const a = (11.25 + 45 * k) * deg, t = 0.62, rr = rDome * Math.sqrt(1 - t * t) + 0.006
+    p.push({ geo: 'sphere', pos: [Math.cos(a) * rr, yDome + hDome * t, Math.sin(a) * rr], scale: [0.022, 0.03, 0.022], color: GOLD, detail: true, args: [1, 8, 6] })
+  }
+  p.push(
+    d(drum(yLantern - 0.01, yLantern + 0.012, 0.08, 0.08, SHADE)),
+    drum(yLantern + 0.012, yCupola, 0.058, 0.054, TRIM),
+    { ...drumOpenings(yLantern + 0.03, yCupola - 0.02, 0.058, 0.022), color: SHADE },
+    columns(Array.from({ length: 8 }, (_, k) => [Math.cos((22.5 + 45 * k) * deg) * 0.066, Math.sin((22.5 + 45 * k) * deg) * 0.066] as [number, number]), yLantern + 0.012, yCupola, 0.008, GOLD),
+    d(drum(yCupola - 0.004, yCupola + 0.012, 0.072, 0.072, GOLD)),
+    { geo: 'sphere', pos: [0, yCupola + 0.012, 0], scale: [0.05, 0.05, 0.05], color: SLATE, detail: true, args: [1, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2] },
+    d(drum(yCupola + 0.055, yCupola + 0.085, 0.022, 0.018, GOLD)),
+    { geo: 'cone', pos: [0, (yCupola + 0.085 + H(92.5)) / 2, 0], scale: [0.032, H(92.5) - yCupola - 0.085, 0.032], color: SLATE, detail: true, args: [0.5, 8] },
+    { geo: 'sphere', pos: [0, H(92.5), 0], scale: [0.012, 0.012, 0.012], color: GOLD, detail: true, args: [1, 8, 6] },
+  )
+  // gilded ribs down the dome and the garland round its foot, a hair proud of the surface
+  const lines: number[] = []
+  const onDome = (a: number, t: number): [number, number, number] => {
+    const rr = rDome * Math.sqrt(1 - t * t) * 1.012
+    return [Math.cos(a) * rr, yDome + hDome * t * 1.012, Math.sin(a) * rr]
+  }
+  for (let k = 0; k < 16; k++) {
+    const a = (k / 16) * Math.PI * 2
+    for (let i = 0; i < 10; i++) seg(lines, onDome(a, (i / 10) * 0.95), onDome(a, ((i + 1) / 10) * 0.95))
+  }
+  for (const t of [0.04, 0.9]) for (let k = 0; k < 32; k++) seg(lines, onDome((k / 32) * Math.PI * 2, t), onDome(((k + 1) / 32) * Math.PI * 2, t))
+  return { parts: p, lines }
 }
 
 /** Ground profile under a bridge: how far the deck must run past each endpoint to reach the shore, and the terrain height along the axis. */
@@ -1330,8 +1459,9 @@ function bayBridge(l: Landmark, ground?: BridgeGround): BridgeModel {
   return m
 }
 
-/** Suspenders, bracing and trusses as line segments [x,y,z,x,y,z,...] in landmark-local space (bridges only). */
+/** Suspenders, bracing and trusses as line segments [x,y,z,x,y,z,...] in landmark-local space (bridges, and City Hall's gilded dome ribs). */
 export function landmarkLines(l: Landmark, ground?: BridgeGround): number[] {
+  if (l.kind === 'cityhall') return cityHall().lines
   if (l.kind !== 'bridge') return []
   return (l.id === 'baybridge' ? bayBridge(l, ground) : goldenGate(l, ground)).lines
 }

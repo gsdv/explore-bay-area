@@ -1,6 +1,6 @@
 export type LandmarkKind =
   | 'bridge' | 'tower' | 'pyramid' | 'ferry' | 'coit' | 'sutro' | 'rotunda' | 'stadium' | 'arena'
-  | 'peak' | 'park' | 'beach' | 'houses' | 'island' | 'campanile' | 'museum' | 'wharf' | 'street' | 'gate' | 'forest' | 'town' | 'campus' | 'legion' | 'lombard' | 'tamalpais' | 'alcatraz' | 'twinpeaks' | 'ballpark'
+  | 'peak' | 'park' | 'beach' | 'houses' | 'island' | 'campanile' | 'museum' | 'wharf' | 'street' | 'gate' | 'forest' | 'town' | 'campus' | 'legion' | 'lombard' | 'tamalpais' | 'alcatraz' | 'twinpeaks' | 'ballpark' | 'cityhall'
 
 export interface Landmark {
   id: string
@@ -36,6 +36,7 @@ export const landmarks: Landmark[] = [
   { id: 'ferrybuilding', name: 'Ferry Building', kind: 'ferry', lat: 37.79554, lng: -122.39343, bearing: 53.6, area: 'Embarcadero', blurb: 'The 1898 terminal is now a food hall. Ferries still leave from behind it, and the Saturday farmers market is the best in the city.', tip: 'Saturday morning: farmers market outside, Blue Bottle and Hog Island oysters inside.', tags: ['food', 'icon'] },
   { id: 'sutro', name: 'Sutro Tower', kind: 'sutro', lat: 37.7552, lng: -122.4528, area: 'Twin Peaks', blurb: 'The 977-foot three-pronged antenna that locals use as a compass. It is visible from almost everywhere in the city.', height: 298, tags: ['icon'] },
   { id: 'alcatraz', name: 'Alcatraz', kind: 'alcatraz', lat: 37.82688, lng: -122.42254, bearing: -40, area: 'The Bay', blurb: 'The former federal prison on a rock in the bay. The audio tour is narrated by former inmates and guards.', tip: 'Tickets sell out weeks ahead. Book the night tour if you can.', tags: ['icon', 'culture'] },
+  { id: 'cityhall', name: 'City Hall', kind: 'cityhall', lat: 37.77928, lng: -122.41924, bearing: -9, height: 94, area: 'Civic Center', blurb: 'Arthur Brown Jr.\'s Beaux-Arts palace of 1915, built after the 1906 earthquake wrecked the old one. Its gilded dome is taller than the US Capitol\'s.', tip: 'Walk in on a weekday: it\'s free, and couples marry on the grand staircase under the rotunda most days.', tags: ['icon', 'culture'] },
   { id: 'palace', name: 'Palace of Fine Arts', kind: 'rotunda', lat: 37.80289, lng: -122.44869, bearing: -100, area: 'Marina', blurb: 'A Roman-style rotunda built for the 1915 Panama-Pacific Exposition, kept because the city loved it too much to tear down.', tags: ['icon', 'culture'] },
   { id: 'oraclepark', name: 'Oracle Park', kind: 'ballpark', lat: 37.7786, lng: -122.3893, bearing: 45, area: 'Mission Bay', blurb: 'Home of the Giants. Home runs over right field splash into McCovey Cove, where kayakers wait.', tags: ['culture'] },
   { id: 'chasecenter', name: 'Chase Center', kind: 'arena', lat: 37.76789, lng: -122.38742, bearing: -4, height: 38, area: 'Mission Bay', blurb: 'Home of the Golden State Warriors since 2019.', tags: ['culture'] },

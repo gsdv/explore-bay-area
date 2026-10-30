@@ -254,8 +254,10 @@ and `scene/LandmarkModel.tsx`. React has its own chunk (`manualChunks` in `vite.
   Kinds with one landmark and a model of their own: `alcatraz` (brings its own rock in three terraces, a bit bigger than the heightmap's
   80 m-pixel bump, at sea level), `twinpeaks` (two low-poly cones with the figure-eight road as a ledge, placed on the heightmap's own
   high points; give hills a long gentle skirt or they read as bunkers), `ballpark` (Oracle Park; local axes are the foul lines = the SoMa
-  grid, home plate by 3rd & King), `arena` (Chase Center, on its OSM footprint) and `museum` (the Exploratorium's Pier 15, on its OSM
-  footprint). `island`, `peak` and `stadium` remain the generic models (Angel Island, the other peaks, Levi's). Landmarks never stand
+  grid, home plate by 3rd & King), `arena` (Chase Center, on its OSM footprint), `museum` (the Exploratorium's Pier 15, on its OSM
+  footprint) and `cityhall` (sized and turned from DataSF's footprint, 124 x 83 m on bearing -9 with +x the Polk St front; OSM maps it
+  as a relation, which the downtown `way` query never returns, so nothing else stands on its block; block 1.2x in plan, drum and dome
+  1.5x; the dome's gilded ribs are `landmarkLines`, coloured by the first part, a `hullOnly` box). `island`, `peak` and `stadium` remain the generic models (Angel Island, the other peaks, Levi's). Landmarks never stand
   below sea level (`Math.max(0, yAt)`): a pier's origin is over seabed in the heightmap. Helpers: `slab` (tapering rounded rectangle),
   `tier` (low-poly frustum), `at` (move a part in plan), `asDetail`.
   Area landmarks: a park too big to be an object gets its real outline instead. `build-data.ts` step 2 writes `areas.json`
