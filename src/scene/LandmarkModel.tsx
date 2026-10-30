@@ -1424,6 +1424,22 @@ function graceCathedral(): { parts: Part[]; lines: number[] } {
     wallOpenings(-0.347, -0.186, yP + 0.02, yWg - 0.02, 0.27, 0.246, 8, 0.018, { rows: 2, sides: -1, flat: true }),
   )
 
+  // the hover target follows the massing: roofs, towers and a slim flèche, not the automatic box, which would reach the
+  // cross over the whole plan and catch the air above the nave and apse
+  const hit = (x0: number, x1: number, z0: number, z1: number, y1: number): Part =>
+    ({ ...box((x0 + x1) / 2, SUNK, y1, (z0 + z1) / 2, x1 - x0, z1 - z0, '#000'), hit: true })
+  p.push(
+    hit(xA - zC, xP + 0.16, -zT, zT, yP), // the raised floor and the steps
+    hit(xN0, xP, -zA, zA, yR), // nave, aisles and the gabled front
+    hit(xX0, xN0, -zT, zT, yR), // transept
+    hit(xA - zC, xX0, -zC, zC, yR), // choir and apse
+    hit(xF, xT, zTw, zA, yTower + 0.07),
+    hit(xF, xT, -zA, -zTw, yTower + 0.07),
+    hit(xC - 0.04, xC + 0.04, -0.04, 0.04, H(76)), // the flèche and its cross
+    hit(-0.351 - 0.158, -0.351 + 0.158, 0.141 - 0.073, 0.141 + 0.073, yCh + H(7)), // Chapel of Grace
+    hit(-0.347 - 0.158, -0.347 + 0.158, -0.186 - 0.127, -0.186 + 0.127, yWg + H(5)), // north wing
+  )
+
   // the outdoor labyrinth on the plaza beside the front steps: a terrazzo disc and its rings
   const LX = 0.4, LZ = -0.36, LR = 0.055
   p.push(d(at(drum(SUNK, 0.006, LR + 0.006, LR + 0.006, TERRAZZO), LX, LZ)))
