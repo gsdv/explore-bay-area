@@ -4,9 +4,10 @@
  * No transit, washes, neighborhood names or the other cities.
  */
 import * as THREE from 'three'
-import { DETAIL_AREAS, HEIGHTMAP_SIZE, HEIGHT_OFFSET, elevationToY, worldToUV } from '../lib/geo'
+import { DETAIL_AREAS, HEIGHTMAP_SIZE, HEIGHT_OFFSET, elevationToY, project, worldToUV } from '../lib/geo'
 import { BLOCK_STRIDE, decodeBlocks } from '../lib/blocks'
 import { inBox } from './region'
+import { emmaLandmarks } from './landmarks'
 
 export interface Heightmap {
   /** world y at world x,z (already exaggerated) */
@@ -64,7 +65,16 @@ function blocksInBox(all: Float32Array): Float32Array {
 }
 
 /** an outline belongs to the box if its first corner does (they are a few dozen metres across) */
-const buildingsInBox = (all: Building[]) => all.filter((b) => inBox(b.p[0], b.p[1]))
+/** the footprints Emma's own landmark models stand in (their `covers` points): drawn, they would wrap the model in a prism */
+const COVERED = emmaLandmarks.flatMap((l) => l.covers ?? []).map(([lat, lng]) => project(lat, lng))
+const contains = (p: number[], x: number, z: number) => {
+  let inside = false
+  for (let i = 0, j = p.length - 2; i < p.length; j = i, i += 2)
+    if (p[i + 1] > z !== p[j + 1] > z && x < ((p[j] - p[i]) * (z - p[i + 1])) / (p[j + 1] - p[i + 1]) + p[i]) inside = !inside
+  return inside
+}
+const buildingsInBox = (all: Building[]) =>
+  all.filter((b) => inBox(b.p[0], b.p[1]) && !COVERED.some(([x, z]) => contains(b.p, x, z)))
 
 export async function loadWorld(): Promise<World> {
   const loader = new THREE.TextureLoader()

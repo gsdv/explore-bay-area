@@ -1,14 +1,15 @@
 /**
  * Landmarks only Emma's page has. They carry their own model (`parts`) instead of a model from scene/LandmarkModel.tsx, so
  * the main page and the data pipeline never see them; their `kind` only picks the scene's defaults (a building standing on
- * the ground, popping up on hover). Put any footprint they replace into account here too: the Monadnock stands on a lot
- * the baked downtown buildings leave empty, so it needs no clearing.
+ * the ground, popping up on hover). A model standing where the baked buildings already have a footprint names a point
+ * inside it in `covers`, and world.ts drops that footprint (the Monadnock's lot is empty in the bake, the Hallidie's isn't).
  */
 import type { ComponentType } from 'react'
 import type { Landmark } from '../data/landmarks'
 import type { Part } from '../scene/LandmarkModel'
 import { monadnockParts } from './scene/monadnock'
-import { NotionLogo, NOTION_LOGO_HEIGHT } from './scene/NotionLogo'
+import { hallidieParts } from './scene/hallidie'
+import { NotionLogo, CircleCILogo, LOGO_HEIGHT } from './scene/logos'
 
 export interface EmmaLandmark extends Landmark {
   parts: () => Part[]
@@ -31,6 +32,22 @@ export const emmaLandmarks: EmmaLandmark[] = [
     tip: 'Come by after dark, when the arched doorway on Market lights up the lobby\'s painted vault. The Palace Hotel\'s glass-roofed Garden Court is next door.',
     tags: ['culture'],
     parts: monadnockParts,
-    topper: { Node: NotionLogo, height: NOTION_LOGO_HEIGHT },
+    topper: { Node: NotionLogo, height: LOGO_HEIGHT },
+  },
+  {
+    id: 'hallidie',
+    name: 'CircleCI',
+    kind: 'tower',
+    lat: 37.790213,
+    lng: -122.403055,
+    bearing: 170.7,
+    covers: [[37.790213, -122.403055]],
+    area: 'Hallidie Building',
+    blurb:
+      'CircleCI works on the seventh and top floor of the Hallidie Building, right under the gold cresting. Willis Polk finished it in 1918 with one of the country\'s first glass curtain walls. It is named for Andrew Hallidie, the cable car pioneer.',
+    tip: 'Stand across Sutter Street to take in the whole front: the fire escapes bow out like balconies. The ground floor is the Center for Architecture + Design, with a gallery and a café.',
+    tags: ['culture'],
+    parts: hallidieParts,
+    topper: { Node: CircleCILogo, height: LOGO_HEIGHT },
   },
 ]

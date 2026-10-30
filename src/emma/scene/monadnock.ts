@@ -1,6 +1,6 @@
 /**
  * The Monadnock Building, 681-687 Market Street (Frederick H. Meyer, 1907), Notion's headquarters: Emma's page only, so its
- * model lives here rather than in scene/LandmarkModel.tsx, built from the same part geometries (`partGeometry`).
+ * model lives here rather than in scene/LandmarkModel.tsx, built from the same part geometries (helpers in parts.ts).
  *
  * Local axes: -z is the Market Street front (bearing -44.75, as the city's footprint survey has it), +x runs along Market
  * towards the Palace Hotel, the Hearst Building is against the -x wall. True to the survey in plan (43 x 49 m, the city
@@ -9,37 +9,11 @@
  * tall arched entrance, six plain storeys of windows in seven bays of three, a ninth storey between pilasters, the deep
  * bracketed cornice, an attic storey above it and a lighter top cornice. A light court opens in the middle of the roof.
  */
-import { UNIT, BUILDING_EXAGGERATION } from '../../lib/geo'
 import type { Part } from '../../scene/LandmarkModel'
-
-const H = (m: number) => m * UNIT * BUILDING_EXAGGERATION
-const r4 = (v: number) => +v.toFixed(4)
+import { H, box, blocks, openings } from './parts'
 
 const BRICK = '#e6d5b0', TERRA = '#f1e6cc', BASE = '#d6c19a', ROOF = '#cfc9bd', PLANT = '#bdb5a5'
-const WIN = '#5a5a58', SHOP = '#3e454b', GLASS = '#d3ad6a', BRONZE = '#4a3c2e'
-
-const box = (x: number, y0: number, y1: number, z: number, sx: number, sz: number, color: string): Part =>
-  ({ geo: 'box', pos: [x, (y0 + y1) / 2, z], scale: [sx, y1 - y0, sz], color, detail: true })
-/** many boxes of one colour as one part (the `blocks` geometry), each [x, z, width, length, y0, y1], placed on its own bounds */
-const blocks = (list: number[][], color: string): Part => {
-  const l = list.map((b) => b.map(r4))
-  const x0 = Math.min(...l.map((b) => b[0] - b[2] / 2)), x1 = Math.max(...l.map((b) => b[0] + b[2] / 2))
-  const z0 = Math.min(...l.map((b) => b[1] - b[3] / 2)), z1 = Math.max(...l.map((b) => b[1] + b[3] / 2))
-  const y0 = Math.min(...l.map((b) => b[4])), y1 = Math.max(...l.map((b) => b[5]))
-  return { geo: 'blocks', pos: [(x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2], scale: [x1 - x0, y1 - y0, z1 - z0], color, detail: true, args: [0, ...l.flat()] }
-}
-/**
- * Openings painted a hair proud of a wall (the `arches` geometry): `n` of them `w` wide spread along `len`, in `rows` storeys
- * `storey` apart, each `tall` high from y0. The wall runs along x (axis 0, facing -z or +z by `side`) or along z (axis 1,
- * facing -x or +x); `depth` is the distance from the part's centre line to the wall times two. `arch` rounds their heads.
- */
-const openings = (x: number, z: number, y0: number, tall: number, len: number, depth: number, n: number, w: number,
-  o: { side: -1 | 1; axis?: 0 | 1; rows?: number; storey?: number; arch?: boolean; color?: string }): Part => {
-  const rows = o.rows ?? 1, span = (o.storey ?? 0) * (rows - 1) + tall, d = depth + 0.006, axis = o.axis ?? 0
-  const gap = rows > 1 ? (o.storey! - tall) / span : 0
-  return { geo: 'arches', pos: [x, y0 + span / 2, z], scale: axis ? [d, span, len] : [len, span, d], color: o.color ?? WIN, detail: true,
-    args: [n, r4(w / len), o.arch ? r4(w / 2 / span) : 0, rows, r4(gap), axis, o.side] }
-}
+const SHOP = '#3e454b', GLASS = '#d3ad6a', BRONZE = '#4a3c2e'
 
 export function monadnockParts(): Part[] {
   const W = 0.434, D = 0.492, SUNK = -0.05
