@@ -61,11 +61,9 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .day-row:hover .day-row__go { transform: translateX(3px); color: var(--day); }
 
 /* ---------- the ? button and the controls window ---------- */
-.home__row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-.help-btn { pointer-events: auto; flex: none; width: 30px; height: 30px; margin-top: 8px; background: var(--paper); border: 1.5px solid var(--ink); box-shadow: 2px 2px 0 var(--ink); font-family: var(--serif); font-size: 18px; font-weight: 600; line-height: 1; }
+.help-btn { position: absolute; top: var(--edge); right: var(--edge); z-index: 115; width: 32px; height: 32px; background: var(--paper); border: 1.5px solid var(--ink); box-shadow: 2px 2px 0 var(--ink); font-family: var(--serif); font-size: 18px; font-weight: 600; line-height: 1; animation: rise-in 0.45s var(--ease) both; }
 .help-btn:hover { background: #fff; color: var(--orange); }
-.stop__tools { flex: none; display: flex; align-items: center; gap: 8px; }
-.stop__tools .help-btn { width: 24px; height: 24px; margin: 0; font-size: 15px; }
+.help-btn.has-card { display: none; }
 .modal-scrim { position: fixed; inset: 0; background: rgba(27, 29, 26, 0.35); z-index: 200; display: grid; place-items: center; animation: fade-in 0.2s both; }
 .modal { position: relative; width: 420px; max-width: calc(100vw - 44px); max-height: calc(100% - 2 * var(--edge)); overflow: auto; padding: 18px 20px 20px; background: var(--paper); border: 1.5px solid var(--ink); box-shadow: var(--shadow); animation: modal-in 0.3s var(--ease) both; }
 .help__rows { margin: 0 0 14px; padding: 0; border-top: 1px solid var(--ink); }
@@ -170,8 +168,7 @@ li:last-child .slot__dot::before { bottom: calc(100% - 8px); }
   .card__title { font-size: 23px; margin: 4px 0 10px; }
   .card__close { top: 4px; right: 4px; width: 36px; height: 36px; }
   .stop__about { font-size: 14px; }
-  .help-btn { width: 32px; height: 32px; margin-top: 4px; }
-  .stop__tools .help-btn { width: 28px; height: 28px; }
+  .help-btn.has-card { display: block; } /* the card is a bottom sheet here */
   .modal { padding: 16px 16px 18px; }
   .help__row { grid-template-columns: minmax(0, 150px) 1fr; }
   .day-frame { border-width: 5px; }

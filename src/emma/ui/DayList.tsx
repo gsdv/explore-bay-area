@@ -1,6 +1,5 @@
 import { days, dayLabel, timeRange } from '../days'
 import { useStore } from '../store'
-import { HelpButton } from './Help'
 
 /** The home screen: the title and the three days, each a way into its tour. Hidden while a day is open. */
 export function DayList() {
@@ -11,12 +10,9 @@ export function DayList() {
     <div className="home">
       <header className="home__head">
         <div className="eyebrow">A field guide for Emma</div>
-        <div className="home__row">
-          <h1 className="home__title">
-            San Francisco, <em>in three days</em>
-          </h1>
-          <HelpButton />
-        </div>
+        <h1 className="home__title">
+          San Francisco, <em>in three days</em>
+        </h1>
       </header>
       <ol className="days">
         {days.map((d, i) => {

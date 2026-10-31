@@ -7,7 +7,7 @@ import { Schedule } from './ui/Schedule'
 import { StopCard } from './ui/StopCard'
 import { DayFrame } from './ui/DayFrame'
 import { LandmarkCard } from './ui/LandmarkCard'
-import { Help } from './ui/Help'
+import { Help, HelpButton } from './ui/Help'
 
 export default function App() {
   const [world, setWorld] = useState<World | null>(null)
@@ -26,6 +26,7 @@ export default function App() {
           <StopCard />
           <DayFrame />
           <LandmarkCard />
+          <HelpButton />
           <Help />
         </>
       ) : (

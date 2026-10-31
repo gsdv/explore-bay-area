@@ -1,8 +1,9 @@
 import { useEffect } from 'react'
 import { create } from 'zustand'
 import { TOUCH, useMedia } from '../../lib/media'
+import { useStore } from '../store'
 
-/** The controls window, opened by the ? button (home title, stop card) or the ? key. A copy of the main page's, for this map. */
+/** The controls window, opened by the ? button (top right, home screen only) or the ? key. A copy of the main page's, for this map. */
 export const helpStore = create<{ open: boolean; set: (o: boolean) => void }>((set) => ({ open: false, set: (open) => set({ open }) }))
 
 const ROWS: [string, string][] = [
@@ -27,10 +28,14 @@ const TOUCH_ROWS: [string, string][] = [
   ['tap', 'open a landmark'],
 ]
 
+/** Top right on the home screen; gone inside a day, and on desktop while a landmark's card takes that corner. */
 export function HelpButton() {
   const setOpen = helpStore((s) => s.set)
+  const day = useStore((s) => s.day)
+  const card = useStore((s) => !!s.selected)
+  if (day) return null
   return (
-    <button className="help-btn" onClick={() => setOpen(true)} aria-label="Controls help" title="Controls (?)">?</button>
+    <button className={'help-btn' + (card ? ' has-card' : '')} onClick={() => setOpen(true)} aria-label="Controls help" title="Controls (?)">?</button>
   )
 }
 
