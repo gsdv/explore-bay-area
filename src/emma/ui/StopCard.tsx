@@ -1,5 +1,6 @@
 import { dayLabel, duration, timeRange, KIND_LABEL } from '../days'
 import { useStore } from '../store'
+import { HelpButton } from './Help'
 
 /**
  * Right: the tour guide for the open day. Before it starts, the day's introduction and a way in; then the current stop
@@ -24,7 +25,10 @@ export function StopCard() {
           <div className="eyebrow">
             {weekday} · {date} · {n} stops
           </div>
-          <button className="link-btn" onClick={closeDay}>All days ×</button>
+          <span className="stop__tools">
+            <HelpButton />
+            <button className="link-btn" onClick={closeDay}>All days ×</button>
+          </span>
         </div>
         <h2 className="stop__title">{day.title}</h2>
         <div className="stop__when">{timeRange(first.start, last.end)}</div>
@@ -46,7 +50,10 @@ export function StopCard() {
         <div className="eyebrow">
           Stop {step + 1} of {n} · {weekday}
         </div>
-        <button className="link-btn" onClick={closeDay}>All days ×</button>
+        <span className="stop__tools">
+          <HelpButton />
+          <button className="link-btn" onClick={closeDay}>All days ×</button>
+        </span>
       </div>
       <div className="stop__when">
         {timeRange(s.start, s.end)} <span className="stop__len">· about {duration(s.start, s.end)}</span>
