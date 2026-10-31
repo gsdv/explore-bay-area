@@ -16,6 +16,7 @@ pnpm build                # production build to dist/
 pnpm data                 # rebuild public/data from data-cache/ (≈6 s when sources are cached)
 pnpm data:fetch           # only download sources into data-cache/ (Overpass, terrain tiles, census)
 pnpm tweets               # bake company X posts into public/data/tweets.json via Apify (needs APIFY_TOKEN; ~$0.005/company)
+pnpm photos               # bake a square photo per landmark (Wikimedia Commons) into public/data/photos + credits in src/data/photos.ts
 ```
 
 There are no tests yet. Verification is: `pnpm typecheck`, then run the app and look at it.
@@ -28,6 +29,7 @@ scripts/                data pipeline (run with tsx; Node 24)
   fetch.ts              downloads everything into data-cache/ (gitignored, ~170 MB)
   build-data.ts         composes public/data/* from the cache (the only place output files are written)
   fetch-tweets.ts       one Apify run per company → public/data/tweets.json (raw runs in data-cache/tweets-raw/)
+  photos.ts             one Commons file per landmark (FILES, with an optional crop focus) → 320² WebP + src/data/photos.ts credits
   lib/overpass.ts       Overpass client: cached, retries, IPv4-first, one query at a time
   lib/osm.ts            the Overpass queries (bboxes for SF, downtown, full region)
   lib/terrain.ts        terrarium tiles → 1024² heightmap, RGB-encoded PNG
@@ -323,6 +325,10 @@ and `scene/LandmarkModel.tsx`. React has its own chunk (`manualChunks` in `vite.
   `Mount Diablo State Park` from `AREA_PARKS` (one piece; its six holes are inholdings). Its sharp summit is cut well down by the terrain
   grid, so the kind is handed the `terrain` sampler and the model drops onto the drawn ground at its centre.
   Models on a hilltop stand on the height at their centre only, so run their base below y = 0 (Coit has a green knoll for this).
+- Landmark photos: every landmark needs a `FILES` entry in `scripts/photos.ts` (the script refuses to run otherwise), then
+  `pnpm photos -- --only <id>`. Each is a Wikimedia Commons file, cropped square round `x`/`y` and shrunk to 320 px WebP (~15 KB);
+  `DetailCard` floats it right over half the card with its credit and licence (most are CC BY / BY-SA, so keep the caption).
+  Commons has almost no mural photos (no freedom of panorama for 2D art in the US), hence Clarion Alley's street sign.
 - `src/data/quests.ts`: ordered stops with a to-do and a tour `view` each. No persisted progress.
 - Restaurant heatmap: `osm.fetchFood()` (amenity=restaurant|cafe|fast_food, bars excluded on purpose) is binned,
   gaussian-blurred (σ ≈ 200 m), sqrt-normalised to the 99.5th percentile and coloured through `palette.ts`'s heat

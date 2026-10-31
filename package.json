@@ -10,7 +10,8 @@
     "data": "tsx scripts/build-data.ts",
     "data:fetch": "tsx scripts/fetch.ts",
     "typecheck": "tsc -b",
-    "tweets": "tsx scripts/fetch-tweets.ts"
+    "tweets": "tsx scripts/fetch-tweets.ts",
+    "photos": "tsx scripts/photos.ts"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.4",

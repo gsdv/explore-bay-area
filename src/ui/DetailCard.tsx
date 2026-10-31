@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useStore } from '../store'
 import { logoUrl } from '../data/companies'
+import { photos, photoUrl } from '../data/photos'
 import { project, UNIT, BUILDING_EXAGGERATION } from '../lib/geo'
 import { fmtCount, fmtDate, fmtWhen, useTweets } from '../lib/tweets'
 
@@ -79,11 +80,20 @@ export function DetailCard() {
   }
 
   const l = sel.item
+  const photo = photos[l.id]
   return (
     <article className={cardClass} key={'l-' + l.id}>
       <button className="card__close" onClick={() => select(null)} aria-label="close">×</button>
       <div className="card__eyebrow">Landmark · {l.area}</div>
       <h2 className="card__title">{l.name}</h2>
+      {photo && (
+        <figure className="card__photo">
+          <img src={photoUrl(l.id)} alt={l.name} width={320} height={320} decoding="async" />
+          <figcaption>
+            <a href={photo.source} target="_blank" rel="noopener noreferrer">{photo.credit} · {photo.license}</a>
+          </figcaption>
+        </figure>
+      )}
       <p className="card__blurb">{l.blurb}</p>
       {l.tip && (
         <p className="card__tip">
