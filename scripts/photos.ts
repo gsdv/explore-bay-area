@@ -30,7 +30,7 @@ const FILES: Record<string, { file: string; x?: number; y?: number; keep?: numbe
   baybridge: { file: 'Bay_Bridge_2022.jpg' },
   coit: { file: 'Coit_Tower_1.jpg' },
   transamerica: { file: 'Transamerica_Pyramid_2023.jpg', y: 0.42 },
-  salesforcetower: { file: 'San_Francisco,_California_April_2022_Salesforce_Tower.jpg', x: 0.22 },
+  salesforcetower: { file: 'Salesforce_Tower_from_Salesforce_Park.jpg', y: 0 },
   ferrybuilding: { file: 'Ferry_Building_San_Francisco_from_Hyatt_Regency_with_R-Evolution_and_Bay_Bridge_2026_dllu.jpg' },
   sutro: { file: 'Sutro_Tower_from_Grandview.jpg', y: 0, keep: 0.8 },
   alcatraz: { file: 'Alcatraz_2021.jpg' },

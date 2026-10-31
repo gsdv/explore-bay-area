@@ -13,7 +13,7 @@ export const photos: Record<string, Photo> = {
   "baybridge": {"credit":"InvadingInvader","license":"CC BY-SA 4.0","source":"https://commons.wikimedia.org/wiki/File:Bay_Bridge_2022.jpg"},
   "coit": {"credit":"Ryan Schwark","license":"CC0","source":"https://commons.wikimedia.org/wiki/File:Coit_Tower_1.jpg"},
   "transamerica": {"credit":"HRVdriveblue4449","license":"CC BY 4.0","source":"https://commons.wikimedia.org/wiki/File:Transamerica_Pyramid_2023.jpg"},
-  "salesforcetower": {"credit":"Sharon Hahn Darlin","license":"CC BY 2.0","source":"https://commons.wikimedia.org/wiki/File:San_Francisco,_California_April_2022_Salesforce_Tower.jpg"},
+  "salesforcetower": {"credit":"Dead.rabbit","license":"CC BY-SA 4.0","source":"https://commons.wikimedia.org/wiki/File:Salesforce_Tower_from_Salesforce_Park.jpg"},
   "ferrybuilding": {"credit":"Daniel Lu (User:dllu)","license":"CC BY-SA 4.0","source":"https://commons.wikimedia.org/wiki/File:Ferry_Building_San_Francisco_from_Hyatt_Regency_with_R-Evolution_and_Bay_Bridge_2026_dllu.jpg"},
   "sutro": {"credit":"Justin Beck","license":"CC BY 2.0","source":"https://commons.wikimedia.org/wiki/File:Sutro_Tower_from_Grandview.jpg"},
   "alcatraz": {"credit":"Chris6d","license":"CC BY-SA 4.0","source":"https://commons.wikimedia.org/wiki/File:Alcatraz_2021.jpg"},
