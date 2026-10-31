@@ -201,7 +201,7 @@ export const days: Day[] = [
         place: 'Presidio Tunnel Tops',
         lat: 37.80286, lng: -122.45648,
         landmark: 'presidio',
-        view: { dist: 10, yaw: 0.8 },
+        view: { dist: 21, yaw: 1.24, at: [37.8015, -122.4639] },
         about: 'A park built over the highway tunnels, with the bridge, Alcatraz and the bay all in one frame from its lookouts. On the way out, stop for a photo with the Yoda fountain at Lucasfilm on Letterman Drive.',
       },
       {
