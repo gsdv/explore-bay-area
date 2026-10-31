@@ -4,7 +4,7 @@
  *
  * Every photo is a Wikimedia Commons file (mostly the Wikipedia article's lead image), fetched as a
  * 1000 px thumbnail, cropped to a square round a focus point and shrunk to SIZE px (2x the card's
- * 160 px column) as WebP. Thumbnails are cached in data-cache/photos/.
+ * ~110 px column) as WebP. Thumbnails are cached in data-cache/photos/.
  *
  *   pnpm photos                  all landmarks
  *   pnpm photos -- --only coit   just these (comma-separated); the credits of the others are kept
@@ -16,31 +16,36 @@ import { landmarks } from '../src/data/landmarks.ts'
 import type { Photo } from '../src/data/photos.ts'
 import { CACHE, OUT, ROOT, UA, log } from './lib/util.ts'
 
-const SIZE = 320
+const SIZE = 240
 const QUALITY = 72
 
-/** Commons file per landmark; x/y place the square crop along the long side (0 = left/top, 1 = right/bottom, default 0.5) */
-const FILES: Record<string, { file: string; x?: number; y?: number }> = {
+/**
+ * Commons file per landmark; x/y place the square crop along the long side (0 = left/top, 1 = right/bottom, default 0.5).
+ * `keep` (a fraction of the long side) keeps more than a square of a subject too tall or wide for one; the short side is
+ * then widened to match by mirroring its edges (fine against sky or trees, not across buildings).
+ * A photo from elsewhere (Commons has almost no murals) gives `file` as its image URL plus its own credit.
+ */
+const FILES: Record<string, { file: string; x?: number; y?: number; keep?: number; credit?: Photo }> = {
   ggb: { file: 'Golden_Gate_Bridge_as_seen_from_Battery_East.jpg' },
   baybridge: { file: 'Bay_Bridge_2022.jpg' },
   coit: { file: 'Coit_Tower_1.jpg' },
-  transamerica: { file: 'Transamerica_Pyramid_from_Coit_Tower.jpg' },
-  salesforcetower: { file: 'Salesforce_Tower_from_Salesforce_Park.jpg' },
+  transamerica: { file: 'Transamerica_Pyramid_2023.jpg', y: 0.42 },
+  salesforcetower: { file: 'San_Francisco,_California_April_2022_Salesforce_Tower.jpg', x: 0.22 },
   ferrybuilding: { file: 'Ferry_Building_San_Francisco_from_Hyatt_Regency_with_R-Evolution_and_Bay_Bridge_2026_dllu.jpg' },
-  sutro: { file: 'Sutro_Tower_from_Grandview.jpg' },
+  sutro: { file: 'Sutro_Tower_from_Grandview.jpg', y: 0, keep: 0.8 },
   alcatraz: { file: 'Alcatraz_2021.jpg' },
   cityhall: { file: 'San_Francisco_City_Hall_2.JPG' },
   ghirardelli: { file: 'Ghirardelli_Square_Sign_in_San_Francisco.jpg' },
   gracecathedral: { file: '2009-0723-CA-005-GraceCathedral_(pc).jpg' },
   missiondolores: { file: 'Mission_San_Francisco_de_Asis_and_Dolores_Basilica_(2025).jpg' },
   conservatory: { file: 'Conservatory_of_Flowers_-_panoramio.jpg' },
-  deyoung: { file: 'De_Young_Museum_-_Building_-_January_2022_-_Sarah_Stierch.jpg' },
+  deyoung: { file: 'De_Young_Museum_-_Building_16_2017-06-12.jpg', x: 0.75 },
   salesforcepark: { file: 'Salesforce_Park_and_bus_bridge,_seen_from_Salesforce_Tower.jpg' },
   palace: { file: 'Palace_of_Fine_Arts_(16794p).jpg' },
   oraclepark: { file: 'Oracle_Park_2021.jpg' },
   chasecenter: { file: 'Chase_Center.jpg' },
   paintedladies: { file: 'Painted_Ladies_San_Francisco_January_2013_panorama_2.jpg' },
-  twinpeaks: { file: 'Twin_Peaks_2022_Aerial.png' },
+  twinpeaks: { file: 'San_Francisco_(CA,_USA),_Twin_Peaks,_Blick_auf_Downtown_--_2022_--_3050.jpg' },
   lombard: { file: 'Lombard_Street_2020.jpg' },
   ggpark: { file: 'California-06241_-_In_front_of_museum_(20449897948).jpg' },
   presidio: { file: 'Aerial_view_-_Presidio-whole.jpg' },
@@ -50,7 +55,7 @@ const FILES: Record<string, { file: string; x?: number; y?: number }> = {
   bernal: { file: 'Bernal_Hill_from_Potrero_Hill.jpg' },
   pier39: { file: 'Pier_39_in_2021.jpg' },
   chinatown: { file: 'Dragon_Gate,_Chinatown,_SF_front.JPG' },
-  exploratorium: { file: 'Exploratorium_entrance_at_Pier_15,_SF_(Nov_2015).jpg' },
+  exploratorium: { file: 'Marina_Embarcadero_-_panoramio_(41).jpg' },
   legion: { file: 'California_Palace_of_the_Legion_of_Honor_-_Façade.jpg', y: 0.55 },
   crissy: { file: 'The_Golden_Gate_Bridge_from_Crissy_Field_(40930793693).jpg', x: 0.55 },
   marina: { file: 'Marina_District_San_Francisco.jpg', x: 0.1 },
@@ -63,7 +68,10 @@ const FILES: Record<string, { file: string; x?: number; y?: number }> = {
   levis: { file: "Levi's_Stadium_from_air.jpg", x: 0.15 },
   mavericks: { file: '2006_Mavericks.jpg', x: 0.4 },
   mtdiablo: { file: 'View_of_Mount_Diablo_and_CA_Highway_24_from_Lafayette_Heights.jpg' },
-  missionmurals: { file: 'Clarion_alley_sf.jpg' },
+  missionmurals: {
+    file: 'https://live.staticflickr.com/8540/8667670423_7c12c4ee1c_b.jpg',
+    credit: { credit: 'Jumilla', license: 'CC BY 2.0', source: 'https://www.flickr.com/photos/jumilla/8667670423/' },
+  },
 }
 
 const DIR = path.join(OUT, 'photos')
@@ -124,23 +132,35 @@ async function main() {
   if (want && fs.existsSync(CREDITS)) Object.assign(credits, (await import(CREDITS)).photos)
 
   const todo = landmarks.filter((l) => !want || want.has(l.id))
-  const infos = await fileInfo(todo.map((l) => FILES[l.id].file))
+  const infos = await fileInfo(todo.filter((l) => !FILES[l.id].credit).map((l) => FILES[l.id].file))
   let total = 0
   for (const l of todo) {
-    const { file, x = 0.5, y = 0.5 } = FILES[l.id]
-    const info = infos.get(file)
+    const { file, x = 0.5, y = 0.5, keep, credit } = FILES[l.id]
+    const info = credit ? { thumb: file, page: credit.source, credit: credit.credit, license: credit.license } : infos.get(file)
     if (!info) throw new Error(`${l.id}: ${file} is not on Commons`)
-    const raw = path.join(RAW, file.replace(/[^\w.-]/g, '_'))
+    const raw = path.join(RAW, path.basename(file).replace(/[^\w.-]/g, '_'))
     if (!fs.existsSync(raw)) {
       fs.writeFileSync(raw, Buffer.from(await (await get(info.thumb)).arrayBuffer()))
       await new Promise((r) => setTimeout(r, 1000)) // be gentle with upload.wikimedia.org
     }
-    const img = sharp(raw).rotate()
-    const { width = 0, height = 0 } = await img.metadata()
-    const side = Math.min(width, height)
+    // raw pixels between the steps, so nothing is re-compressed before the final WebP
+    const { data, info: dim } = await sharp(raw).rotate().raw().toBuffer({ resolveWithObject: true })
+    const { width, height, channels } = dim
+    const tall = height > width
+    const long = Math.max(width, height)
+    const side = Math.max(Math.min(width, height), Math.round(long * (keep ?? 0)))
+    const cw = tall ? width : side
+    const ch = tall ? side : height
+    const pad = side - Math.min(cw, ch)
+    const square = await sharp(data, { raw: { width, height, channels } })
+      .extract({ left: Math.round((width - cw) * x), top: Math.round((height - ch) * y), width: cw, height: ch })
+      .extend(tall
+        ? { left: pad >> 1, right: pad - (pad >> 1), extendWith: 'mirror' }
+        : { top: pad >> 1, bottom: pad - (pad >> 1), extendWith: 'mirror' })
+      .raw()
+      .toBuffer()
     const out = path.join(DIR, `${l.id}.webp`)
-    await img
-      .extract({ left: Math.round((width - side) * x), top: Math.round((height - side) * y), width: side, height: side })
+    await sharp(square, { raw: { width: side, height: side, channels } })
       .resize(SIZE, SIZE)
       .webp({ quality: QUALITY, effort: 6 })
       .toFile(out)
