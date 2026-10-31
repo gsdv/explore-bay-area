@@ -1,4 +1,4 @@
-import { dayLabel, duration, timeRange, KIND_LABEL } from '../days'
+import { dayLabel, duration, timeRange } from '../days'
 import { useStore } from '../store'
 
 /**
@@ -50,7 +50,6 @@ export function StopCard() {
       </div>
       <div className="stop__when">
         {timeRange(s.start, s.end)} <span className="stop__len">· about {duration(s.start, s.end)}</span>
-        <span className="stop__kind">{KIND_LABEL[s.kind]}</span>
       </div>
       <h2 className="stop__title">{s.title}</h2>
       <div className="stop__place">{s.place}</div>

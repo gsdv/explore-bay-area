@@ -409,4 +409,3 @@ export function duration(start: string, end: string): string {
   return h ? (m ? `${h} h ${m} min` : `${h} h`) : `${m} min`
 }
 
-export const KIND_LABEL: Record<StopKind, string> = { food: 'Eat', sight: 'See', walk: 'Walk', view: 'View', night: 'Night' }

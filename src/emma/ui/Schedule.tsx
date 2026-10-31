@@ -1,4 +1,4 @@
-import { clockLabel, dayLabel, KIND_LABEL } from '../days'
+import { clockLabel, dayLabel } from '../days'
 import { useStore } from '../store'
 
 /** Left: the open day's schedule as a printed agenda, one row per stop on a rail; the current stop is marked, any row jumps there. */
@@ -27,7 +27,6 @@ export function Schedule() {
                 <span className="slot__dot" aria-hidden />
                 <span className="slot__body">
                   <span className="slot__title">{s.title}</span>
-                  <span className="slot__kind">{KIND_LABEL[s.kind]}</span>
                 </span>
               </button>
             </li>

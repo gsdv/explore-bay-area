@@ -94,11 +94,10 @@ li:last-child .slot__dot::before { bottom: calc(100% - 8px); }
 .slot__dot::after { content: ''; position: absolute; left: 2px; top: 4px; width: 10px; height: 10px; border-radius: 50%; background: var(--paper); border: 2px solid var(--ink-3); box-sizing: border-box; }
 .slot.is-passed .slot__dot::after { background: var(--ink-3); }
 .slot.is-current { background: var(--day); color: #fff; }
-.slot.is-current .slot__time, .slot.is-current .slot__kind { color: rgba(255, 255, 255, 0.85); }
+.slot.is-current .slot__time { color: rgba(255, 255, 255, 0.85); }
 .slot.is-current .slot__dot::before { background: #fff; }
 .slot.is-current .slot__dot::after { background: #fff; border-color: #fff; }
 .slot__title { display: block; font-family: var(--serif); font-size: 15px; font-weight: 600; line-height: 1.2; }
-.slot__kind { display: block; font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-3); margin-top: 2px; }
 
 .stop { position: absolute; top: var(--edge); right: var(--edge); width: min(380px, calc(100% - 2 * var(--edge))); max-height: calc(100% - 2 * var(--edge)); overflow: auto; z-index: 120; background: var(--paper); border: 1.5px solid var(--ink); box-shadow: var(--shadow); padding: 16px 20px 18px; animation: card-in 0.32s var(--ease) both; }
 .stop__top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
@@ -106,7 +105,6 @@ li:last-child .slot__dot::before { bottom: calc(100% - 8px); }
 .link-btn:hover { background: var(--day); color: #fff; }
 .stop__when { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 6px; margin-top: 12px; font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--day); }
 .stop__len { font-weight: 400; color: var(--ink-2); }
-.stop__kind { margin-left: auto; font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 500; color: var(--ink); border: 1px solid var(--ink); padding: 1px 6px; }
 .stop__title { font-family: var(--serif); font-size: 26px; font-weight: 600; line-height: 1.1; margin: 6px 0 0; letter-spacing: -0.005em; }
 .stop__place { font-family: var(--mono); font-size: 11px; color: var(--ink-2); margin-top: 5px; }
 .stop__about { margin: 12px 0 0; font-size: 14.5px; line-height: 1.55; }
