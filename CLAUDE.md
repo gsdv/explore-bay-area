@@ -59,7 +59,7 @@ src/
   scene/HoodLabels.tsx  names for the neighborhood atlas; shown by apparent size (sqrt(area)/camera distance), culled to the view
   scene/Heatmap.tsx     ground washes (heat-food.webp, rent.webp, hoods.webp) draped on the shared terrain grid; one per kind, cross-fade
   scene/Buildings.tsx   true-outline extrusions + one instanced block per house (20×20 chunks), pastel paint + greyed roofs via onBeforeCompile
-  scene/Transit.tsx     LineSegments2 per mode + station discs/labels
+  scene/Transit.tsx     LineSegments2 per mode + station labels (BART/Caltrain, near tier)
   scene/Landmarks.tsx   landmark groups: pop-up scale, labels; hovering puts the model's meshes on the outline layer
   scene/HoverOutline.tsx  the hovered model's outline in screen space: silhouette mask + jump flood, a rim drawn at the silhouette's depth
   scene/LandmarkModel.tsx  procedural part lists per landmark kind; bridge cables as line batches

@@ -35,7 +35,7 @@ https://explore-bay-area.vercel.app (see Deploying).
 | Buildings | OSM footprints with heights for downtown SF / SoMa / Mission Bay | Extruded into one merged mesh |
 | Everything else | Procedural "row blocks" along streets | ~126k instances in chunked `InstancedMesh`es |
 | Transit | OSM route relations: Muni (bus, trolley, Metro, cable car), BART, Caltrain, VTA light rail, ferries | `LineSegments2`, one draw call per mode, official colours |
-| Stations | OSM railway=station for BART, Caltrain, Muni | Discs, labels when zoomed in |
+| Stations | OSM railway=station for BART, Caltrain, Muni | Labels when zoomed in (BART, Caltrain) |
 | Restaurants | OSM amenity=restaurant/cafe/fast_food (~13k places) | Density baked to a 2048² wash, draped over the terrain as a toggle |
 | Rent | Zillow Observed Rent Index per ZIP, on Census ZCTA polygons | Stepped choropleth baked to a 2048² wash with a legend; one wash shows at a time |
 | Neighborhoods | SF's 37 classic neighborhoods (Zillow boundaries) + Census 2023 places for every other city and town | Atlas-style wash: arbitrary paper tints (touching areas differ), ink borders, spaced-capital names that appear by apparent size; shares the one-wash-at-a-time toggle |

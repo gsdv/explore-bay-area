@@ -54,37 +54,21 @@ export function Transit({ world }: { world: World }) {
           />
         ) : null,
       )}
-      {visible.rail && (
-        <Stations stations={world.stations.filter((s) => s.network !== 'Muni' || tier === 'near')} labels={tier === 'near'} />
-      )}
+      {visible.rail && tier === 'near' && <StationLabels stations={world.stations} />}
     </group>
   )
 }
 
-function Stations({ stations, labels }: { stations: World['stations']; labels: boolean }) {
-  const mesh = useMemo(() => {
-    const g = new THREE.CylinderGeometry(0.55, 0.55, 0.25, 12)
-    const m = new THREE.MeshStandardMaterial({ color: '#fffaf0', roughness: 0.8 })
-    const im = new THREE.InstancedMesh(g, m, stations.length)
-    const mat = new THREE.Matrix4()
-    stations.forEach((s, i) => {
-      mat.makeTranslation(s.x, s.y + 0.12, s.z)
-      im.setMatrixAt(i, mat)
-    })
-    im.raycast = () => {}
-    return im
-  }, [stations])
+function StationLabels({ stations }: { stations: World['stations'] }) {
   return (
     <group>
-      <primitive object={mesh} />
-      {labels &&
-        stations
-          .filter((s) => s.network !== 'Muni')
-          .map((s) => (
-            <Html key={s.name + s.x} position={[s.x, s.y + 0.6, s.z]} center zIndexRange={[9, 0]} style={{ pointerEvents: 'none' }}>
-              <div className="station-label">{s.name}</div>
-            </Html>
-          ))}
+      {stations
+        .filter((s) => s.network !== 'Muni')
+        .map((s) => (
+          <Html key={s.name + s.x} position={[s.x, s.y + 0.6, s.z]} center zIndexRange={[9, 0]} style={{ pointerEvents: 'none' }}>
+            <div className="station-label">{s.name}</div>
+          </Html>
+        ))}
     </group>
   )
 }
