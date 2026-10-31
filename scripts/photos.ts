@@ -4,7 +4,7 @@
  *
  * Every photo is a Wikimedia Commons file (mostly the Wikipedia article's lead image), fetched as a
  * 1000 px thumbnail, cropped to a square round a focus point and shrunk to SIZE px (2x the card's
- * ~110 px column) as WebP. Thumbnails are cached in data-cache/photos/.
+ * ~80 px column) as WebP. Thumbnails are cached in data-cache/photos/.
  *
  *   pnpm photos                  all landmarks
  *   pnpm photos -- --only coit   just these (comma-separated); the credits of the others are kept
@@ -16,7 +16,7 @@ import { landmarks } from '../src/data/landmarks.ts'
 import type { Photo } from '../src/data/photos.ts'
 import { CACHE, OUT, ROOT, UA, log } from './lib/util.ts'
 
-const SIZE = 240
+const SIZE = 160
 const QUALITY = 72
 
 /**

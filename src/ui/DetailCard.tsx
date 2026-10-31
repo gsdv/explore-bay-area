@@ -88,7 +88,7 @@ export function DetailCard() {
       <h2 className="card__title">{l.name}</h2>
       {photo && (
         <figure className="card__photo">
-          <img src={photoUrl(l.id)} alt={l.name} width={240} height={240} decoding="async" />
+          <img src={photoUrl(l.id)} alt={l.name} width={160} height={160} decoding="async" />
         </figure>
       )}
       <p className="card__blurb">{l.blurb}</p>
